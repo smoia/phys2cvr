@@ -11,16 +11,19 @@
       "avatar_url": "https://avatars2.githubusercontent.com/u/32640425?v=4",
       "profile": "http://brightlab.northwestern.edu",
       "contributions": [
-        "ideas"
+        "ideas",
+        "mentoring"
       ]
     },
     {
-      "login": "rmarkello",
-      "name": "Ross Markello",
-      "avatar_url": "https://avatars0.githubusercontent.com/u/14265705?v=4",
-      "profile": "http://rossmarkello.com",
+      "login": "CesarCaballeroGaudes",
+      "name": "Cesar Caballero Gaudes",
+      "avatar_url": "https://avatars1.githubusercontent.com/u/7611340?v=4",
+      "profile": "https://github.com/CesarCaballeroGaudes",
       "contributions": [
-        "infra"
+        "code",
+        "ideas",
+        "mentoring"
       ]
     },
     {
@@ -32,8 +35,7 @@
         "code",
         "ideas",
         "infra",
-        "projectManagement",
-        "doc"
+        "projectManagement"
       ]
     },
     {
@@ -44,11 +46,21 @@
       "contributions": [
         "ideas"
       ]
-    }
+    },
+    {
+      "login": "eurunuela",
+      "name": "Eneko Uruñuela",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/13706448?v=4",
+      "profile": "https://github.com/eurunuela",
+      "contributions": [
+        "code"
+      ]
+    },
+
   ],
   "contributorsPerLine": 5,
   "projectName": "phys2cvr",
-  "projectOwner": "physiopy",
+  "projectOwner": "smoia",
   "repoType": "github",
   "repoHost": "https://github.com",
   "skipCi": true
