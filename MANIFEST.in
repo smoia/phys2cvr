@@ -1,7 +1,4 @@
 include README.* LICENSE setup* MANIFEST.in requirements.txt
-recursive-include phys2cvr/data *
-recursive-include phys2cvr/heuristics *
-recursive-include phys2cvr/tests/data *
 
 include versioneer.py
 include phys2cvr/_version.py
