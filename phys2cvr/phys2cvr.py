@@ -1,28 +1,120 @@
 #!/usr/bin/env python3
 
+import datetime
+import logging
 import os
+import sys
 
 import numpy as np
 import peakutils as pk
 
 import matplotlib.pyplot as plt
+import nibabel as nib
 import scipy.signal as sgn
 import scipy.interpolate as spint
 import scipy.stats as sct
 
-# matplotlib.use("TkAgg")
-# matplotlib.interactive(True)
-reject_list = np.array([])
+from phys2cvr import _version
+from phys2cvr.cli.run import _get_parser
+
+from . import __version__
+
 SET_DPI = 100
 FIGSIZE = (18, 10)
+LGR = logging.getLogger(__name__)
+LGR.setLevel(logging.INFO)
+EXT_1D = ['.txt', '.csv', '.tsv', '.1d', '.par']
+EXT_NIFTI = ['.nii', '.nii.gz']
 
 
-def create_hrf(newfreq):
-	"""
-	
-	"""
+def check_ext(all_ext, fname):
+    """
+    Check which extension a file has.
+
+    Parameters
+    ----------
+    all_ext: list
+        All possibel extensions to check within
+    fname: str
+        The filename to check
+
+    Returns
+    -------
+    has_ext: boolean
+        True if the extension is found, false otherwise.
+    """
+    has_ext = False
+    for ext in EXT_1D:
+        if fname.endswith(ext):
+            has_ext = True
+            break
+
+    return has_ext
+
+
+def check_nifti_dim(fname, data, dim=4):
+    """
+    Remove extra dimensions.
+    """
+    if len(data.shape) < dim:
+        raise Exception(f'{fname} does not seem to be a {dim}D file. '
+                        f'Plase provide a {dim}D nifti file.')
+    if len(data.shape) > dim:
+        LGR.warning(f'{fname} has more than {dim} dimensions. Removing D > {dim}.')
+        for ax in range(dim, len(data.shape)):
+            data = np.delete(data, np.s_[1:], axis=ax)
+
+    return np.squeeze(data)
+
+
+def load_nifti_get_mask(fname, is_mask=False):
+    """
+    Load a nifti file and returns its data, its image, and a 3d mask.
+
+    Parameters
+    ----------
+    fname: str
+        The filename to read in
+    dim: int
+        The number of dimensions expected
+
+    Returns
+    -------
+    data: np.ndarray
+        Data from nifti file.
+    mask: np.ndarray
+
+    """
+    img = nib.load(fname)
+    data = img.get_fdata()
+
+    if is_mask:
+        data = check_nifti_dim(fname, data, dim=3)
+        mask = (data < 0) + (data > 0)
+    else:
+        data = check_nifti_dim(fname, data)
+        mask = np.squeeze(np.any(data, axis=-1))
+
+    return data, mask, img
+
+
+def create_hrf(freq=40):
+    """
+    Create a canonical haemodynamic response function sampled at the given frequency.
+
+    Parameters
+    ----------
+    freq: float
+        Sampling frequency of the haemodynamic response function.
+
+    Returns
+    -------
+    hrf: np.ndarray
+        Haemodynamic response function.
+
+    """
     # Create HRF
-    RT = 1/newfreq
+    RT = 1/freq
     fMRI_T = 16
     p = [6, 16, 1, 1, 6, 0, 32]
 
@@ -50,72 +142,39 @@ def create_hrf(newfreq):
     return hrf
 
 
-def decimate_data(filename, newfreq=40):
-    data = np.genfromtxt(filename + '.tsv.gz')
-    idz = (data[:, 0]>=0).argmax()
-    data = data[idz:, ]
-    f = spint.interp1d(data[:, 0], data[:, ], axis=0, fill_value='extrapolate')
-    data_tdec = np.arange(0, data[-1, 0], 1/newfreq)
-    data_dec = f(data_tdec)
-
-    del data, idz
-
-    np.savetxt(filename + '_dec.tsv.gz', data_dec)
-
-    return data_dec
-
-
-def filter_signal(data_dec, channel=4):
-    ba = sgn.butter(7, 2/20, 'lowpass')
-    resp_filt = sgn.filtfilt(ba[0], ba[1], data_dec[:, channel])
-    plt.figure()
-    plt.plot(resp_filt)
-
-    return resp_filt
-
-
-def get_peaks(co):
-    # Finding peaks
-    pidx = pk.peak.indexes(co, thres=0.5, min_dist=120).tolist()
-    plt.figure()
-    plt.plot(co)
-    plt.plot(co, 'm*', markevery=pidx)
-    # pidx = np.delete(pidx,[56])
-    return co, pidx
-
-
-def get_petco2(co, pidx, hrf, filename):
+def convolve_petco2(co2, pidx, freq, fname_co2):
     # Extract PETco2
-    co_lenght = len(co)
-    nx = np.linspace(0, co_lenght, co_lenght)
-    f = spint.interp1d(pidx, co[pidx], fill_value='extrapolate')
-    co_peakline = f(nx)
+    hrf = create_hrf(freq)
+    co2_lenght = len(co2)
+    nx = np.linspace(0, co2_lenght, co2_lenght)
+    f = spint.interp1d(pidx, co2[pidx], fill_value='extrapolate')
+    petco2 = f(nx)
 
     # Plot PETco2
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.title('CO2 and regressor')
-    plt.plot(co, '-', co_peakline, '-')
-    plt.savefig(filename + '_co_peakline.png', dpi=SET_DPI)
+    plt.title('CO2 and PetCO2')
+    plt.plot(co2, '-', petco2, '-')
+    plt.savefig(f'{fname_co2}_petco2.png', dpi=SET_DPI)
     plt.close()
 
     # Demean and export
-    co_peakline = co_peakline - co_peakline.mean()
-    np.savetxt(filename + '_co_peakline.1D',co_peakline,fmt='%.18f')
+    petco2 = petco2 - petco2.mean()
+    np.savetxt(f'{fname_co2}_petco2.1D', petco2, fmt='%.18f')
 
     # Convolve, and then rescale to have same amplitude (?)
-    co_conv = np.convolve(co_peakline, hrf)
-    co_conv = np.interp(co_conv, (co_conv.min(), co_conv.max()), (co_peakline.min(), co_peakline.max()))
+    co2_conv = np.convolve(petco2, hrf)
+    co2_conv = np.interp(co2_conv, (co2_conv.min(), co2_conv.max()),
+                         (petco2.min(), petco2.max()))
 
-    # co_conv = co_conv[ign_tr:co_lenght]
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.title('regressor and convolved regressor')
-    plt.plot(co_conv, '-', co_peakline, '-')
-    plt.savefig(filename + '_co_regressors.png', dpi=SET_DPI)
+    plt.title('PetCO2 and convolved regressor (PetCO2hrf)')
+    plt.plot(co2_conv, '-', petco2, '-')
+    plt.savefig(f'{fname_co2}_co2_conv.png', dpi=SET_DPI)
     plt.close()
 
-    np.savetxt(filename + '_co_conv.1D', co_conv, fmt='%.18f')
+    np.savetxt(f'{fname_co2}_co2_conv.1D', co2_conv, fmt='%.18f')
 
-    return co_conv
+    return co2_conv
 
 
 def export_regressor(regr_x, co_shift, GM_x, GM_name, suffix='_co_regr'):
@@ -126,15 +185,15 @@ def export_regressor(regr_x, co_shift, GM_x, GM_name, suffix='_co_regr'):
     np.savetxt(textname, co_tr, fmt='%.18f')
 
 
-def get_regr(GM_name, co_conv, tr=1.5, newfreq=40, BH_len=58, nBH=8, ext='.1D'):
+def get_regr(GM_name, co_conv, tr=1.5, freq=40, BH_len=58, nBH=8, ext='.1D'):
     GM = np.genfromtxt(GM_name + ext)
     sequence_tps = len(GM)
 
-    regr_x = np.arange(0, ((sequence_tps-1) * tr + 1/newfreq), 1/newfreq)
+    regr_x = np.arange(0, ((sequence_tps-1) * tr + 1/freq), 1/freq)
     GM_x = np.linspace(0, (sequence_tps - 1) * tr, sequence_tps)
 
     regr_len = len(regr_x)
-    BH_len_upsampled = int(BH_len*newfreq)
+    BH_len_upsampled = int(BH_len*freq)
     nBH = int(nBH)
 
     f = spint.interp1d(GM_x, GM, fill_value='extrapolate')
@@ -166,14 +225,14 @@ def get_regr(GM_name, co_conv, tr=1.5, newfreq=40, BH_len=58, nBH=8, ext='.1D'):
     optshift = int(GM_co_r.argmax())
     textname = GM_name + '_optshift.1D'
     # #!#
-    optshiftout = np.array((optshift/newfreq,0))
+    optshiftout = np.array((optshift/freq,0))
     np.savetxt(textname, optshiftout, fmt='%.4f')
     co_shift = co_conv[optshift:optshift+regr_len]
 
     # preparing for and exporting figures of shift
-    time_axis = np.arange(0, nrep/newfreq, 1/newfreq)
+    time_axis = np.arange(0, nrep/freq, 1/freq)
     # #!# I should change to following line but not tested yet
-    # time_axis = np.linspace(0, nrep*newfreq, nrep)
+    # time_axis = np.linspace(0, nrep*freq, nrep)
     if nrep < len(time_axis):
         time_axis = time_axis[:nrep]
     elif nrep > len(time_axis):
@@ -197,7 +256,7 @@ def get_regr(GM_name, co_conv, tr=1.5, newfreq=40, BH_len=58, nBH=8, ext='.1D'):
         os.makedirs(GM_dir)
 
     # Set num of fine shifts: 9 seconds is a bit more than physiologically feasible
-    nrep = int(9 * newfreq)
+    nrep = int(9 * freq)
 
     # Padding regressor for shift, and padding optshift too
     if nrep > optshift:
@@ -219,70 +278,129 @@ def get_regr(GM_name, co_conv, tr=1.5, newfreq=40, BH_len=58, nBH=8, ext='.1D'):
         export_regressor(regr_x, co_shift, GM_x, GM_dir, suffix)
 
 
-def onpick_manualedit(event):
-    thisline = event.artist
-    xdata = thisline.get_xdata()
-    ind = event.ind
-    xdataind = xdata[ind]
-    print('onpick xind:',xdataind)
+def phys2cvr(fname_co2, fname_func, fname_pidx='', fname_mask='', outdir='',
+             freq='', tr='', trial_len='', n_trials='', do_regression=False,
+             quiet=False, debug=False):
+    """
+    Run main workflow of phys2cvr.
+    """
+    # Add logger and suff
+    outdir = os.path.abspath(outdir)
+    os.makedirs(outdir, exist_ok=True)
+    petco2log_path = os.path.join(outdir, 'code', 'petco2log')
+    os.makedirs(petco2log_path, exist_ok=True)
 
-    global reject_list
-    reject_list = np.append(reject_list,xdataind)
+    # Create logfile name
+    basename = 'phys2cvr_'
+    extension = 'tsv'
+    isotime = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
+    logname = os.path.join(petco2log_path, (basename + isotime + '.' + extension))
 
+    # Set logging format
+    log_formatter = logging.Formatter(
+        '%(asctime)s\t%(name)-12s\t%(levelname)-8s\t%(message)s',
+        datefmt='%Y-%m-%dT%H:%M:%S')
 
-def partone(filename, channel=4, tr=1.5, newfreq=40):
-    # data_dec = decimate_data(filename, newfreq)
-    data_dec = np.genfromtxt(filename + '_dec.tsv.gz')
-    resp_filt = filter_signal(data_dec, channel)
-    [co, pidx] = get_peaks(resp_filt)
-    # export original peaks
-    textname = filename + '_autopeaks.1D'
-    np.savetxt(textname, pidx)
-    textname = filename + '_co_orig.1D'
-    np.savetxt(textname, co)
-    return co, pidx
+    # Set up logging file and open it for writing
+    log_handler = logging.FileHandler(logname)
+    log_handler.setFormatter(log_formatter)
+    sh = logging.StreamHandler()
 
+    if quiet:
+        logging.basicConfig(level=logging.WARNING,
+                            handlers=[log_handler, sh], format='%(levelname)-10s %(message)s')
+    elif debug:
+        logging.basicConfig(level=logging.DEBUG,
+                            handlers=[log_handler, sh], format='%(levelname)-10s %(message)s')
+    else:
+        logging.basicConfig(level=logging.INFO,
+                            handlers=[log_handler, sh], format='%(levelname)-10s %(message)s')
 
-def manualchange(filename, pidx, reject_list):
-    # masking pidx and saving manual selection
-    pidx = np.array(pidx)
-    pmask = np.in1d(pidx, reject_list)
-    npidx = list(pidx[~pmask])
-    textname = filename + '_manualpeaks.1D'
-    np.savetxt(textname, npidx)
-    return npidx
+    version_number = _version.get_versions()['version']
+    LGR.info(f'Currently running phys2cvr version {version_number}')
+    LGR.info(f'Input file is {fname_func}')
 
+    # Save call.sh
+    arg_str = ' '.join(sys.argv[1:])
+    call_str = f'phys2bids {arg_str}'
+    f = open(os.path.join(petco2log_path, 'call.sh'), "a")
+    f.write(f'#!bin/bash \n{call_str}')
+    f.close()
 
-# def parttwo(filename):
-def parttwo(co, pidx, filename, GM_name, tr=1.5, newfreq=40, BH_len=58, nBH=8):
-    hrf = create_hrf(newfreq)
-    co_conv = get_petco2(co, pidx, hrf, filename)
+    # Check func type and read it
+    func_is_1d = check_ext(EXT_1D, fname_func)
+    func_is_nifti = check_ext(EXT_NIFTI, fname_func)
+
+    if func_is_1d:
+        if tr:
+            func_avg = np.genfromtxt(fname_func)
+        else:
+            raise Exception('Provided functional signal, but no TR specified! '
+                            'Rerun specifying the TR')
+    elif func_is_nifti:
+        func, mask, img = load_nifti_get_mask(fname_func)
+        # Read TR or declare is overwriting
+        if tr:
+            LGR.warning(f'Forcing functional TR to be {tr} seconds')
+        else:
+            # Read that TR from data_img
+            pass
+
+        # Read mask if provided
+        if fname_mask:
+            _, mask, img = load_nifti_get_mask(fname_mask)
+            if func.shape[:3] != mask.shape:
+                raise Exception(f'{fname_mask} and {fname_func} have different sizes!')
+
+        func_avg = func[mask].mean(axis=-1)
+    else:
+        raise Exception(f'{fname_func} file type is not supported yet.')
+
+    co2_is_phys = check_ext('.phys', fname_co2)
+    co2_is_1d = check_ext(EXT_1D, fname_co2)
+
+    if co2_is_1d:
+        if fname_pidx:
+            pidx = np.genfromtxt(fname_pidx)
+        else:
+            raise Exception(f'{fname_co2} file is a text file, but no '
+                            'file containing its peaks was provided. '
+                            ' Please provide peak file!')
+
+        if not freq:
+            raise Exception(f'{fname_co2} file is a text file, but no '
+                            'frequency was specified. Please provide peak '
+                            ' file!')
+
+        co2 = np.genfromtxt(fname_co2)
+    if co2_is_phys:
+        # Read a phys file!
+        pass
+
+        if freq:
+            LGR.warning(f'Forcing CO2 frequency to be {freq} Hz')
+    else:
+        raise Exception(f'{fname_co2} file type is not supported yet.')
+
+    petco2hrf = convolve_petco2(co2, pidx, freq, fname_co2)
+    #!# Restart from here
     if not os.path.exists('regr'):
         os.makedirs('regr')
 
-    # co_conv = np.genfromtxt('regr/' + filename + '_co_conv.1D')
-    #!#
-    get_regr(GM_name, co_conv, tr, newfreq, BH_len, nBH)
-    plt.close('all')
+    get_regr(GM_name, petco2hrf, tr, freq, trial_len, n_trials)
+
+    # Add internal regression if required!
+    if func_is_nifti and do_regression:
+        print()
 
 
 def _main(argv=None):
     options = _get_parser().parse_args(argv)
-    # Reading first data
-    # newfreq = 40
-    # nrep = 2000
-    # tr = 1.5
-    # tps=340
-    filename = options.filename
-    GM_name = options.GM_name
-    newfreq = options.newfreq
-    tr = options.tr
-    channel = options.channel
-    BH_len = options.BH_len
-    nBH = options.nBH
+    phys2cvr(**vars(options))
 
-    co, pidx = partone(filename, channel, tr, newfreq)
-    parttwo(co, pidx, filename, GM_name, tr, newfreq, BH_len, nBH)
+
+if __name__ == '__main__':
+    _main(sys.argv[1:])
 
 
 if __name__ == '__main__':
