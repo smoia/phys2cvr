@@ -27,6 +27,29 @@ EXT_1D = ['.txt', '.csv', '.tsv', '.1d', '.par']
 EXT_NIFTI = ['.nii', '.nii.gz']
 
 
+def save_bash_call(outdir):
+    """
+    Save the bash call into file `p2d_call.sh`.
+
+    Parameters
+    ----------
+    metric : function
+        Metric function to retrieve arguments for
+    metric_args : dict
+        Dictionary containing all arguments for all functions requested by the
+        user
+    """
+    arg_str = ' '.join(sys.argv[1:])
+    call_str = f'phys2cvr {arg_str}'
+    outdir = os.path.abspath(outdir)
+    log_path = os.path.join(outdir, 'code', 'logs')
+    os.makedirs(log_path, exist_ok=True)
+    isotime = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
+    f = open(os.path.join(log_path, f'p2c_call_{isotime}.sh'), "a")
+    f.write(f'#!bin/bash \n{call_str}')
+    f.close()
+
+
 def check_ext(all_ext, fname):
     """
     Check which extension a file has.
