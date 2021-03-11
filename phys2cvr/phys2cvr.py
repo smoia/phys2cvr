@@ -241,19 +241,18 @@ def export_regressor(regr_x, co_shift, GM_x, GM_name, suffix='_co_regr'):
     np.savetxt(textname, co_tr, fmt='%.18f')
 
 
-def get_regr(GM_name, co_conv, tr=1.5, freq=40, BH_len=58, nBH=8, ext='.1D'):
-    GM = np.genfromtxt(GM_name + ext)
-    sequence_tps = len(GM)
+def get_regr(func_avg, petco2hrf, tr=1.5, freq=40, BH_len='', nBH='', ext='.1D'):
+    sequence_tps = len(func_avg)
 
     regr_x = np.arange(0, ((sequence_tps-1) * tr + 1/freq), 1/freq)
-    GM_x = np.linspace(0, (sequence_tps - 1) * tr, sequence_tps)
+    func_x = np.linspace(0, (sequence_tps - 1) * tr, sequence_tps)
 
     regr_len = len(regr_x)
     BH_len_upsampled = int(BH_len*freq)
     nBH = int(nBH)
 
-    f = spint.interp1d(GM_x, GM, fill_value='extrapolate')
-    GM_upsampled = f(regr_x)
+    f = spint.interp1d(func_x, func_avg, fill_value='extrapolate')
+    func_avg_upsampled = f(regr_x)
 
     # Preparing central breathhold and CO2 trace for Xcorr
     # CO2 trace should have the equivalent of
@@ -263,27 +262,24 @@ def get_regr(GM_name, co_conv, tr=1.5, freq=40, BH_len=58, nBH=8, ext='.1D'):
     else:
         last_tp = -1
 
-    GM_cut = GM_upsampled[BH_len_upsampled:last_tp]
-    co_conv_cut = co_conv[BH_len_upsampled:]
+    func_avg_cut = func_avg_upsampled[BH_len_upsampled:last_tp]
+    petco2hrf_cut = petco2hrf[BH_len_upsampled:]
 
-    # Detrend GM # Molly hinted it might be better not to
-    # GM_dt = sgn.detrend(GM_cut, type='linear', bp=0)
-
-    GM_cut_len = len(GM_cut)
-    nrep = len(co_conv_cut) - GM_cut_len
+    func_avg_cut_len = len(func_avg_cut)
+    nrep = len(petco2hrf_cut) - func_avg_cut_len
     if BH_len and nrep > BH_len_upsampled:
         nrep = BH_len_upsampled
 
-    GM_co_r = np.zeros(nrep)
+    func_avg_co_r = np.zeros(nrep)
     for i in range(0, nrep):
-        GM_co_r[i] = np.corrcoef(GM_cut, co_conv[0+i:GM_cut_len+i].T)[1, 0]
+        func_avg_co_r[i] = np.corrcoef(func_avg_cut, petco2hrf[0+i:func_avg_cut_len+i].T)[1, 0]
 
-    optshift = int(GM_co_r.argmax())
-    textname = GM_name + '_optshift.1D'
+    optshift = int(func_avg_co_r.argmax())
+    textname = func_avg_name + '_optshift.1D'
     # #!#
     optshiftout = np.array((optshift/freq,0))
     np.savetxt(textname, optshiftout, fmt='%.4f')
-    co_shift = co_conv[optshift:optshift+regr_len]
+    co_shift = petco2hrf[optshift:optshift+regr_len]
 
     # preparing for and exporting figures of shift
     time_axis = np.arange(0, nrep/freq, 1/freq)
@@ -295,21 +291,21 @@ def get_regr(GM_name, co_conv, tr=1.5, freq=40, BH_len=58, nBH=8, ext='.1D'):
         time_axis = np.pad(time_axis, (0, int(nrep - len(time_axis))), 'linear_ramp')
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.plot(time_axis, GM_co_r)
+    plt.plot(time_axis, func_avg_co_r)
     plt.title('optshift')
-    plt.savefig(GM_name + '_optshift.png', dpi=SET_DPI)
+    plt.savefig(func_avg_name + '_optshift.png', dpi=SET_DPI)
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.plot(sct.zscore(co_shift), '-', sct.zscore(GM_upsampled), '-')
+    plt.plot(sct.zscore(co_shift), '-', sct.zscore(func_avg_upsampled), '-')
     plt.title('GM and shift')
-    plt.savefig(GM_name + '_co_regr.png', dpi=SET_DPI)
+    plt.savefig(func_avg_name + '_co_regr.png', dpi=SET_DPI)
 
-    export_regressor(regr_x, co_shift, GM_x, GM_name, '_co_regr')
+    export_regressor(regr_x, co_shift, func_x, func_avg_name, '_co_regr')
 
     # Create folder
-    GM_dir = GM_name + '_regr_shift'
-    if not os.path.exists(GM_dir):
-        os.makedirs(GM_dir)
+    func_avg_dir = func_avg_name + '_regr_shift'
+    if not os.path.exists(func_avg_dir):
+        os.makedirs(func_avg_dir)
 
     # Set num of fine shifts: 9 seconds is a bit more than physiologically feasible
     nrep = int(9 * freq)
@@ -320,12 +316,12 @@ def get_regr(GM_name, co_conv, tr=1.5, freq=40, BH_len=58, nBH=8, ext='.1D'):
     else:
         left_pad = 0
 
-    if (optshift + nrep + regr_len) > len(co_conv):
-        right_pad = (optshift + nrep + regr_len) - len(co_conv)
+    if (optshift + nrep + regr_len) > len(petco2hrf):
+        right_pad = (optshift + nrep + regr_len) - len(petco2hrf)
     else:
         right_pad = 0
 
-    co_padded = np.pad(co_conv, (int(left_pad), int(right_pad)),'mean')
+    co_padded = np.pad(petco2hrf, (int(left_pad), int(right_pad)), 'mean')
     optshift_padded = optshift + left_pad
 
     for i in range(-nrep, nrep):
@@ -334,8 +330,10 @@ def get_regr(GM_name, co_conv, tr=1.5, freq=40, BH_len=58, nBH=8, ext='.1D'):
         export_regressor(regr_x, co_shift, GM_x, GM_dir, suffix)
 
 
-def phys2cvr(fname_co2, fname_func, fname_pidx='', fname_mask='', outdir='',
-             freq='', tr='', trial_len='', n_trials='', do_regression=False,
+def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
+             freq='', tr='', trial_len='', n_trials='', highcut='', lowcut='',
+             apply_filter='',
+             do_regression=False, no_phys=False, lagged_regression=True,
              quiet=False, debug=False):
     """
     Run main workflow of phys2cvr.
@@ -343,8 +341,9 @@ def phys2cvr(fname_co2, fname_func, fname_pidx='', fname_mask='', outdir='',
     # Add logger and suff
     outdir = os.path.abspath(outdir)
     os.makedirs(outdir, exist_ok=True)
-    petco2log_path = os.path.join(outdir, 'code', 'petco2log')
-    os.makedirs(petco2log_path, exist_ok=True)
+    petco2log_path = outdir
+    # petco2log_path = os.path.join(outdir, 'code', 'petco2log')
+    # os.makedirs(petco2log_path, exist_ok=True)
 
     # Create logfile name
     basename = 'phys2cvr_'
