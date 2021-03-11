@@ -165,7 +165,40 @@ def create_hrf(freq=40):
     return hrf
 
 
-def convolve_petco2(co2, pidx, freq, fname_co2):
+def filter_signal(data, tr, lowcut='', highcut=''):
+    """
+    Create a bandpass filter given a lowcut and a highcut, then filter data.
+
+    Parameters
+    ----------
+    data: np.ndarray
+        Data to filter (along last axis)
+    tr: float
+        TR of functional files
+    lowcut: float
+        Lower frequency in the bandpass
+    highcut: float
+        Higher frequency in the bandpass
+
+    Returns
+    -------
+    filt_data: np.ndarray
+        Input `data`, but filtered.
+
+    """
+    if not lowcut:
+        lowcut = 0.02
+    if not highcut:
+        highcut = 0.04
+    nyq = (1 / tr) / 2
+    low = lowcut / nyq
+    high = highcut / nyq
+    a, b = butter(9, [low, high], btype='band')
+    filt_data = filtfilt(a, b, data, axis=-1)
+    return filt_data
+
+
+def convolve_petco2(co2, pidx, freq, fname_co2, outdir):
     # Extract PETco2
     hrf = create_hrf(freq)
     co2_lenght = len(co2)
