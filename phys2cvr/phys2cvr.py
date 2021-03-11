@@ -389,68 +389,99 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
     if func_is_1d:
         if tr:
             func_avg = np.genfromtxt(fname_func)
+            if apply_filter:
+                LGR.info('Applying butterworth filter to {fname_func}')
+                func_avg = filter_signal(func_avg, tr, lowcut, highcut)
         else:
             raise Exception('Provided functional signal, but no TR specified! '
                             'Rerun specifying the TR')
     elif func_is_nifti:
         func, mask, img = load_nifti_get_mask(fname_func)
-        # Read TR or declare is overwriting
+        if len(func.shape) < 4:
+            raise Exception(f'Provided functional file {fname_func} is not a 4D file!')
+        # Read TR or declare its overwriting
         if tr:
             LGR.warning(f'Forcing functional TR to be {tr} seconds')
         else:
-            # Read that TR from data_img
-            pass
+            tr = img.header['pixdim'][4]
 
         # Read mask if provided
         if fname_mask:
             _, mask, img = load_nifti_get_mask(fname_mask)
             if func.shape[:3] != mask.shape:
                 raise Exception(f'{fname_mask} and {fname_func} have different sizes!')
+        else:
+            LGR.warning(f'No mask specified, using any voxel different from 0 in {fname_func}')
 
-        func_avg = func[mask].mean(axis=-1)
+        if apply_filter:
+            LGR.info('Obtaining filtered average of {fname_func}')
+            func_filt = filter_signal(func, tr, lowcut, highcut)
+            func_avg = func_filt[mask].mean(axis=-1)
+        else:
+            func_avg = func[mask].mean(axis=-1)
+
     else:
         raise Exception(f'{fname_func} file type is not supported yet.')
 
-    co2_is_phys = check_ext('.phys', fname_co2)
-    co2_is_1d = check_ext(EXT_1D, fname_co2)
+    if fname_co2 == '' and not no_phys:
+        raise Exception('The pipeline for no physiological files was not selected, and '
+                        'no file for physiological regressor was found. Please rerun with '
+                        'one option or the other.')
+    elif no_phys:
+        LGR.info(f'Computing "CVR" maps using {fname_func} only')
+        if func_is_1d:
+            LGR.warning('Using an average signal only, solution might be unoptimal.')
 
-    if co2_is_1d:
-        if fname_pidx:
-            pidx = np.genfromtxt(fname_pidx)
-        else:
-            raise Exception(f'{fname_co2} file is a text file, but no '
-                            'file containing its peaks was provided. '
-                            ' Please provide peak file!')
+            if not apply_filter:
+                LGR.warning('No filter applied to the input average! You know '
+                            'what you are doing, right?')
 
-        if not freq:
-            raise Exception(f'{fname_co2} file is a text file, but no '
-                            'frequency was specified. Please provide peak '
-                            ' file!')
+        petco2hrf = func_avg
 
-        co2 = np.genfromtxt(fname_co2)
-    if co2_is_phys:
-        # Read a phys file!
-        pass
-
-        if freq:
-            LGR.warning(f'Forcing CO2 frequency to be {freq} Hz')
     else:
-        raise Exception(f'{fname_co2} file type is not supported yet.')
+        co2_is_phys = check_ext('.phys', fname_co2)
+        co2_is_1d = check_ext(EXT_1D, fname_co2)
 
-    petco2hrf = convolve_petco2(co2, pidx, freq, fname_co2)
-    #!# Restart from here
-    if not os.path.exists('regr'):
-        os.makedirs('regr')
+        if co2_is_1d:
+            if fname_pidx:
+                pidx = np.genfromtxt(fname_pidx)
+            else:
+                raise Exception(f'{fname_co2} file is a text file, but no '
+                                'file containing its peaks was provided. '
+                                ' Please provide peak file!')
 
-    get_regr(GM_name, petco2hrf, tr, freq, trial_len, n_trials)
+            if not freq:
+                raise Exception(f'{fname_co2} file is a text file, but no '
+                                'frequency was specified. Please provide peak '
+                                ' file!')
+
+            co2 = np.genfromtxt(fname_co2)
+        elif co2_is_phys:
+            # Read a phys file!
+            pass
+
+            if freq:
+                LGR.warning(f'Forcing CO2 frequency to be {freq} Hz')
+        else:
+            raise Exception(f'{fname_co2} file type is not supported yet.')
+
+        petco2hrf = convolve_petco2(co2, pidx, freq, fname_co2, outdir)
+
+    os.makedirs('regr', exist_ok=True)
+
+    get_regr(func_avg, petco2hrf, tr, freq, trial_len, n_trials)
 
     # Add internal regression if required!
     if func_is_nifti and do_regression:
-        print()
+        print('Running regression!')
+        pass
 
 
 def _main(argv=None):
     options = _get_parser().parse_args(argv)
+
+    save_bash_call(options.outdir)
+
     phys2cvr(**vars(options))
 
 
