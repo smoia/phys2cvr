@@ -10,9 +10,9 @@ import peakutils as pk
 
 import matplotlib.pyplot as plt
 import nibabel as nib
-import scipy.signal as sgn
 import scipy.interpolate as spint
 import scipy.stats as sct
+from scipy.signal import butter, filtfilt
 
 from phys2cvr import _version
 from phys2cvr.cli.run import _get_parser
