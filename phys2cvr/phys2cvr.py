@@ -67,7 +67,7 @@ def check_ext(all_ext, fname):
         True if the extension is found, false otherwise.
     """
     has_ext = False
-    for ext in EXT_1D:
+    for ext in all_ext:
         if fname.endswith(ext):
             has_ext = True
             break
