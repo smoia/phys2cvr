@@ -6,12 +6,12 @@ import os
 import sys
 
 import numpy as np
-import peakutils as pk
 
 import matplotlib.pyplot as plt
 import nibabel as nib
 import scipy.interpolate as spint
 import scipy.stats as sct
+from peakutils.io import load_physio
 from scipy.signal import butter, filtfilt
 
 from phys2cvr import _version
@@ -458,7 +458,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             co2 = np.genfromtxt(fname_co2)
         elif co2_is_phys:
             # Read a phys file!
-            pass
+            phys = load_physio
 
             if freq:
                 LGR.warning(f'Forcing CO2 frequency to be {freq} Hz')
