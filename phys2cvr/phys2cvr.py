@@ -407,13 +407,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
     LGR.info(f'Currently running phys2cvr version {version_number}')
     LGR.info(f'Input file is {fname_func}')
 
-    # Save call.sh
-    arg_str = ' '.join(sys.argv[1:])
-    call_str = f'phys2bids {arg_str}'
-    f = open(os.path.join(petco2log_path, 'call.sh'), "a")
-    f.write(f'#!bin/bash \n{call_str}')
-    f.close()
-
     # Check func type and read it
     func_is_1d = check_ext(EXT_1D, fname_func)
     func_is_nifti = check_ext(EXT_NIFTI, fname_func)
