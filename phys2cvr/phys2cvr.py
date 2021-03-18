@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import nibabel as nib
 import scipy.interpolate as spint
 import scipy.stats as sct
+from nilearn.glm import OLSModel
 from peakutils.io import load_physio
 from scipy.signal import butter, filtfilt
 
