@@ -23,7 +23,7 @@ SET_DPI = 100
 FIGSIZE = (18, 10)
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
-EXT_1D = ['.txt', '.csv', '.tsv', '.1d', '.par']
+EXT_1D = ['.txt', '.csv', '.tsv', '.1d', '.par', '.tsv.gz']
 EXT_NIFTI = ['.nii', '.nii.gz']
 
 
