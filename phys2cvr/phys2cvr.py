@@ -253,13 +253,15 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
 
 def export_regressor(regr_x, petco2hrf_shift, func_x, outname, suffix='petco2hrf', ext='.1D'):
     f = spint.interp1d(regr_x, petco2hrf_shift, fill_value='extrapolate')
-    co_tr = f(func_x)
-    co_tr = co_tr - co_tr.mean()
-    np.savetxt(f'{outname}_{suffix}{ext}', co_tr, fmt='%.6f')
+    petco2hrf_demean = f(func_x)
+    petco2hrf_demean = petco2hrf_demean - petco2hrf_demean.mean()
+    np.savetxt(f'{outname}_{suffix}{ext}', petco2hrf_demean, fmt='%.6f')
+
+    return petco2hrf_demean
 
 
 def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
-             n_trials='', no_pad=False, ext='.1D'):
+             n_trials='', no_pad=False, ext='.1D', lagged_regression=True):
     # Setting up some variables
     first_tp = 0
     last_tp = -1
@@ -337,36 +339,50 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
     plt.title('GM and shift')
     plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
 
-    export_regressor(regr_x, petco2hrf_shift, func_x, outname, 'petco2hrf', ext)
+    petco2hrf_demean = export_regressor(regr_x, petco2hrf_shift, func_x, outname, 'petco2hrf', ext)
 
-    outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
-    os.makedirs(os.path.join(os.path.split(outname)[0], 'regr'), exist_ok=True)
+    if lagged_regression:
+        outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
+        os.makedirs(os.path.join(os.path.split(outname)[0], 'regr'), exist_ok=True)
 
-    # Set num of fine shifts: 9 seconds is a bit more than physiologically feasible
-    nrep = int(maxlag * freq)
+        # Set num of fine shifts: 9 seconds is a bit more than physiologically feasible
+        nrep = int(maxlag * freq)
 
-    # Padding regressor for shift, and padding optshift too
-    if (optshift - nrep) < 0:
-        lpad = nrep - optshift
-    else:
-        lpad = 0
+        # Padding regressor for shift, and padding optshift too
+        if (optshift - nrep) < 0:
+            lpad = nrep - optshift
+        else:
+            lpad = 0
 
-    if (optshift + nrep + len_upd) > len(petco2hrf):
-        rpad = (optshift + nrep + len_upd) - len(petco2hrf)
-    else:
-        rpad = 0
+        if (optshift + nrep + len_upd) > len(petco2hrf):
+            rpad = (optshift + nrep + len_upd) - len(petco2hrf)
+        else:
+            rpad = 0
 
-    petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
+        petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
 
-    for i in range(-nrep, nrep):
-        petco2hrf_shift = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-        export_regressor(regr_x, petco2hrf_shift, func_x, outprefix, f'_{(i + nrep):04g}', ext)
+        for i in range(-nrep, nrep):
+            petco2hrf_shift = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
+            export_regressor(regr_x, petco2hrf_shift, func_x, outprefix, f'_{(i + nrep):04g}', ext)
+
+    return petco2hrf_demean
+
+
+def export_nifti(data, img, fname):
+    """
+    Export a nifti file.
+    """
+    if fname.endswith('.nii.gz'):
+        fname = fname[:-7]
+
+    out_img = nib.Nifti1Image(data, img.affine, img.header)
+    out_img.to_filename(f'{fname}.nii.gz')
 
 
 def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
              freq='', tr='', trial_len='', n_trials='', highcut='', lowcut='',
-             apply_filter='', no_pad='',
-             do_regression=False, no_phys=False, lagged_regression=True,
+             apply_filter='', no_pad='', no_phys=False, do_regression=False,
+             lagged_regression=True, maxlag=9, denoise_matrix='',
              quiet=False, debug=False):
     """
     Run main workflow of phys2cvr.
@@ -497,18 +513,68 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             raise Exception(f'{fname_co2} file type is not supported yet, or '
                             'the extension was not specified.')
 
-    # Set output file & path - calling splitext twice cause .gz
-    basename_co2 = os.path.splitext(os.path.splitext(os.path.basename(fname_co2))[0])[0]
-    outname = os.join(outdir, basename_co2)
-    petco2hrf = convolve_petco2(co2, pidx, freq, outname)
+        # Set output file & path - calling splitext twice cause .gz
+        basename_co2 = os.path.splitext(os.path.splitext(os.path.basename(fname_co2))[0])[0]
+        outname = os.join(outdir, basename_co2)
+        petco2hrf = convolve_petco2(co2, pidx, freq, outname)
 
-    get_regr(func_avg, petco2hrf, tr, freq, outname, trial_len, n_trials, no_pad)
+    regr = get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag, trial_len,
+                    n_trials, no_pad, '.1D', lagged_regression)
 
     # Add internal regression if required!
     if func_is_nifti and do_regression:
         print('Running regression!')
         pass
 
+        outfuncname = os.path.splitext(os.path.splitext(fname_func)[0])[0]
+        # #!# fix img dimension!
+
+        # Read in eventual denoising factors
+        if denoise_matrix:
+            mat_conf = np.genfromtxt(denoise_matrix)
+        else:
+            mat_conf = np.ones_like(func_avg)
+
+        mat = np.stack(regr, mat_conf)
+
+        # #!# func has to be SPC!
+
+        model = OLSModel(mat).fit(func)
+
+        beta = model.predicted()
+
+        # #!# beta is not cvr!
+
+        export_nifti(beta, img, f'{outfuncname}_cvr_simple')
+
+        if lagged_regression:
+            nrep = int(maxlag * freq * 2)
+            outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
+            r_square = np.empty((func.shape[0], func.shape[1], func.shape[2], nrep))
+            beta_all = np.empty((func.shape[0], func.shape[1], func.shape[2], nrep))
+
+            for i in range(nrep):
+                regr = np.genfromtxt(f'{outprefix}_{(i + nrep):04g}')
+
+                mat = np.stack(regr, mat_conf)
+
+                model = OLSModel(mat).fit(func)
+
+                beta_all[:, :, :, i] = model.predicted()
+                r_square[:, :, :, i] = model.r_square()
+
+            lag_idx = np.argmax(r_square, axis=-1)
+            lag = lag_idx / freq
+            beta = beta_all[:, :, :, lag_idx]
+
+            export_nifti(beta, img, f'{outfuncname}_cvr')
+            export_nifti(lag, img, f'{outfuncname}_lag')
+
+    elif do_regression:
+        LGR.warning('The input file is not a nifti volume. At the moment, '
+                    'regression is not supported for other formats.')
+
+    LGR.info('phys2cvr finished! Enjoy your outputs!')
 
 def _main(argv=None):
     options = _get_parser().parse_args(argv)
