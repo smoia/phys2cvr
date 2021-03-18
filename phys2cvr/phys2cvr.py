@@ -426,7 +426,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             raise Exception(f'Provided functional file {fname_func} is not a 4D file!')
         # Read TR or declare its overwriting
         if tr:
-            LGR.warning(f'Forcing functional TR to be {tr} seconds')
+            LGR.warning(f'Forcing TR to be {tr} seconds')
         else:
             tr = img.header['pixdim'][4]
 
@@ -446,7 +446,8 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             func_avg = func[mask].mean(axis=-1)
 
     else:
-        raise Exception(f'{fname_func} file type is not supported yet.')
+        raise Exception(f'{fname_func} file type is not supported yet, or '
+                        'the extension was not specified.')
 
     if fname_co2 == '' and not no_phys:
         raise Exception('The pipeline for no physiological files was not selected, and '
@@ -483,18 +484,24 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             co2 = np.genfromtxt(fname_co2)
         elif co2_is_phys:
             # Read a phys file!
-            phys = load_physio
+            phys = load_physio(fname_co2)
 
+            co2 = phys.data
+            pidx = phys.peaks
             if freq:
                 LGR.warning(f'Forcing CO2 frequency to be {freq} Hz')
+            else:
+                freq = phys.fs
         else:
-            raise Exception(f'{fname_co2} file type is not supported yet.')
+            raise Exception(f'{fname_co2} file type is not supported yet, or '
+                            'the extension was not specified.')
 
-        petco2hrf = convolve_petco2(co2, pidx, freq, fname_co2, outdir)
+    # Set output file & path - calling splitext twice cause .gz
+    basename_co2 = os.path.splitext(os.path.splitext(os.path.basename(fname_co2))[0])[0]
+    outname = os.join(outdir, basename_co2)
+    petco2hrf = convolve_petco2(co2, pidx, freq, outname)
 
-    os.makedirs('regr', exist_ok=True)
-
-    get_regr(func_avg, petco2hrf, tr, freq, trial_len, n_trials)
+    get_regr(func_avg, petco2hrf, tr, freq, outname, trial_len, n_trials, no_pad)
 
     # Add internal regression if required!
     if func_is_nifti and do_regression:
