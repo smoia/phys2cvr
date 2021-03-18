@@ -198,7 +198,7 @@ def filter_signal(data, tr, lowcut='', highcut=''):
     return filt_data
 
 
-def convolve_petco2(co2, pidx, freq, fname_co2, outdir):
+def convolve_petco2(co2, pidx, freq, outname):
     # Extract PETco2
     hrf = create_hrf(freq)
     co2_lenght = len(co2)
@@ -210,12 +210,12 @@ def convolve_petco2(co2, pidx, freq, fname_co2, outdir):
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.title('CO2 and PetCO2')
     plt.plot(co2, '-', petco2, '-')
-    plt.savefig(f'{fname_co2}_petco2.png', dpi=SET_DPI)
+    plt.savefig(f'{outname}_petco2.png', dpi=SET_DPI)
     plt.close()
 
     # Demean and export
     petco2 = petco2 - petco2.mean()
-    np.savetxt(f'{fname_co2}_petco2.1D', petco2, fmt='%.18f')
+    np.savetxt(f'{outname}_petco2.1D', petco2, fmt='%.18f')
 
     # Convolve, and then rescale to have same amplitude (?)
     co2_conv = np.convolve(petco2, hrf)
@@ -225,114 +225,146 @@ def convolve_petco2(co2, pidx, freq, fname_co2, outdir):
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.title('PetCO2 and convolved regressor (PetCO2hrf)')
     plt.plot(co2_conv, '-', petco2, '-')
-    plt.savefig(f'{fname_co2}_co2_conv.png', dpi=SET_DPI)
+    plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
     plt.close()
 
-    np.savetxt(f'{fname_co2}_co2_conv.1D', co2_conv, fmt='%.18f')
+    np.savetxt(f'{outname}_petco2hrf.1D', co2_conv, fmt='%.18f')
 
     return co2_conv
 
 
-def export_regressor(regr_x, co_shift, GM_x, GM_name, suffix='_co_regr'):
-    f = spint.interp1d(regr_x, co_shift, fill_value='extrapolate')
-    co_tr = f(GM_x)
+def x_corr(func, co2, lastrep, firstrep=0, offset=0):
+    if len(func) + offset > len(co2):
+        raise ValueError(f'The specified offset of {offset} is too high to '
+                         f'compare func of length {len(func)} with co2 of '
+                         f'length {len(co2)}')
+    if firstrep + offset < 0:
+        firstrep = -offset
+    if lastrep + offset + len(func) > len(co2):
+        lastrep = len(co2) - offset - len(func)
+
+    xcorr = np.empty(lastrep+firstrep)
+    for i in range(firstrep, lastrep):
+        xcorr[i] = np.corrcoef(func, co2[0+i+offset:len(func)+i+offset].T)[1, 0]
+
+    return xcorr.max(), (xcorr.argmax() + firstrep + offset), xcorr
+
+
+def export_regressor(regr_x, petco2hrf_shift, func_x, outname, suffix='petco2hrf', ext='.1D'):
+    f = spint.interp1d(regr_x, petco2hrf_shift, fill_value='extrapolate')
+    co_tr = f(func_x)
     co_tr = co_tr - co_tr.mean()
-    textname = GM_name + suffix + '.1D'
-    np.savetxt(textname, co_tr, fmt='%.18f')
+    np.savetxt(f'{outname}_{suffix}{ext}', co_tr, fmt='%.6f')
 
 
-def get_regr(func_avg, petco2hrf, tr=1.5, freq=40, BH_len='', nBH='', ext='.1D'):
-    sequence_tps = len(func_avg)
+def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
+             n_trials='', no_pad=False, ext='.1D'):
+    # Setting up some variables
+    first_tp = 0
+    last_tp = -1
 
-    regr_x = np.arange(0, ((sequence_tps-1) * tr + 1/freq), 1/freq)
-    func_x = np.linspace(0, (sequence_tps - 1) * tr, sequence_tps)
+    if trial_len and n_trials:
+        # If both are specified, disregard two extreme _trial from matching.
+        LGR.info(f'Specified {n_trials} trials lasting {trial_len} seconds')
+        if n_trials > 2:
+            LGR.info('Ignoring first trial to improve first bulk shift estimation')
+            first_tp = int(trial_len*freq)
+        else:
+            LGR.info('Using all trials for bulk shift estimation')
+        if n_trials > 3:
+            LGR.info('Ignoring last trial to improve first bulk shift estimation')
+            last_tp = first_tp*(n_trials-1)
 
-    regr_len = len(regr_x)
-    BH_len_upsampled = int(BH_len*freq)
-    nBH = int(nBH)
-
-    f = spint.interp1d(func_x, func_avg, fill_value='extrapolate')
-    func_avg_upsampled = f(regr_x)
-
-    # Preparing central breathhold and CO2 trace for Xcorr
-    # CO2 trace should have the equivalent of
-    # ten tr of bad data at the beginning of the file
-    if BH_len:
-        last_tp = BH_len_upsampled*(nBH-1)
+    elif trial_len and not n_trials:
+        LGR.warning('The length of trial was specified, but the number of '
+                    'trials was not. Using all trials for bulk shift estimation')
+    elif not trial_len and n_trials:
+        LGR.warning('The number of trials was specified, but the length of '
+                    'trial was not. Using all trials for bulk shift estimation')
     else:
-        last_tp = -1
+        LGR.info('Using all trials for bulk shift estimation.')
 
-    func_avg_cut = func_avg_upsampled[BH_len_upsampled:last_tp]
-    petco2hrf_cut = petco2hrf[BH_len_upsampled:]
+    # Upsample functional signal
+    func_len = len(func_avg)
+    regr_x = np.arange(0, ((func_len-1) * tr + 1/freq), 1/freq)
+    func_x = np.linspace(0, (func_len - 1) * tr, func_len)
+    f = spint.interp1d(func_x, func_avg, fill_value='extrapolate')
+    func_upsampled = f(regr_x)
+    len_upd = len(func_upsampled)
 
-    func_avg_cut_len = len(func_avg_cut)
-    nrep = len(petco2hrf_cut) - func_avg_cut_len
-    if BH_len and nrep > BH_len_upsampled:
-        nrep = BH_len_upsampled
+    # Preparing breathhold and CO2 trace for Xcorr
+    func_cut = func_upsampled[first_tp:last_tp]
+    petco2hrf_cut = petco2hrf[first_tp:]
 
-    func_avg_co_r = np.zeros(nrep)
-    for i in range(0, nrep):
-        func_avg_co_r[i] = np.corrcoef(func_avg_cut, petco2hrf[0+i:func_avg_cut_len+i].T)[1, 0]
+    nrep = len(petco2hrf_cut) - len(func_cut)
 
-    optshift = int(func_avg_co_r.argmax())
-    textname = func_avg_name + '_optshift.1D'
-    # #!#
-    optshiftout = np.array((optshift/freq,0))
-    np.savetxt(textname, optshiftout, fmt='%.4f')
-    co_shift = petco2hrf[optshift:optshift+regr_len]
+    _, optshift, xcorr = x_corr(func_cut, petco2hrf, nrep)
+    LGR.info(f'First cross correlation estimated bulk shift at {optshift/freq} seconds')
+
+    if trial_len and n_trials and n_trials > 2:
+        LGR.info('Running second bulk shift estimation')
+        if len(func_upsampled) + nrep > len(petco2hrf):
+            pad = len(func_upsampled) + nrep - len(petco2hrf)
+            petco2hrf_padded = np.pad(petco2hrf, pad, mode='mean')
+        else:
+            petco2hrf_padded = petco2hrf
+
+        _, optshift, xcorr = x_corr(func_upsampled, petco2hrf_padded, nrep, -nrep, optshift)
+        LGR.info(f'Second cross correlation estimated bulk shift at {optshift/freq} seconds')
+
+    # Export estimated optimal shift in seconds
+    with open(f'{outname}_optshift.1D', 'w') as f:
+        print(f'{(optshift/freq):.4f}', file=f)
+
+    petco2hrf_shift = petco2hrf[optshift:optshift+len_upd]
 
     # preparing for and exporting figures of shift
     time_axis = np.arange(0, nrep/freq, 1/freq)
-    # #!# I should change to following line but not tested yet
-    # time_axis = np.linspace(0, nrep*freq, nrep)
+
     if nrep < len(time_axis):
         time_axis = time_axis[:nrep]
     elif nrep > len(time_axis):
         time_axis = np.pad(time_axis, (0, int(nrep - len(time_axis))), 'linear_ramp')
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.plot(time_axis, func_avg_co_r)
+    plt.plot(time_axis, xcorr)
     plt.title('optshift')
-    plt.savefig(func_avg_name + '_optshift.png', dpi=SET_DPI)
+    plt.savefig(f'{outname}_optshift.png', dpi=SET_DPI)
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.plot(sct.zscore(co_shift), '-', sct.zscore(func_avg_upsampled), '-')
+    plt.plot(sct.zscore(petco2hrf_shift), '-', sct.zscore(func_upsampled), '-')
     plt.title('GM and shift')
-    plt.savefig(func_avg_name + '_co_regr.png', dpi=SET_DPI)
+    plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
 
-    export_regressor(regr_x, co_shift, func_x, func_avg_name, '_co_regr')
+    export_regressor(regr_x, petco2hrf_shift, func_x, outname, 'petco2hrf', ext)
 
-    # Create folder
-    func_avg_dir = func_avg_name + '_regr_shift'
-    if not os.path.exists(func_avg_dir):
-        os.makedirs(func_avg_dir)
+    outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
+    os.makedirs(os.path.join(os.path.split(outname)[0], 'regr'), exist_ok=True)
 
     # Set num of fine shifts: 9 seconds is a bit more than physiologically feasible
-    nrep = int(9 * freq)
+    nrep = int(maxlag * freq)
 
     # Padding regressor for shift, and padding optshift too
-    if nrep > optshift:
-        left_pad = nrep - optshift
+    if (optshift - nrep) < 0:
+        lpad = nrep - optshift
     else:
-        left_pad = 0
+        lpad = 0
 
-    if (optshift + nrep + regr_len) > len(petco2hrf):
-        right_pad = (optshift + nrep + regr_len) - len(petco2hrf)
+    if (optshift + nrep + len_upd) > len(petco2hrf):
+        rpad = (optshift + nrep + len_upd) - len(petco2hrf)
     else:
-        right_pad = 0
+        rpad = 0
 
-    co_padded = np.pad(petco2hrf, (int(left_pad), int(right_pad)), 'mean')
-    optshift_padded = optshift + left_pad
+    petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
 
     for i in range(-nrep, nrep):
-        co_shift = co_padded[optshift_padded-i:optshift_padded-i+regr_len]
-        suffix = '/shift_' + '%04d' % (i + nrep)
-        export_regressor(regr_x, co_shift, GM_x, GM_dir, suffix)
+        petco2hrf_shift = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
+        export_regressor(regr_x, petco2hrf_shift, func_x, outprefix, f'_{(i + nrep):04g}', ext)
 
 
 def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
              freq='', tr='', trial_len='', n_trials='', highcut='', lowcut='',
-             apply_filter='',
+             apply_filter='', no_pad='',
              do_regression=False, no_phys=False, lagged_regression=True,
              quiet=False, debug=False):
     """
