@@ -6,7 +6,6 @@ import os
 import sys
 from copy import deepcopy
 
-import nibabel as nib
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.interpolate as spint
@@ -14,10 +13,9 @@ import scipy.stats as sct
 from peakdet.io import load_physio
 from scipy.signal import butter, filtfilt
 
-from phys2cvr import _version
+from phys2cvr import io, _version
 from phys2cvr.cli.run import _get_parser
 
-from . import __version__
 
 SET_DPI = 100
 FIGSIZE = (18, 10)
@@ -48,77 +46,6 @@ def save_bash_call(outdir):
     f = open(os.path.join(log_path, f'p2c_call_{isotime}.sh'), "a")
     f.write(f'#!bin/bash \n{call_str}')
     f.close()
-
-
-def check_ext(all_ext, fname):
-    """
-    Check which extension a file has.
-
-    Parameters
-    ----------
-    all_ext: list
-        All possibel extensions to check within
-    fname: str
-        The filename to check
-
-    Returns
-    -------
-    has_ext: boolean
-        True if the extension is found, false otherwise.
-    """
-    has_ext = False
-    for ext in all_ext:
-        if fname.endswith(ext):
-            has_ext = True
-            break
-
-    return has_ext
-
-
-def check_nifti_dim(fname, data, dim=4):
-    """
-    Remove extra dimensions.
-    """
-    if len(data.shape) < dim:
-        raise Exception(f'{fname} does not seem to be a {dim}D file. '
-                        f'Plase provide a {dim}D nifti file.')
-    if len(data.shape) > dim:
-        LGR.warning(f'{fname} has more than {dim} dimensions. Removing D > {dim}.')
-        for ax in range(dim, len(data.shape)):
-            data = np.delete(data, np.s_[1:], axis=ax)
-
-    return np.squeeze(data)
-
-
-def load_nifti_get_mask(fname, is_mask=False):
-    """
-    Load a nifti file and returns its data, its image, and a 3d mask.
-
-    Parameters
-    ----------
-    fname: str
-        The filename to read in
-    dim: int
-        The number of dimensions expected
-
-    Returns
-    -------
-    data: np.ndarray
-        Data from nifti file.
-    mask: np.ndarray
-
-    """
-    img = nib.load(fname)
-    data = img.get_fdata()
-
-    if is_mask:
-        data = check_nifti_dim(fname, data, dim=3)
-        mask = (data < 0) + (data > 0)
-    else:
-        data = check_nifti_dim(fname, data)
-        mask = np.squeeze(np.any(data, axis=-1))
-
-    return data, mask, img
 
 
 def create_hrf(freq=40):
@@ -250,15 +177,6 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
     return xcorr.max(), (xcorr.argmax() + firstrep + offset), xcorr
 
 
-def export_regressor(regr_x, petco2hrf_shift, func_x, outname, suffix='petco2hrf', ext='.1D'):
-    f = spint.interp1d(regr_x, petco2hrf_shift, fill_value='extrapolate')
-    petco2hrf_demean = f(func_x)
-    petco2hrf_demean = petco2hrf_demean - petco2hrf_demean.mean()
-    np.savetxt(f'{outname}_{suffix}{ext}', petco2hrf_demean, fmt='%.6f')
-
-    return petco2hrf_demean
-
-
 def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
              n_trials='', no_pad=False, ext='.1D', lagged_regression=True):
     # Setting up some variables
@@ -338,7 +256,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
     plt.title('GM and shift')
     plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
 
-    petco2hrf_demean = export_regressor(regr_x, petco2hrf_shift, func_x, outname, 'petco2hrf', ext)
+    petco2hrf_demean = io.export_regressor(regr_x, petco2hrf_shift, func_x, outname, 'petco2hrf', ext)
 
     if lagged_regression:
         outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
@@ -362,20 +280,9 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
 
         for i in range(-nrep, nrep):
             petco2hrf_shift = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-            export_regressor(regr_x, petco2hrf_shift, func_x, outprefix, f'_{(i + nrep):04g}', ext)
+            io.export_regressor(regr_x, petco2hrf_shift, func_x, outprefix, f'_{(i + nrep):04g}', ext)
 
     return petco2hrf_demean
-
-
-def export_nifti(data, img, fname):
-    """
-    Export a nifti file.
-    """
-    if fname.endswith('.nii.gz'):
-        fname = fname[:-7]
-
-    out_img = nib.Nifti1Image(data, img.affine, img.header)
-    out_img.to_filename(f'{fname}.nii.gz')
 
 
 def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
@@ -424,8 +331,8 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
     LGR.info(f'Input file is {fname_func}')
 
     # Check func type and read it
-    func_is_1d = check_ext(EXT_1D, fname_func)
-    func_is_nifti = check_ext(EXT_NIFTI, fname_func)
+    func_is_1d = io.check_ext(EXT_1D, fname_func)
+    func_is_nifti = io.check_ext(EXT_NIFTI, fname_func)
 
     if func_is_1d:
         if tr:
@@ -437,7 +344,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             raise Exception('Provided functional signal, but no TR specified! '
                             'Rerun specifying the TR')
     elif func_is_nifti:
-        func, dmask, img = load_nifti_get_mask(fname_func)
+        func, dmask, img = io.load_nifti_get_mask(fname_func)
         if len(func.shape) < 4:
             raise Exception(f'Provided functional file {fname_func} is not a 4D file!')
         # Read TR or declare its overwriting
@@ -448,7 +355,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
         # Read mask if provided
         if fname_mask:
-            _, mask, _ = load_nifti_get_mask(fname_mask)
+            _, mask, _ = io.load_nifti_get_mask(fname_mask)
             if func.shape[:3] != mask.shape:
                 raise Exception(f'{fname_mask} and {fname_func} have different sizes!')
             mask = mask * dmask
@@ -483,8 +390,8 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         petco2hrf = func_avg
 
     else:
-        co2_is_phys = check_ext('.phys', fname_co2)
-        co2_is_1d = check_ext(EXT_1D, fname_co2)
+        co2_is_phys = io.check_ext('.phys', fname_co2)
+        co2_is_1d = io.check_ext(EXT_1D, fname_co2)
 
         if co2_is_1d:
             if fname_pidx:
@@ -551,7 +458,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
         # #!# beta is not cvr!
 
-        export_nifti(beta, img, f'{outfuncname}_cvr_simple')
+        io.export_nifti(beta, img, f'{outfuncname}_cvr_simple')
 
         if lagged_regression:
             nrep = int(maxlag * freq * 2)
@@ -573,8 +480,8 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             lag = lag_idx / freq
             beta = beta_all[:, :, :, lag_idx]
 
-            export_nifti(beta, oimg, f'{outfuncname}_cvr')
-            export_nifti(lag, oimg, f'{outfuncname}_lag')
+            io.export_nifti(beta, oimg, f'{outfuncname}_cvr')
+            io.export_nifti(lag, oimg, f'{outfuncname}_lag')
 
     elif do_regression:
         LGR.warning('The input file is not a nifti volume. At the moment, '
