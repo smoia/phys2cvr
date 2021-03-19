@@ -4,15 +4,14 @@ import datetime
 import logging
 import os
 import sys
+from copy import deepcopy
 
-import numpy as np
-
-import matplotlib.pyplot as plt
 import nibabel as nib
+import numpy as np
+import matplotlib.pyplot as plt
 import scipy.interpolate as spint
 import scipy.stats as sct
-from nilearn.glm import OLSModel
-from peakutils.io import load_physio
+from peakdet.io import load_physio
 from scipy.signal import butter, filtfilt
 
 from phys2cvr import _version
