@@ -437,7 +437,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             raise Exception('Provided functional signal, but no TR specified! '
                             'Rerun specifying the TR')
     elif func_is_nifti:
-        func, mask, img = load_nifti_get_mask(fname_func)
+        func, dmask, img = load_nifti_get_mask(fname_func)
         if len(func.shape) < 4:
             raise Exception(f'Provided functional file {fname_func} is not a 4D file!')
         # Read TR or declare its overwriting
@@ -448,10 +448,12 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
         # Read mask if provided
         if fname_mask:
-            _, mask, img = load_nifti_get_mask(fname_mask)
+            _, mask, _ = load_nifti_get_mask(fname_mask)
             if func.shape[:3] != mask.shape:
                 raise Exception(f'{fname_mask} and {fname_func} have different sizes!')
+            mask = mask * dmask
         else:
+            mask = dmask
             LGR.warning(f'No mask specified, using any voxel different from 0 in {fname_func}')
 
         if apply_filter:
@@ -526,15 +528,20 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         pass
 
         outfuncname = os.path.splitext(os.path.splitext(fname_func)[0])[0]
-        # #!# fix img dimension!
+        newdim = deepcopy(img.header['dim'])
+        newdim[0], newdim[4] = 3, 1
+        oimg = deepcopy(img)
+        oimg.header['dim'] = newdim
 
         # Read in eventual denoising factors
         if denoise_matrix:
             mat_conf = np.genfromtxt(denoise_matrix)
+            if not np.any(np.all(mat_conf == 1, axis=1)):
+                mat_conf = np.stack(mat_conf, np.ones_like(regr))
         else:
-            mat_conf = np.ones_like(func_avg)
+            mat_conf = np.ones_like(regr)
 
-        mat = np.stack(regr, mat_conf)
+        mat = np.stack([regr, mat_conf])
 
         # #!# func has to be SPC!
 
@@ -555,7 +562,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             for i in range(nrep):
                 regr = np.genfromtxt(f'{outprefix}_{(i + nrep):04g}')
 
-                mat = np.stack(regr, mat_conf)
+                mat = np.stack([regr, mat_conf])
 
                 model = OLSModel(mat).fit(func)
 
@@ -566,14 +573,15 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             lag = lag_idx / freq
             beta = beta_all[:, :, :, lag_idx]
 
-            export_nifti(beta, img, f'{outfuncname}_cvr')
-            export_nifti(lag, img, f'{outfuncname}_lag')
+            export_nifti(beta, oimg, f'{outfuncname}_cvr')
+            export_nifti(lag, oimg, f'{outfuncname}_lag')
 
     elif do_regression:
         LGR.warning('The input file is not a nifti volume. At the moment, '
                     'regression is not supported for other formats.')
 
     LGR.info('phys2cvr finished! Enjoy your outputs!')
+
 
 def _main(argv=None):
     options = _get_parser().parse_args(argv)
@@ -585,7 +593,3 @@ def _main(argv=None):
 
 if __name__ == '__main__':
     _main(sys.argv[1:])
-
-
-if __name__ == '__main__':
-    _main()
