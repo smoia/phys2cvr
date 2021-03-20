@@ -142,3 +142,61 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
             io.export_regressor(regr_x, petco2hrf_shift, func_x, outprefix, f'_{(i + nrep):04g}', ext)
 
     return petco2hrf_demean
+
+
+def get_legendre(degree, length):
+
+    def _bonnet(d, x):
+        if(d == 0):
+            return np.ones_like(x)
+        elif(d == 1):
+            return x
+        else:
+            return ((2*d-1)*x*_bonnet(d-1, x)-(d-1)*_bonnet(d-2, x))/d
+
+    x = np.linspace(-1, 1, length)
+    legendre = np.empty([length, degree+1])
+    for n in range(degree+1):
+        legendre[:, n] = _bonnet(n, x)
+    return legendre
+
+
+def regression(data, mask, regr, mat_conf):
+    # Obtain data in 2d and SPC
+    data_2d = data[mask]
+    m = data_2d.mean(axis=1)[..., np.newaxis]
+    data_2d = (data_2d - m) / m
+    # Check that regr has "two" dimensions
+    if len(regr.shape) < 2:
+        regr = regr[..., np.newaxis]
+    # Stack mat and solve least square with it demeaned
+    mat = np.hstack(mat_conf, regr)
+    betas = np.linalg.lstsq(mat-mat.mean(axis=0),
+                            data_2d.T, rcond=None)[0]
+
+    # compute t-values of betas (estimates)
+    # first compute number of degrees of freedom
+    dofs = data_2d.shape[1] - mat.shape[1]
+    # compute sigma:
+    # sigma = sum{[data_2d - (mat * betas)]^2} / dofs
+    sigma = np.sum(np.power(data_2d.T - np.dot(mat, betas), 2), axis=0) / dofs
+    sigma = sigma[..., np.newaxis]
+    # Copmute std of betas:
+    # C = (mat^T * mat)_ii^(-1)
+    # std(betas) = sqrt(sigma * C)
+    C = np.diag(np.linalg.pinv(np.dot(mat.T, mat)))
+    C = C[..., np.newaxis]
+    std_betas = np.sqrt(np.dot(sigma, C.T))
+    tstats = betas / std_betas.T
+
+    # #!# Compute R^2 multiple determination!
+    r_square = 1
+
+    # Assign betas, Rsquare and tstats to new volume
+    bout = mask * 1.0
+    tout = mask * 1.0
+    rout = mask * 1.0
+    bout[mask] = betas[-1, :]
+    tout[mask] = tstats[-1, :]
+    rout[mask] = r_square
+    return bout, tout, rout
