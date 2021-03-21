@@ -46,7 +46,7 @@ def save_bash_call(outdir):
 
 def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
              freq='', tr='', trial_len='', n_trials='', highcut='', lowcut='',
-             apply_filter='', no_pad='', no_phys=False, do_regression=False,
+             apply_filter='', no_pad='', do_regression=False,
              lagged_regression=True, maxlag=9, d_lag='', l_degree=0, denoise_matrix=[],
              scale_factor='', lag_map='', regr_dir='', skip_conv=False,
              quiet=False, debug=False):
@@ -134,11 +134,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         raise Exception(f'{fname_func} file type is not supported yet, or '
                         'the extension was not specified.')
 
-    if fname_co2 == '' and not no_phys:
-        raise Exception('The pipeline for no physiological files was not selected, and '
-                        'no file for physiological regressor was found. Please rerun with '
-                        'one option or the other.')
-    elif no_phys:
+    if fname_co2 == '':
         LGR.info(f'Computing "CVR" maps using {fname_func} only')
         if func_is_1d:
             LGR.warning('Using an average signal only, solution might be unoptimal.')
