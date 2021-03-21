@@ -155,7 +155,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         if co2_is_1d:
             if fname_pidx:
                 pidx = np.genfromtxt(fname_pidx)
-            else:
+            elif not skip_conv:
                 raise Exception(f'{fname_co2} file is a text file, but no '
                                 'file containing its peaks was provided. '
                                 ' Please provide peak file!')
@@ -183,64 +183,89 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         # Set output file & path - calling splitext twice cause .gz
         basename_co2 = os.path.splitext(os.path.splitext(os.path.basename(fname_co2))[0])[0]
         outname = os.join(outdir, basename_co2)
-        petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
+        if skip_conv:
+            petco2hrf = co2
+        else:
+            petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
 
-    regr = stats.get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag, trial_len,
-                          n_trials, no_pad, '.1D', lagged_regression)
+    if not regr_dir:
+        # #!# This should save all shifts in memory
+        regr = stats.get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag, trial_len,
+                              n_trials, no_pad, '.1D', lagged_regression)
 
     # Add internal regression if required!
     if func_is_nifti and do_regression:
-        print('Running regression!')
-        pass
+        LGR.info('Running regression!')
 
+        # Change dimensions in image header before export
+        LGR.info('Prepare output image')
         outfuncname = os.path.splitext(os.path.splitext(fname_func)[0])[0]
         newdim = deepcopy(img.header['dim'])
         newdim[0], newdim[4] = 3, 1
         oimg = deepcopy(img)
         oimg.header['dim'] = newdim
 
+        # Start computing the polynomial regressor (at least average)
+        LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
+        mat_conf = stats.get_legendre(l_degree, regr.size)
+
         # Read in eventual denoising factors
         if denoise_matrix:
-            mat_conf = np.genfromtxt(denoise_matrix)
-            if not np.any(np.all(mat_conf == 1, axis=1)):
-                mat_conf = np.stack(mat_conf, np.ones_like(regr))
+            LGR.info(f'Read confounding factor from {denoise_matrix}')
+            # #!# Check that mat and conf have the same orientation
+            # #!# This could be multiple denoising factors!
+            conf = np.genfromtxt(denoise_matrix)
+            mat_conf = np.hstack([mat_conf, conf])
+
+        LGR.info('Compute simple CVR estimation (bulk shift only)')
+        beta, tstat, _ = stats.regression(func, dmask, regr, mat_conf)
+
+        LGR.info('Export bulk shift results')
+        if not scale_factor:
+            LGR.warning('Remember: CVR might not be in %%BOLD/mmHg!')
         else:
-            mat_conf = np.ones_like(regr)
-
-        mat = np.stack([regr, mat_conf])
-
-        # #!# func has to be SPC!
-
-        model = OLSModel(mat).fit(func)
-
-        beta = model.predicted()
-
-        # #!# beta is not cvr!
-
-        io.export_nifti(beta, img, f'{outfuncname}_cvr_simple')
+            beta = beta * scale_factor
+        # Scale beta by scale factor while exporting (useful to transform V in mmHg)
+        io.export_nifti(beta, oimg, f'{outfuncname}_cvr_simple')
+        io.export_nifti(tstat, oimg, f'{outfuncname}_tstat_simple')
 
         if lagged_regression:
+            LGR.info(f'Running lagged CVR estimation with max lag = {maxlag}!'
+                     '(might take a while...)')
+
             nrep = int(maxlag * freq * 2)
+            if d_lag:
+                step = d_lag * freq
+            else:
+                step = 1
             outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
-            r_square = np.empty((func.shape[0], func.shape[1], func.shape[2], nrep))
-            beta_all = np.empty((func.shape[0], func.shape[1], func.shape[2], nrep))
+            r_square = np.empty((func.shape[0], func.shape[1], func.shape[2], nrep // step))
+            beta_all = np.empty((func.shape[0], func.shape[1], func.shape[2], nrep // step))
+            tstat_all = np.empty((func.shape[0], func.shape[1], func.shape[2], nrep // step))
 
-            for i in range(nrep):
-                regr = np.genfromtxt(f'{outprefix}_{(i + nrep):04g}')
+            for n, i in range(0, nrep, step):
+                LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
+                # #!# Maybe this can be in memory
+                regr = np.genfromtxt(f'{outprefix}_{i:04g}')
 
-                mat = np.stack([regr, mat_conf])
-
-                model = OLSModel(mat).fit(func)
-
-                beta_all[:, :, :, i] = model.predicted()
-                r_square[:, :, :, i] = model.r_square()
+                beta_all[:, :, :, n],
+                tstat_all[:, :, :, n],
+                r_square[:, :, :, n] = stats.regression(func, dmask, regr,
+                                                        mat_conf)
 
             lag_idx = np.argmax(r_square, axis=-1)
             lag = lag_idx / freq
             beta = beta_all[:, :, :, lag_idx]
+            tstat = tstat_all[:, :, :, lag_idx]
 
+        LGR.info('Export fine shift results')
+        if not scale_factor:
+            LGR.warning('Remember: CVR might not be in %%BOLD/mmHg!')
+        else:
+            beta = beta * scale_factor
             io.export_nifti(beta, oimg, f'{outfuncname}_cvr')
             io.export_nifti(lag, oimg, f'{outfuncname}_lag')
+            io.export_nifti(tstat, oimg, f'{outfuncname}_tstat')
 
     elif do_regression:
         LGR.warning('The input file is not a nifti volume. At the moment, '
