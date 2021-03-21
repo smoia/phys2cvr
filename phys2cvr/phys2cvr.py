@@ -47,7 +47,8 @@ def save_bash_call(outdir):
 def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
              freq='', tr='', trial_len='', n_trials='', highcut='', lowcut='',
              apply_filter='', no_pad='', no_phys=False, do_regression=False,
-             lagged_regression=True, maxlag=9, denoise_matrix='',
+             lagged_regression=True, maxlag=9, d_lag='', l_degree=0, denoise_matrix=[],
+             scale_factor='', lag_map='', regr_dir='', skip_conv=False,
              quiet=False, debug=False):
     """
     Run main workflow of phys2cvr.
