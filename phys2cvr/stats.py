@@ -178,8 +178,10 @@ def regression(data, mask, regr, mat_conf):
     # first compute number of degrees of freedom
     dofs = data_2d.shape[1] - mat.shape[1]
     # compute sigma:
-    # sigma = sum{[data_2d - (mat * betas)]^2} / dofs
-    sigma = np.sum(np.power(data_2d.T - np.dot(mat, betas), 2), axis=0) / dofs
+    # RSS = sum{[mdata - (X * betas)]^2}
+    # sigma = RSS / Degrees_of_Freedom
+    RSS = np.sum(np.power(data_2d.T - np.dot(mat, betas), 2), axis=0)
+    sigma = (RSS / dofs)
     sigma = sigma[..., np.newaxis]
     # Copmute std of betas:
     # C = (mat^T * mat)_ii^(-1)
@@ -189,8 +191,11 @@ def regression(data, mask, regr, mat_conf):
     std_betas = np.sqrt(np.dot(sigma, C.T))
     tstats = betas / std_betas.T
 
-    # #!# Compute R^2 multiple determination!
-    r_square = 1
+    # Compute R^2 coefficient of multiple determination!
+    # R^2 = 1 - RSS/TSS, where TSS (total sum of square) is variance*samples
+    # #!# Check the axis here
+    TSS = data_2d.var(axis=1) * data_2d.shape[1]
+    r_square = np.ones(data_2d.shape[0]) - (RSS / TSS)
 
     # Assign betas, Rsquare and tstats to new volume
     bout = mask * 1.0
