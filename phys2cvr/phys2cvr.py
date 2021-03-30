@@ -246,34 +246,83 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                 step = d_lag * freq
             else:
                 step = 1
-            outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
-            r_square = np.empty((func.shape[0], func.shape[1], func.shape[2], nrep // step))
-            beta_all = np.empty((func.shape[0], func.shape[1], func.shape[2], nrep // step))
-            tstat_all = np.empty((func.shape[0], func.shape[1], func.shape[2], nrep // step))
 
-            for n, i in range(0, nrep, step):
-                LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
-                # #!# Maybe this can be in memory
-                regr = np.genfromtxt(f'{outprefix}_{i:04g}')
+            if regr_dir:
+                outprefix = os.path.join(regr_dir, os.path.split(outname)[1])
 
-                beta_all[:, :, :, n],
-                tstat_all[:, :, :, n],
-                r_square[:, :, :, n] = stats.regression(func, dmask, regr,
-                                                        mat_conf)
+            # If user specified a lag map, use that one to regress things
+            if lag_map:
+                lag, _, _ = io.load_nifti_get_mask(lag_map)
+                if func.shape[:3] != lag.shape:
+                    raise Exception(f'{lag_map} and {fname_func} have different sizes!')
 
-            lag_idx = np.argmax(r_square, axis=-1)
-            lag = lag_idx / freq
-            beta = beta_all[:, :, :, lag_idx]
-            tstat = tstat_all[:, :, :, lag_idx]
+                # Read d_lag from file (or try to)
+                lag_list = np.unique(lag)
+                if not d_lag:
+                    d_lag = np.unique(lag_list[1:] - lag_list[:-1])
+                    if d_lag.size > 1:
+                        raise Exception(f'phys2cvr found different delta lags in {lag_map}')
+                    else:
+                        d_lag = float(d_lag)
+                        LGR.warning(f'phys2cvr detected a delta lag of {d_lag} seconds')
+                if d_lag:
+                    LGR.warning(f'Forcing delta lag to be {d_lag}')
+
+                lag = lag * dmask
+
+                lag_idx = (lag + maxlag) * freq / step
+
+                lag_list = np.unique[lag_idx]
+
+                # Prepare empty matrices
+                beta = np.empty(lag.shape)
+                tstat = np.empty(lag.shape)
+
+                for n in lag_list:
+                    LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
+                    if regr_shifts:
+                        regr = regr_shifts[n, :]
+                    else:
+                        regr = np.genfromtxt(f'{outprefix}_{(n*step):04g}')
+
+                    beta[lag_idx == n],
+                    tstat[lag_idx == n],
+                    _ = stats.regression(func[lag_idx == n], [lag_idx == n],
+                                         regr, mat_conf)
+
+            else:
+                # Prepare empty matrices
+                r_square = np.empty(list(func.shape[:2]) + [nrep // step])
+                beta_all = np.empty(list(func.shape[:2]) + [nrep // step])
+                tstat_all = np.empty(list(func.shape[:2]) + [nrep // step])
+
+                for n, i in enumerate(range(0, nrep, step)):
+                    LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
+                    if regr_shifts:
+                        regr = regr_shifts[n, :]
+                    else:
+                        regr = np.genfromtxt(f'{outprefix}_{i:04g}')
+
+                    beta_all[:, :, :, n],
+                    tstat_all[:, :, :, n],
+                    r_square[:, :, :, n] = stats.regression(func, dmask, regr,
+                                                            mat_conf)
+
+                lag_idx = np.argmax(r_square, axis=-1)
+                lag = (lag_idx * step) / freq - maxlag
+                beta = beta_all[:, :, :, lag_idx]
+                tstat = tstat_all[:, :, :, lag_idx]
 
         LGR.info('Export fine shift results')
         if not scale_factor:
             LGR.warning('Remember: CVR might not be in %%BOLD/mmHg!')
         else:
             beta = beta * scale_factor
-            io.export_nifti(beta, oimg, f'{outfuncname}_cvr')
+
+        io.export_nifti(beta, oimg, f'{outfuncname}_cvr')
+        io.export_nifti(tstat, oimg, f'{outfuncname}_tstat')
+        if not lag_map:
             io.export_nifti(lag, oimg, f'{outfuncname}_lag')
-            io.export_nifti(tstat, oimg, f'{outfuncname}_tstat')
 
     elif do_regression:
         LGR.warning('The input file is not a nifti volume. At the moment, '
