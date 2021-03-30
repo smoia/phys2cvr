@@ -36,10 +36,10 @@ def save_bash_call(outdir):
     arg_str = ' '.join(sys.argv[1:])
     call_str = f'phys2cvr {arg_str}'
     outdir = os.path.abspath(outdir)
-    log_path = os.path.join(outdir, 'code', 'logs')
+    log_path = os.path.join(outdir, 'logs')
     os.makedirs(log_path, exist_ok=True)
     isotime = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
-    f = open(os.path.join(log_path, f'p2c_call_{isotime}.sh'), "a")
+    f = open(os.path.join(log_path, f'p2c_call_{isotime}.sh'), 'a')
     f.write(f'#!bin/bash \n{call_str}')
     f.close()
 
