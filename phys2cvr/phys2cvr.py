@@ -54,17 +54,19 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
     Run main workflow of phys2cvr.
     """
     # Add logger and suff
+    if outdir:
+        outdir = os.path.abspath(outdir)
+    else:
+        outdir = os.path.join(os.path.split(fname_func)[0], 'phys2cvr')
     outdir = os.path.abspath(outdir)
-    os.makedirs(outdir, exist_ok=True)
-    petco2log_path = outdir
-    # petco2log_path = os.path.join(outdir, 'code', 'petco2log')
-    # os.makedirs(petco2log_path, exist_ok=True)
+    petco2log_path = os.path.join(outdir, 'logs')
+    os.makedirs(petco2log_path, exist_ok=True)
 
     # Create logfile name
     basename = 'phys2cvr_'
     extension = 'tsv'
     isotime = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
-    logname = os.path.join(petco2log_path, (basename + isotime + '.' + extension))
+    logname = os.path.join(petco2log_path, f'{basename}{isotime}.{extension}')
 
     # Set logging format
     log_formatter = logging.Formatter(
