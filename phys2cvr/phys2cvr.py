@@ -182,17 +182,20 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         # Set output file & path - calling splitext twice cause .gz
         basename_co2 = os.path.splitext(os.path.splitext(os.path.basename(fname_co2))[0])[0]
         outname = os.join(outdir, basename_co2)
+
+        # Unless user asks to skip this step, convolve the end tidal signal.
         if skip_conv:
             petco2hrf = co2
         else:
             petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
 
+    # If a regressor directory is not specified, compute the regressors.
     if not regr_dir:
         # #!# This should save all shifts in memory
         regr = stats.get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag, trial_len,
                               n_trials, no_pad, '.1D', lagged_regression)
 
-    # Add internal regression if required!
+    # Run internal regression if required and possible!
     if func_is_nifti and do_regression:
         LGR.info('Running regression!')
 
