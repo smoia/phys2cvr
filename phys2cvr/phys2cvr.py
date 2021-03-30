@@ -191,9 +191,15 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
     # If a regressor directory is not specified, compute the regressors.
     if not regr_dir:
-        # #!# This should save all shifts in memory
-        regr = stats.get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag, trial_len,
-                              n_trials, no_pad, '.1D', lagged_regression)
+        regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq, outname,
+                                           maxlag, trial_len, n_trials, no_pad,
+                                           '.1D', lagged_regression)
+    elif do_regression:
+        try:
+            regr = np.genfromtxt(f'{outname}_petco2hrf.1D')
+        except:
+            regr = stats.get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag,
+                                  trial_len, n_trials, no_pad, '.1D')
 
     # Run internal regression if required and possible!
     if func_is_nifti and do_regression:

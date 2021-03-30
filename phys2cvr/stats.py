@@ -124,6 +124,8 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
         # Set num of fine shifts: 9 seconds is a bit more than physiologically feasible
         nrep = int(maxlag * freq)
 
+        petco2hrf_shifts = np.empty([nrep*2, func_len])
+
         # Padding regressor for shift, and padding optshift too
         if (optshift - nrep) < 0:
             lpad = nrep - optshift
@@ -138,10 +140,14 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
         petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
 
         for i in range(-nrep, nrep):
-            petco2hrf_shift = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-            io.export_regressor(regr_x, petco2hrf_shift, func_x, outprefix, f'_{(i + nrep):04g}', ext)
+            petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
+            petco2hrf_shifts[i, :] = io.export_regressor(regr_x, petco2hrf_lagged,
+                                                         func_x, outprefix,
+                                                         f'_{(i + nrep):04g}', ext)
+    else:
+        petco2hrf_shifts = None
 
-    return petco2hrf_demean
+    return petco2hrf_demean, petco2hrf_shifts
 
 
 def get_legendre(degree, length):
