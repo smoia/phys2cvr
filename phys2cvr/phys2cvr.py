@@ -53,7 +53,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
     """
     Run main workflow of phys2cvr.
     """
-    breakpoint()
     # Add logger and suff
     if outdir:
         outdir = os.path.abspath(outdir)
@@ -78,7 +77,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
     log_handler = logging.FileHandler(logname)
     log_handler.setFormatter(log_formatter)
     sh = logging.StreamHandler()
-    breakpoint()
 
     if quiet:
         logging.basicConfig(level=logging.WARNING,
@@ -93,11 +91,9 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
     version_number = _version.get_versions()['version']
     LGR.info(f'Currently running phys2cvr version {version_number}')
     LGR.info(f'Input file is {fname_func}')
-    breakpoint()
 
     # Check func type and read it
     func_is_1d = io.check_ext(EXT_1D, fname_func)
-    breakpoint()
     func_is_nifti = io.check_ext(EXT_NIFTI, fname_func)
     breakpoint()
 
@@ -340,16 +336,16 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                 beta = beta_all[:, :, :, lag_idx]
                 tstat = tstat_all[:, :, :, lag_idx]
 
-        LGR.info('Export fine shift results')
-        if not scale_factor:
-            LGR.warning('Remember: CVR might not be in %%BOLD/mmHg!')
-        else:
-            beta = beta * scale_factor
+            LGR.info('Export fine shift results')
+            if not scale_factor:
+                LGR.warning('Remember: CVR might not be in %%BOLD/mmHg!')
+            else:
+                beta = beta * scale_factor
 
-        io.export_nifti(beta, oimg, f'{outfuncname}_cvr')
-        io.export_nifti(tstat, oimg, f'{outfuncname}_tstat')
-        if not lag_map:
-            io.export_nifti(lag, oimg, f'{outfuncname}_lag')
+            io.export_nifti(beta, oimg, f'{outfuncname}_cvr')
+            io.export_nifti(tstat, oimg, f'{outfuncname}_tstat')
+            if not lag_map:
+                io.export_nifti(lag, oimg, f'{outfuncname}_lag')
 
     elif do_regression:
         LGR.warning('The input file is not a nifti volume. At the moment, '
