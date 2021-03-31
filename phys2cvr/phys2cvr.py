@@ -310,7 +310,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                                                               mat_conf)
 
                 lag_idx = np.argmax(r_square, axis=-1)
-                breakpoint()
                 lag = (lag_idx * step) / freq - maxlag
                 beta = np.take(beta_all, lag_idx)
                 tstat = np.take(tstat_all, lag_idx)
