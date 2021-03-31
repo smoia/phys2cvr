@@ -183,7 +183,7 @@ def regression(data, mask, regr, mat_conf):
             raise Exception('The provided confounding matrix does not match '
                             'the dimensionality of the PetCO2hrf regressor!')
     # Stack mat and solve least square with it demeaned
-    mat = np.hstack(mat_conf, regr)
+    mat = np.hstack([mat_conf, regr])
     betas = np.linalg.lstsq(mat-mat.mean(axis=0),
                             data_2d.T, rcond=None)[0]
 
