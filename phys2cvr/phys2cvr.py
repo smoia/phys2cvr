@@ -219,6 +219,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         # Change dimensions in image header before export
         LGR.info('Prepare output image')
         outfuncname = os.path.splitext(os.path.splitext(fname_func)[0])[0]
+        outfuncname = os.path.join(outdir, outfuncname)
         newdim = deepcopy(img.header['dim'])
         newdim[0], newdim[4] = 3, 1
         oimg = deepcopy(img)
