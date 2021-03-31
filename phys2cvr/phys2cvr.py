@@ -262,7 +262,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
             nrep = int(maxlag * freq * 2)
             if d_lag:
-                step = d_lag * freq
+                step = int(d_lag * freq)
             else:
                 step = 1
 
