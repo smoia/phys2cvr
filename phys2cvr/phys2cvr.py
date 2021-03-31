@@ -212,21 +212,26 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         newdim[0], newdim[4] = 3, 1
         oimg = deepcopy(img)
         oimg.header['dim'] = newdim
+        breakpoint()
 
         # Start computing the polynomial regressor (at least average)
         LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
         mat_conf = stats.get_legendre(l_degree, regr.size)
+        breakpoint()
 
         # Read in eventual denoising factors
         if denoise_matrix:
-            LGR.info(f'Read confounding factor from {denoise_matrix}')
-            # #!# Check that mat and conf have the same orientation
-            # #!# This could be multiple denoising factors!
-            conf = np.genfromtxt(denoise_matrix)
-            mat_conf = np.hstack([mat_conf, conf])
+            breakpoint()
+            for matrix in denoise_matrix:
+                LGR.info(f'Read confounding factor from {denoise_matrix}')
+                # #!# Check that mat and conf have the same orientation
+                conf = np.genfromtxt(denoise_matrix)
+                mat_conf = np.hstack([mat_conf, conf])
+        breakpoint()
 
         LGR.info('Compute simple CVR estimation (bulk shift only)')
         beta, tstat, _ = stats.regression(func, dmask, regr, mat_conf)
+        breakpoint()
 
         LGR.info('Export bulk shift results')
         if not scale_factor:
