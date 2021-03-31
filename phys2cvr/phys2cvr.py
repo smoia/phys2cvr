@@ -236,7 +236,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             for matrix in denoise_matrix:
                 LGR.info(f'Read confounding factor from {denoise_matrix}')
                 # #!# Check that mat and conf have the same orientation
-                conf = np.genfromtxt(denoise_matrix)
+                conf = np.genfromtxt(matrix)
                 mat_conf = np.hstack([mat_conf, conf])
         breakpoint()
 
