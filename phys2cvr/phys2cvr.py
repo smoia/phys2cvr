@@ -312,8 +312,8 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                 lag_idx = np.argmax(r_square, axis=-1)
                 breakpoint()
                 lag = (lag_idx * step) / freq - maxlag
-                beta = beta_all[:, :, :, lag_idx]
-                tstat = tstat_all[:, :, :, lag_idx]
+                beta = np.take(beta_all, lag_idx)
+                tstat = np.take(tstat_all, lag_idx)
 
             LGR.info('Export fine shift results')
             if not scale_factor:
