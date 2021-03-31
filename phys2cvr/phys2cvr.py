@@ -95,7 +95,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
     # Check func type and read it
     func_is_1d = io.check_ext(EXT_1D, fname_func)
     func_is_nifti = io.check_ext(EXT_NIFTI, fname_func)
-    breakpoint()
 
     if func_is_1d:
         if tr:
@@ -115,7 +114,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             LGR.warning(f'Forcing TR to be {tr} seconds')
         else:
             tr = img.header['pixdim'][4]
-        breakpoint()
 
         # Read mask if provided
         if fname_mask:
@@ -126,7 +124,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         else:
             mask = dmask
             LGR.warning(f'No mask specified, using any voxel different from 0 in {fname_func}')
-        breakpoint()
 
         if apply_filter:
             LGR.info('Obtaining filtered average of {fname_func}')
@@ -139,7 +136,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         raise Exception(f'{fname_func} file type is not supported yet, or '
                         'the extension was not specified.')
 
-    breakpoint()
     if fname_co2 == '':
         LGR.info(f'Computing "CVR" maps using {fname_func} only')
         if func_is_1d:
@@ -186,7 +182,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         # Set output file & path - calling splitext twice cause .gz
         basename_co2 = os.path.splitext(os.path.splitext(os.path.basename(fname_co2))[0])[0]
         outname = os.path.join(outdir, basename_co2)
-        breakpoint()
 
         # Unless user asks to skip this step, convolve the end tidal signal.
         if skip_conv:
@@ -195,7 +190,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
 
     # If a regressor directory is not specified, compute the regressors.
-    breakpoint()
     if not regr_dir:
         regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq, outname,
                                            maxlag, trial_len, n_trials, no_pad,
@@ -209,7 +203,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
     # Run internal regression if required and possible!
     if func_is_nifti and do_regression:
-        breakpoint()
         LGR.info('Running regression!')
 
         # Change dimensions in image header before export
@@ -220,26 +213,21 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         newdim[0], newdim[4] = 3, 1
         oimg = deepcopy(img)
         oimg.header['dim'] = newdim
-        breakpoint()
 
         # Start computing the polynomial regressor (at least average)
         LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
         mat_conf = stats.get_legendre(l_degree, regr.size)
-        breakpoint()
 
         # Read in eventual denoising factors
         if denoise_matrix:
-            breakpoint()
             for matrix in denoise_matrix:
                 LGR.info(f'Read confounding factor from {matrix}')
                 # #!# Check that mat and conf have the same orientation
                 conf = np.genfromtxt(matrix)
                 mat_conf = np.hstack([mat_conf, conf])
-        breakpoint()
 
         LGR.info('Compute simple CVR estimation (bulk shift only)')
         beta, tstat, _ = stats.regression(func, dmask, regr, mat_conf)
-        breakpoint()
 
         LGR.info('Export bulk shift results')
         if not scale_factor:
@@ -249,12 +237,10 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         # Scale beta by scale factor while exporting (useful to transform V in mmHg)
         io.export_nifti(beta, oimg, f'{outfuncname}_cvr_simple')
         io.export_nifti(tstat, oimg, f'{outfuncname}_tstat_simple')
-        breakpoint()
 
         if lagged_regression:
             LGR.info(f'Running lagged CVR estimation with max lag = {maxlag}!'
                      '(might take a while...)')
-            breakpoint()
 
             nrep = int(maxlag * freq * 2)
             if d_lag:
@@ -262,7 +248,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             else:
                 step = 1
 
-            breakpoint()
             if regr_dir:
                 outprefix = os.path.join(regr_dir, os.path.split(outname)[1])
 
@@ -273,7 +258,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                     raise Exception(f'{lag_map} and {fname_func} have different sizes!')
 
                 # Read d_lag from file (or try to)
-                breakpoint()
                 lag_list = np.unique(lag)
                 if not d_lag:
                     d_lag = np.unique(lag_list[1:] - lag_list[:-1])
@@ -286,7 +270,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                     LGR.warning(f'Forcing delta lag to be {d_lag}')
 
                 lag = lag * dmask
-                breakpoint()
 
                 lag_idx = (lag + maxlag) * freq / step
 
@@ -295,41 +278,37 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                 # Prepare empty matrices
                 beta = np.empty(lag.shape)
                 tstat = np.empty(lag.shape)
-                breakpoint()
 
                 for n in lag_list:
                     LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
                     try:
-                        regr = regr_shifts[n, :]
+                        regr = regr_shifts[:, (n*step)]
                     except NameError:
                         regr = np.genfromtxt(f'{outprefix}_{(n*step):04g}')
 
-                    beta[lag_idx == n],
-                    tstat[lag_idx == n],
-                    _ = stats.regression(func[lag_idx == n], [lag_idx == n],
-                                         regr, mat_conf)
-                breakpoint()
+                    (beta[lag_idx == n],
+                     tstat[lag_idx == n],
+                     _) = stats.regression(func[lag_idx == n], [lag_idx == n],
+                                           regr, mat_conf)
 
             else:
                 # Prepare empty matrices
                 r_square = np.empty(list(func.shape[:3]) + [nrep // step])
                 beta_all = np.empty(list(func.shape[:3]) + [nrep // step])
                 tstat_all = np.empty(list(func.shape[:3]) + [nrep // step])
-                breakpoint()
 
                 for n, i in enumerate(range(0, nrep, step)):
                     LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
                     try:
-                        regr = regr_shifts[n, :]
+                        regr = regr_shifts[:, i]
                     except NameError:
                         regr = np.genfromtxt(f'{outprefix}_{i:04g}')
 
-                    beta_all[:, :, :, n],
-                    tstat_all[:, :, :, n],
-                    r_square[:, :, :, n] = stats.regression(func, dmask, regr,
-                                                            mat_conf)
+                    (beta_all[:, :, :, n],
+                     tstat_all[:, :, :, n],
+                     r_square[:, :, :, n]) = stats.regression(func, dmask, regr,
+                                                              mat_conf)
 
-                breakpoint()
                 lag_idx = np.argmax(r_square, axis=-1)
                 breakpoint()
                 lag = (lag_idx * step) / freq - maxlag
