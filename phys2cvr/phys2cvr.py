@@ -189,7 +189,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
         # Set output file & path - calling splitext twice cause .gz
         basename_co2 = os.path.splitext(os.path.splitext(os.path.basename(fname_co2))[0])[0]
-        outname = os.join(outdir, basename_co2)
+        outname = os.path.join(outdir, basename_co2)
         breakpoint()
 
         # Unless user asks to skip this step, convolve the end tidal signal.
@@ -208,8 +208,8 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         try:
             regr = np.genfromtxt(f'{outname}_petco2hrf.1D')
         except:
-            regr = stats.get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag,
-                                  trial_len, n_trials, no_pad, '.1D')
+            regr, _ = stats.get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag,
+                                     trial_len, n_trials, no_pad, '.1D')
 
     # Run internal regression if required and possible!
     if func_is_nifti and do_regression:
@@ -311,6 +311,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                     tstat[lag_idx == n],
                     _ = stats.regression(func[lag_idx == n], [lag_idx == n],
                                          regr, mat_conf)
+                breakpoint()
 
             else:
                 # Prepare empty matrices
@@ -331,6 +332,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                     r_square[:, :, :, n] = stats.regression(func, dmask, regr,
                                                             mat_conf)
 
+                breakpoint()
                 lag_idx = np.argmax(r_square, axis=-1)
                 breakpoint()
                 lag = (lag_idx * step) / freq - maxlag
