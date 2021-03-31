@@ -53,9 +53,6 @@ def create_hrf(freq=40):
     hrf[hrf == 0] = min_hrf
     hrf = hrf/max(hrf)
 
-    plt.figure()
-    plt.plot(time_axis, hrf)
-
     return hrf
 
 
