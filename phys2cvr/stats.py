@@ -107,6 +107,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.plot(time_axis, xcorr)
+    # #!# A plot of (the two) xcorr here would be good.
     plt.title('optshift')
     plt.savefig(f'{outname}_optshift.png', dpi=SET_DPI)
 
