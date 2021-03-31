@@ -299,9 +299,9 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
                 for n in lag_list:
                     LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
-                    if regr_shifts:
+                    try:
                         regr = regr_shifts[n, :]
-                    else:
+                    except NameError:
                         regr = np.genfromtxt(f'{outprefix}_{(n*step):04g}')
 
                     beta[lag_idx == n],
@@ -319,9 +319,9 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
                 for n, i in enumerate(range(0, nrep, step)):
                     LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
-                    if regr_shifts:
+                    try:
                         regr = regr_shifts[n, :]
-                    else:
+                    except NameError:
                         regr = np.genfromtxt(f'{outprefix}_{i:04g}')
 
                     beta_all[:, :, :, n],
