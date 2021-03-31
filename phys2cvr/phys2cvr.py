@@ -316,9 +316,9 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
             else:
                 # Prepare empty matrices
-                r_square = np.empty(list(func.shape[:2]) + [nrep // step])
-                beta_all = np.empty(list(func.shape[:2]) + [nrep // step])
-                tstat_all = np.empty(list(func.shape[:2]) + [nrep // step])
+                r_square = np.empty(list(func.shape[:3]) + [nrep // step])
+                beta_all = np.empty(list(func.shape[:3]) + [nrep // step])
+                tstat_all = np.empty(list(func.shape[:3]) + [nrep // step])
                 breakpoint()
 
                 for n, i in enumerate(range(0, nrep, step)):
