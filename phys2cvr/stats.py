@@ -32,7 +32,6 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
     xcorr = np.empty(lastrep+firstrep)
     for i in range(firstrep, lastrep):
         xcorr[i] = np.corrcoef(func, co2[0+i+offset:len(func)+i+offset].T)[1, 0]
-    breakpoint()
 
     return xcorr.max(), (xcorr.argmax() + firstrep + offset), xcorr
 
@@ -145,7 +144,6 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
             petco2hrf_shifts[:, i] = io.export_regressor(regr_x, petco2hrf_lagged,
                                                          func_x, outprefix,
                                                          f'_{(i + nrep):04g}', ext)
-        breakpoint()
     else:
         petco2hrf_shifts = None
 
