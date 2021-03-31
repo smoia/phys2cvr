@@ -119,23 +119,25 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             LGR.warning(f'Forcing TR to be {tr} seconds')
         else:
             tr = img.header['pixdim'][4]
+        breakpoint()
 
         # Read mask if provided
         if fname_mask:
-            _, mask, _ = io.load_nifti_get_mask(fname_mask)
+            _, mask, _ = io.load_nifti_get_mask(fname_mask, is_mask=True)
             if func.shape[:3] != mask.shape:
                 raise Exception(f'{fname_mask} and {fname_func} have different sizes!')
             mask = mask * dmask
         else:
             mask = dmask
             LGR.warning(f'No mask specified, using any voxel different from 0 in {fname_func}')
+        breakpoint()
 
         if apply_filter:
             LGR.info('Obtaining filtered average of {fname_func}')
             func_filt = signal.filter_signal(func, tr, lowcut, highcut)
-            func_avg = func_filt[mask].mean(axis=-1)
+            func_avg = func_filt[mask].mean(axis=0)
         else:
-            func_avg = func[mask].mean(axis=-1)
+            func_avg = func[mask].mean(axis=0)
 
     else:
         raise Exception(f'{fname_func} file type is not supported yet, or '
