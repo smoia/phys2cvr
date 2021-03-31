@@ -175,7 +175,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             co2 = np.genfromtxt(fname_co2)
         elif co2_is_phys:
             # Read a phys file!
-            phys = load_physio(fname_co2)
+            phys = load_physio(fname_co2, allow_pickle=True)
 
             co2 = phys.data
             pidx = phys.peaks
