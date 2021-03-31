@@ -109,11 +109,13 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
     # #!# A plot of (the two) xcorr here would be good.
     plt.title('optshift')
     plt.savefig(f'{outname}_optshift.png', dpi=SET_DPI)
+    plt.close()
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.plot(sct.zscore(petco2hrf_shift), '-', sct.zscore(func_upsampled), '-')
     plt.title('GM and shift')
     plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
+    plt.close()
 
     petco2hrf_demean = io.export_regressor(regr_x, petco2hrf_shift, func_x, outname, 'petco2hrf', ext)
 
