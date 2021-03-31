@@ -32,6 +32,7 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
     xcorr = np.empty(lastrep+firstrep)
     for i in range(firstrep, lastrep):
         xcorr[i] = np.corrcoef(func, co2[0+i+offset:len(func)+i+offset].T)[1, 0]
+    breakpoint()
 
     return xcorr.max(), (xcorr.argmax() + firstrep + offset), xcorr
 
@@ -39,8 +40,7 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
 def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
              n_trials='', no_pad=False, ext='.1D', lagged_regression=True):
     # Setting up some variables
-    first_tp = 0
-    last_tp = -1
+    first_tp, last_tp = 0, -1
 
     if trial_len and n_trials:
         # If both are specified, disregard two extreme _trial from matching.
