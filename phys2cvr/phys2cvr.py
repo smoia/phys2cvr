@@ -53,6 +53,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
     """
     Run main workflow of phys2cvr.
     """
+    breakpoint()
     # Add logger and suff
     if outdir:
         outdir = os.path.abspath(outdir)
@@ -77,6 +78,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
     log_handler = logging.FileHandler(logname)
     log_handler.setFormatter(log_formatter)
     sh = logging.StreamHandler()
+    breakpoint()
 
     if quiet:
         logging.basicConfig(level=logging.WARNING,
@@ -91,10 +93,13 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
     version_number = _version.get_versions()['version']
     LGR.info(f'Currently running phys2cvr version {version_number}')
     LGR.info(f'Input file is {fname_func}')
+    breakpoint()
 
     # Check func type and read it
     func_is_1d = io.check_ext(EXT_1D, fname_func)
+    breakpoint()
     func_is_nifti = io.check_ext(EXT_NIFTI, fname_func)
+    breakpoint()
 
     if func_is_1d:
         if tr:
@@ -136,6 +141,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         raise Exception(f'{fname_func} file type is not supported yet, or '
                         'the extension was not specified.')
 
+    breakpoint()
     if fname_co2 == '':
         LGR.info(f'Computing "CVR" maps using {fname_func} only')
         if func_is_1d:
@@ -182,6 +188,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         # Set output file & path - calling splitext twice cause .gz
         basename_co2 = os.path.splitext(os.path.splitext(os.path.basename(fname_co2))[0])[0]
         outname = os.join(outdir, basename_co2)
+        breakpoint()
 
         # Unless user asks to skip this step, convolve the end tidal signal.
         if skip_conv:
@@ -190,6 +197,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
 
     # If a regressor directory is not specified, compute the regressors.
+    breakpoint()
     if not regr_dir:
         regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq, outname,
                                            maxlag, trial_len, n_trials, no_pad,
@@ -203,6 +211,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
     # Run internal regression if required and possible!
     if func_is_nifti and do_regression:
+        breakpoint()
         LGR.info('Running regression!')
 
         # Change dimensions in image header before export
@@ -241,10 +250,12 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         # Scale beta by scale factor while exporting (useful to transform V in mmHg)
         io.export_nifti(beta, oimg, f'{outfuncname}_cvr_simple')
         io.export_nifti(tstat, oimg, f'{outfuncname}_tstat_simple')
+        breakpoint()
 
         if lagged_regression:
             LGR.info(f'Running lagged CVR estimation with max lag = {maxlag}!'
                      '(might take a while...)')
+            breakpoint()
 
             nrep = int(maxlag * freq * 2)
             if d_lag:
@@ -252,6 +263,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             else:
                 step = 1
 
+            breakpoint()
             if regr_dir:
                 outprefix = os.path.join(regr_dir, os.path.split(outname)[1])
 
@@ -262,6 +274,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                     raise Exception(f'{lag_map} and {fname_func} have different sizes!')
 
                 # Read d_lag from file (or try to)
+                breakpoint()
                 lag_list = np.unique(lag)
                 if not d_lag:
                     d_lag = np.unique(lag_list[1:] - lag_list[:-1])
@@ -274,6 +287,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                     LGR.warning(f'Forcing delta lag to be {d_lag}')
 
                 lag = lag * dmask
+                breakpoint()
 
                 lag_idx = (lag + maxlag) * freq / step
 
@@ -282,6 +296,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                 # Prepare empty matrices
                 beta = np.empty(lag.shape)
                 tstat = np.empty(lag.shape)
+                breakpoint()
 
                 for n in lag_list:
                     LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
@@ -300,6 +315,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                 r_square = np.empty(list(func.shape[:2]) + [nrep // step])
                 beta_all = np.empty(list(func.shape[:2]) + [nrep // step])
                 tstat_all = np.empty(list(func.shape[:2]) + [nrep // step])
+                breakpoint()
 
                 for n, i in enumerate(range(0, nrep, step)):
                     LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
@@ -314,6 +330,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                                                             mat_conf)
 
                 lag_idx = np.argmax(r_square, axis=-1)
+                breakpoint()
                 lag = (lag_idx * step) / freq - maxlag
                 beta = beta_all[:, :, :, lag_idx]
                 tstat = tstat_all[:, :, :, lag_idx]
