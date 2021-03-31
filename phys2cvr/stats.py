@@ -125,7 +125,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
         # Set num of fine shifts: 9 seconds is a bit more than physiologically feasible
         nrep = int(maxlag * freq)
 
-        petco2hrf_shifts = np.empty([nrep*2, func_len])
+        petco2hrf_shifts = np.empty([func_len, nrep*2])
 
         # Padding regressor for shift, and padding optshift too
         if (optshift - nrep) < 0:
@@ -142,9 +142,10 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
 
         for i in range(-nrep, nrep):
             petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-            petco2hrf_shifts[i, :] = io.export_regressor(regr_x, petco2hrf_lagged,
+            petco2hrf_shifts[:, i] = io.export_regressor(regr_x, petco2hrf_lagged,
                                                          func_x, outprefix,
                                                          f'_{(i + nrep):04g}', ext)
+        breakpoint()
     else:
         petco2hrf_shifts = None
 
