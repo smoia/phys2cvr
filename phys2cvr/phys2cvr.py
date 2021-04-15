@@ -273,22 +273,22 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
                 lag_idx = (lag + maxlag) * freq / step
 
-                lag_list = np.unique[lag_idx]
+                lag_idx_list = np.unique[lag_idx]
 
                 # Prepare empty matrices
-                beta = np.empty(lag.shape)
-                tstat = np.empty(lag.shape)
+                beta = np.empty_like(lag)
+                tstat = np.empty_like(lag)
 
-                for n in lag_list:
-                    LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
+                for i in lag_idx_list:
+                    LGR.info(f'Perform L-GLM number {i+1} of {nrep // step}')
                     try:
-                        regr = regr_shifts[:, (n*step)]
+                        regr = regr_shifts[:, (i*step)]
                     except NameError:
-                        regr = np.genfromtxt(f'{outprefix}_{(n*step):04g}')
+                        regr = np.genfromtxt(f'{outprefix}_{(i*step):04g}')
 
-                    (beta[lag_idx == n],
-                     tstat[lag_idx == n],
-                     _) = stats.regression(func[lag_idx == n], [lag_idx == n],
+                    (beta[lag_idx == i],
+                     tstat[lag_idx == i],
+                     _) = stats.regression(func[lag_idx == i], [lag_idx == i],
                                            regr, mat_conf)
 
             else:
@@ -309,10 +309,19 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                      r_square[:, :, :, n]) = stats.regression(func, dmask, regr,
                                                               mat_conf)
 
+                # Find the right lag for CVR estimation
                 lag_idx = np.argmax(r_square, axis=-1)
-                lag = (lag_idx * step) / freq - maxlag
-                beta = np.take(beta_all, lag_idx)
-                tstat = np.take(tstat_all, lag_idx)
+                lag = (lag_idx * step) / freq - (dmask*maxlag)
+                # Express lag map relative to median of the mask
+                lag_rel = lag - np.median(lag[mask])
+
+                # Run through indexes to pick the right value
+                lag_idx_list = np.unique(lag_idx)
+                beta = np.empty_like(lag)
+                tstat = np.empty_like(lag)
+                for i in lag_idx_list:
+                    beta[lag_idx == i] = beta_all[:, :, :, i][lag_idx == i]
+                    tstat[lag_idx == i] = tstat_all[:, :, :, i][lag_idx == i]
 
             LGR.info('Export fine shift results')
             if not scale_factor:
