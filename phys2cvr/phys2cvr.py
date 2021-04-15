@@ -333,6 +333,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             io.export_nifti(tstat, oimg, f'{outfuncname}_tstat')
             if not lag_map:
                 io.export_nifti(lag, oimg, f'{outfuncname}_lag')
+                io.export_nifti(lag_rel, oimg, f'{outfuncname}_lag_mkrel')
 
     elif do_regression:
         LGR.warning('The input file is not a nifti volume. At the moment, '
