@@ -170,10 +170,8 @@ def get_legendre(degree, length):
 
 
 def regression(data, mask, regr, mat_conf):
-    # Obtain data in 2d and SPC
+    # Obtain data in 2d
     data_2d = data[mask]
-    m = data_2d.mean(axis=1)[..., np.newaxis]
-    data_2d = (data_2d - m) / m
     # Check that regr has "two" dimensions
     if len(regr.shape) < 2:
         regr = regr[..., np.newaxis]

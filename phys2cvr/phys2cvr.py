@@ -214,6 +214,10 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         oimg = deepcopy(img)
         oimg.header['dim'] = newdim
 
+        # Compute signal percentage change of functional data
+        m = func.mean(axis=-1)[..., np.newaxis]
+        func = (func - m) / m
+
         # Start computing the polynomial regressor (at least average)
         LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
         mat_conf = stats.get_legendre(l_degree, regr.size)
@@ -222,7 +226,6 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         if denoise_matrix:
             for matrix in denoise_matrix:
                 LGR.info(f'Read confounding factor from {matrix}')
-                # #!# Check that mat and conf have the same orientation
                 conf = np.genfromtxt(matrix)
                 mat_conf = np.hstack([mat_conf, conf])
 
@@ -231,7 +234,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
         LGR.info('Export bulk shift results')
         if not scale_factor:
-            LGR.warning('Remember: CVR might not be in %%BOLD/mmHg!')
+            LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
         else:
             beta = beta * scale_factor
         # Scale beta by scale factor while exporting (useful to transform V in mmHg)
