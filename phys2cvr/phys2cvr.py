@@ -328,7 +328,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
             LGR.info('Export fine shift results')
             if not scale_factor:
-                LGR.warning('Remember: CVR might not be in %%BOLD/mmHg!')
+                LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
             else:
                 beta = beta * scale_factor
 

@@ -77,7 +77,6 @@ def filter_signal(data, tr, lowcut='', highcut=''):
         Input `data`, but filtered.
 
     """
-    # #!# This should be more flexible and implement low/highpass
     if not lowcut:
         lowcut = 0.02
     if not highcut:
