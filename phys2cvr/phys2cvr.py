@@ -126,7 +126,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
             LGR.warning(f'No mask specified, using any voxel different from 0 in {fname_func}')
 
         if apply_filter:
-            LGR.info('Obtaining filtered average of {fname_func}')
+            LGR.info(f'Obtaining filtered average of {fname_func}')
             func_filt = signal.filter_signal(func, tr, lowcut, highcut)
             func_avg = func_filt[mask].mean(axis=0)
         else:
