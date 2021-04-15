@@ -184,7 +184,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         outname = os.path.join(outdir, basename_co2)
 
         # Unless user asks to skip this step, convolve the end tidal signal.
-        if skip_conv:
+        if skip_conv or not fname_co2:
             petco2hrf = co2
         else:
             petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
