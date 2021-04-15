@@ -24,13 +24,50 @@ def _get_parser():
     parser = argparse.ArgumentParser()
     optional = parser._action_groups.pop()
     required = parser.add_argument_group('Required Argument:')
-    required.add_argument('-in', '--input-file',
-                          dest='filename',
+    required.add_argument('-f', '--input-func',
+                          dest='fname_func',
                           type=str,
-                          help=('The name of the BIDS formatted '
-                                'file containing physiological data, with or '
-                                'without extension.'),
+                          help=('Complete path (absolute or relative) and name '
+                                'of the file containing fMRI signal. This file '
+                                'can be a nifti file or a 1D txt file.'),
                           required=True)
+    optional.add_argument('-co2', '--input-co2',
+                          dest='fname_co2',
+                          type=str,
+                          help=('Complete path (absolute or relative) and name '
+                                'of the file containing CO2 signal (or equivalent '
+                                'physiological trace to compute the regressor). '
+                                'This file can be a 1D txt file or a .phys file '
+                                'from peakdet.'),
+                          default='')
+    optional.add_argument('-pk', '--input-peaks',
+                          dest='fname_pidx',
+                          type=str,
+                          help=('Complete path (absolute or relative) and name '
+                                'of the file containing the peak of the CO2 '
+                                'signal. Required if the CO2 '
+                                'signal file is not a .phys file. '
+                                'Use this option to overwrite the peaks specified '
+                                'in the .phys file.'),
+                          default='')
+    optional.add_argument('-m', '--input-mask',
+                          dest='fname_mask',
+                          type=str,
+                          help=('Complete path (absolute or relative) and name '
+                                'of the file containing a brain mask (nifti file). '
+                                'This mask will be used to extract the functional '
+                                'signal to run the cross correlation with the '
+                                'physiological regressor. Use this option to '
+                                'specify a GM mask or overwrite a full brain mask.'
+                                'If the functional file is specified and this '
+                                'option is not used, or the mask cannot be '
+                                'loaded, the program will create a mask using '
+                                'any voxel of the functional file constantly '
+                                'different from zero.'),
+                          default='')
+
+
+
     required.add_argument('-gm', '--gmfile',
                           dest='GM_mask',
                           type=str,
