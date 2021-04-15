@@ -314,9 +314,9 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
                 # Find the right lag for CVR estimation
                 lag_idx = np.argmax(r_square, axis=-1)
-                lag = (lag_idx * step) / freq - (dmask*maxlag)
+                lag = (lag_idx * step) / freq - (dmask * maxlag)
                 # Express lag map relative to median of the mask
-                lag_rel = lag - np.median(lag[mask])
+                lag_rel = lag - (dmask * np.median(lag[mask]))
 
                 # Run through indexes to pick the right value
                 lag_idx_list = np.unique(lag_idx)
