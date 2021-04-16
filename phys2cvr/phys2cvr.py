@@ -46,13 +46,16 @@ def save_bash_call(outdir):
 
 def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
              freq='', tr='', trial_len='', n_trials='', highcut='', lowcut='',
-             apply_filter=False, do_regression=False,
-             lagged_regression=True, maxlag=9, d_lag='', l_degree=0, denoise_matrix=[],
+             apply_filter=False, run_regression=False, lagged_regression=False,
+             maxlag=9, d_lag='', l_degree=0, denoise_matrix=[],
              scale_factor='', lag_map='', regr_dir='', skip_conv=False,
              quiet=False, debug=False):
     """
     Run main workflow of phys2cvr.
     """
+    # If lagged regression is selected, make sure run_regression is true.
+    if lagged_regression:
+        run_regression = True
     # Add logger and suff
     if outdir:
         outdir = os.path.abspath(outdir)
@@ -194,15 +197,17 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq, outname,
                                            maxlag, trial_len, n_trials,
                                            '.1D', lagged_regression)
-    elif do_regression:
+    elif run_regression:
         try:
             regr = np.genfromtxt(f'{outname}_petco2hrf.1D')
         except:
+            LGR.warning(f'Regressor {outname}_petco2hrf.1D not found. '
+                        'Estimating it.')
             regr, _ = stats.get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag,
                                      trial_len, n_trials, '.1D')
 
     # Run internal regression if required and possible!
-    if func_is_nifti and do_regression:
+    if func_is_nifti and run_regression:
         LGR.info('Running regression!')
 
         # Change dimensions in image header before export
@@ -338,7 +343,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                 io.export_nifti(lag, oimg, f'{outfuncname}_lag')
                 io.export_nifti(lag_rel, oimg, f'{outfuncname}_lag_mkrel')
 
-    elif do_regression:
+    elif run_regression:
         LGR.warning('The input file is not a nifti volume. At the moment, '
                     'regression is not supported for other formats.')
 
