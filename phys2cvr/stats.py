@@ -37,7 +37,7 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
 
 
 def get_regr(func_avg, petco2hrf, tr, freq, outname, maxlag=9, trial_len='',
-             n_trials='', no_pad=False, ext='.1D', lagged_regression=True):
+             n_trials='', ext='.1D', lagged_regression=True):
     # Setting up some variables
     first_tp, last_tp = 0, -1
 
