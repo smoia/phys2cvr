@@ -36,7 +36,7 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
     return xcorr.max(), (xcorr.argmax() + firstrep + offset), xcorr
 
 
-def get_regr(func_avg, petco2hrf, tr, freq, outname, max_lag=9, trial_len='',
+def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
              n_trials='', ext='.1D', lagged_regression=True):
     # Setting up some variables
     first_tp, last_tp = 0, -1
@@ -123,7 +123,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, max_lag=9, trial_len='',
         os.makedirs(os.path.join(os.path.split(outname)[0], 'regr'), exist_ok=True)
 
         # Set num of fine shifts: 9 seconds is a bit more than physiologically feasible
-        nrep = int(max_lag * freq)
+        nrep = int(lag_max * freq)
 
         petco2hrf_shifts = np.empty([func_len, nrep*2])
 

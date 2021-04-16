@@ -47,7 +47,7 @@ def save_bash_call(outdir):
 def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
              freq='', tr='', trial_len='', n_trials='', highcut='', lowcut='',
              apply_filter=False, run_regression=False, lagged_regression=False,
-             max_lag=9, d_lag='', l_degree=0, denoise_matrix=[],
+             lag_max=9, lag_step='', l_degree=0, denoise_matrix=[],
              scale_factor='', lag_map='', regr_dir='', skip_conv=False,
              quiet=False, debug=False):
     """
@@ -195,7 +195,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
     # If a regressor directory is not specified, compute the regressors.
     if not regr_dir:
         regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq, outname,
-                                           max_lag, trial_len, n_trials,
+                                           lag_max, trial_len, n_trials,
                                            '.1D', lagged_regression)
     elif run_regression:
         try:
@@ -203,7 +203,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         except:
             LGR.warning(f'Regressor {outname}_petco2hrf.1D not found. '
                         'Estimating it.')
-            regr, _ = stats.get_regr(func_avg, petco2hrf, tr, freq, outname, max_lag,
+            regr, _ = stats.get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max,
                                      trial_len, n_trials, '.1D')
 
     # Run internal regression if required and possible!
@@ -247,12 +247,12 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
         io.export_nifti(tstat, oimg, f'{outfuncname}_tstat_simple')
 
         if lagged_regression:
-            LGR.info(f'Running lagged CVR estimation with max lag = {max_lag}!'
+            LGR.info(f'Running lagged CVR estimation with max lag = {lag_max}!'
                      '(might take a while...)')
 
-            nrep = int(max_lag * freq * 2)
-            if d_lag:
-                step = int(d_lag * freq)
+            nrep = int(lag_max * freq * 2)
+            if lag_step:
+                step = int(lag_step * freq)
             else:
                 step = 1
 
@@ -265,21 +265,21 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
                 if func.shape[:3] != lag.shape:
                     raise Exception(f'{lag_map} and {fname_func} have different sizes!')
 
-                # Read d_lag from file (or try to)
+                # Read lag_step from file (or try to)
                 lag_list = np.unique(lag)
-                if not d_lag:
-                    d_lag = np.unique(lag_list[1:] - lag_list[:-1])
-                    if d_lag.size > 1:
+                if not lag_step:
+                    lag_step = np.unique(lag_list[1:] - lag_list[:-1])
+                    if lag_step.size > 1:
                         raise Exception(f'phys2cvr found different delta lags in {lag_map}')
                     else:
-                        d_lag = float(d_lag)
-                        LGR.warning(f'phys2cvr detected a delta lag of {d_lag} seconds')
-                if d_lag:
-                    LGR.warning(f'Forcing delta lag to be {d_lag}')
+                        lag_step = float(lag_step)
+                        LGR.warning(f'phys2cvr detected a delta lag of {lag_step} seconds')
+                if lag_step:
+                    LGR.warning(f'Ignoring delta lag of {lag_step}')
 
                 lag = lag * dmask
 
-                lag_idx = (lag + max_lag) * freq / step
+                lag_idx = (lag + lag_max) * freq / step
 
                 lag_idx_list = np.unique[lag_idx]
 
@@ -319,7 +319,7 @@ def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
 
                 # Find the right lag for CVR estimation
                 lag_idx = np.argmax(r_square, axis=-1)
-                lag = (lag_idx * step) / freq - (dmask * max_lag)
+                lag = (lag_idx * step) / freq - (dmask * lag_max)
                 # Express lag map relative to median of the mask
                 lag_rel = lag - (dmask * np.median(lag[mask]))
 
