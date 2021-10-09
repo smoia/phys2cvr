@@ -1,3 +1,15 @@
+# 0.0.2 (Sat Oct 09 2021)
+
+#### 🐛 Bug Fix
+
+- Invert CLI behaviour for lagged regressors, improve workflow input parameters definition and check [#16](https://github.com/smoia/phys2cvr/pull/16) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.0.1 (Sat Oct 09 2021)
 
 #### 🐛 Bug Fix
