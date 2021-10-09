@@ -225,6 +225,18 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
     func_is_1d = io.check_ext(EXT_1D, fname_func)
     func_is_nifti = io.check_ext(EXT_NIFTI, fname_func)
 
+    # Check that all input values have right type
+    tr = io.if_declared_force_type(tr, 'float', 'tr')
+    freq = io.if_declared_force_type(freq, 'float', 'freq')
+    trial_len = io.if_declared_force_type(trial_len, 'int', 'trial_len')
+    n_trials = io.if_declared_force_type(n_trials, 'int', 'n_trials')
+    highcut = io.if_declared_force_type(highcut, 'float', 'highcut')
+    lowcut = io.if_declared_force_type(lowcut, 'float', 'lowcut')
+    lag_max = io.if_declared_force_type(lag_max, 'float', 'lag_max')
+    lag_step = io.if_declared_force_type(lag_step, 'float', 'lag_step')
+    l_degree = io.if_declared_force_type(l_degree, 'int', 'l_degree')
+    scale_factor = io.if_declared_force_type(scale_factor, 'float', 'scale_factor')
+
     if func_is_1d:
         if tr:
             func_avg = np.genfromtxt(fname_func)
@@ -367,7 +379,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         if not scale_factor:
             LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
         else:
-            beta = beta * scale_factor
+            beta = beta * float(scale_factor)
         # Scale beta by scale factor while exporting (useful to transform V in mmHg)
         io.export_nifti(beta, oimg, f'{outfuncname}_cvr_simple')
         io.export_nifti(tstat, oimg, f'{outfuncname}_tstat_simple')
@@ -398,7 +410,6 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
                     if lag_step.size > 1:
                         raise Exception(f'phys2cvr found different delta lags in {lag_map}')
                     else:
-                        lag_step = float(lag_step)
                         LGR.warning(f'phys2cvr detected a delta lag of {lag_step} seconds')
                 if lag_step:
                     LGR.warning(f'Forcing delta lag to be {lag_step}')
