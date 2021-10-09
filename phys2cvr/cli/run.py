@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Parser for phys2cvr
+Parser for phys2cvr.
 """
 
 import argparse

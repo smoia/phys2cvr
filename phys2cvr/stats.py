@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+"""
+Statistical module for phys2cvr.
+
+Attributes
+----------
+LGR :
+    Logger
+"""
 
 import logging
 import os
@@ -20,6 +28,36 @@ EXT_NIFTI = ['.nii', '.nii.gz']
 
 
 def x_corr(func, co2, lastrep, firstrep=0, offset=0):
+    """
+    Cross correlation between `func` and `co2`
+    
+    Parameters
+    ----------
+    func : np.array
+        Timeseries, must be SHORTER (or of equal length) than `co2`
+    co2 : np.array
+        Second timeseries, can be LONGER than `func` 
+    lastrep : int
+        Last index to take into account in `func`
+    firstrep : int, optional
+        First index totake into account in `func`
+    offset : int, optional
+        Optional amount of offset desired for `func`
+    
+    Returns
+    -------
+    float :
+        Highest correlation
+    int :
+        Index of higher correlation
+    xcorr : np.array
+        Full Xcorr
+    
+    Raises
+    ------
+    ValueError
+        If `offset` is too high for the functional file
+    """
     if len(func) + offset > len(co2):
         raise ValueError(f'The specified offset of {offset} is too high to '
                          f'compare func of length {len(func)} with co2 of '
@@ -38,6 +76,46 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
 
 def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
              n_trials='', ext='.1D', lagged_regression=True):
+    """
+    Creates regressor(s) of interest for nifti GLM
+    
+    Parameters
+    ----------
+    func_avg : np.array
+        Functional timeseries
+    petco2hrf : np.array
+        Regressor of interest
+    tr : str, int, or float
+        TR of timeseries
+    freq : str, int, or float
+        Sample frequency of petco2hrf
+    outname : list or path
+        Path to output directory for regressors.
+    lag_max : int or float, optional
+        Limits (both positive and negative) of the temporal area to explore,
+        expressed in seconds.
+        Default: 9 (i.e. ±9 seconds)
+    trial_len : str or int, optional
+        Length of each single trial for tasks that have more than one
+        (E.g. BreathHold, CO2 challenges, ...)
+        Used to improve cross correlation estimation.
+        Default: None
+    n_trials : str or int, optional
+        Number of trials in the task.
+        Default: None
+    ext : str, optional
+        Extension to be used for the exported regressors.
+    lagged_regression : bool, optional
+        Estimate regressors for each possible lag of `petco2hrf`.
+        If True, the maximum number of regressors will be `(freq*lag_max*2)-1`
+    
+    Returns
+    -------
+    petco2hrf_demean : np.array
+        The central, demeaned petco2hrf regressor.
+    petco2hrf_shifts : np.array
+        The other shifted versions of the regressor.
+    """
     # Setting up some variables
     first_tp, last_tp = 0, -1
 
@@ -152,7 +230,21 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
 
 
 def get_legendre(degree, length):
-
+    """
+    Produces the Legendre polynomials of order `degree`.
+    
+    Parameters
+    ----------
+    degree : int
+        Highest order desired.
+    length : int
+        Number of samples of the polynomials.
+    
+    Returns
+    -------
+    legendre : np.array
+        A `degree`*`length` array with all the polynomials up to order `degree`
+    """
     def _bonnet(d, x):
         if(d == 0):
             return np.ones_like(x)
@@ -169,6 +261,34 @@ def get_legendre(degree, length):
 
 
 def regression(data, mask, regr, mat_conf):
+    """
+    Estimates regression parameters
+    
+    Parameters
+    ----------
+    data : np.array
+        Dependent variable of the model (i.e. Y), as a 4D volume.
+    mask : np.array
+        A 3D mask to reduce the number of voxels to run the regression for.
+    regr : np.array
+        Regressor of interest
+    mat_conf : np.array
+        Confounding effects (regressors)
+    
+    Returns
+    -------
+    bout : np.array
+        Beta map
+    tout : np.array
+        T-stats map
+    rout : np.array
+        R^2 map
+    
+    Raises
+    ------
+    Exception
+        If `mat_conf` and `regr` do not have at least one common dimension.
+    """
     # Obtain data in 2d
     data_2d = data[mask]
     # Check that regr has "two" dimensions

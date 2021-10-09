@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+"""
+Signal analysis module for phys2cvr.
+
+Attributes
+----------
+LGR :
+    Logger
+"""
 
 import logging
 
@@ -18,17 +26,17 @@ LGR.setLevel(logging.INFO)
 def create_hrf(freq=40):
     """
     Create a canonical haemodynamic response function sampled at the given frequency.
-
+    
     Parameters
     ----------
-    freq: float
+    freq : float
         Sampling frequency of the haemodynamic response function.
-
+    
     Returns
     -------
-    hrf: np.ndarray
+    hrf : np.ndarray
         Haemodynamic response function.
-
+    
     """
     # Create HRF
     RT = 1/freq
@@ -59,23 +67,23 @@ def create_hrf(freq=40):
 def filter_signal(data, tr, lowcut='', highcut=''):
     """
     Create a bandpass filter given a lowcut and a highcut, then filter data.
-
+    
     Parameters
     ----------
-    data: np.ndarray
+    data : np.ndarray
         Data to filter (along last axis)
-    tr: float
+    tr : float
         TR of functional files
-    lowcut: float
+    lowcut : float
         Lower frequency in the bandpass
-    highcut: float
+    highcut : float
         Higher frequency in the bandpass
-
+    
     Returns
     -------
-    filt_data: np.ndarray
+    filt_data : np.ndarray
         Input `data`, but filtered.
-
+    
     """
     if not lowcut:
         lowcut = 0.02
@@ -90,6 +98,26 @@ def filter_signal(data, tr, lowcut='', highcut=''):
 
 
 def convolve_petco2(co2, pidx, freq, outname):
+    """
+    Convolve the CO2 trace into the PetCO2 trace
+    
+    Parameters
+    ----------
+    co2 : np.array
+        CO2 (or physiological) regressor
+    pidx : np.array
+        index of peaks
+    freq : str, int, or float
+        sample frequency of the CO2 regressor
+    outname : str
+        prefix of the exported file
+    
+    
+    Returns
+    -------
+    co2_conv : np.array
+        Convolved CO2 trace
+    """
     # Extract PETco2
     hrf = create_hrf(freq)
     co2_lenght = len(co2)

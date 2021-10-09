@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+"""
+Main file for phys2cvr.
+
+Attributes
+----------
+EXT_1D : list
+    List of supported TXT/1D file extensions, in lower case.
+EXT_NIFTI : list
+    List of supported nifti file extensions, in lower case.
+FIGSIZE : tuple
+    Figure size
+LGR :
+    Logger
+SET_DPI : int
+    DPI of the figure
+"""
 
 import datetime
 import logging
@@ -24,14 +40,11 @@ EXT_NIFTI = ['.nii', '.nii.gz']
 def save_bash_call(outdir):
     """
     Save the bash call into file `p2d_call.sh`.
-
+    
     Parameters
     ----------
-    metric : function
-        Metric function to retrieve arguments for
-    metric_args : dict
-        Dictionary containing all arguments for all functions requested by the
-        user
+    outdir : str or path, optional
+        output directory
     """
     arg_str = ' '.join(sys.argv[1:])
     call_str = f'phys2cvr {arg_str}'
@@ -44,14 +57,127 @@ def save_bash_call(outdir):
     f.close()
 
 
-def phys2cvr(fname_func, fname_co2='', fname_pidx='', fname_mask='', outdir='',
-             freq='', tr='', trial_len='', n_trials='', highcut='', lowcut='',
-             apply_filter=False, run_regression=False, lagged_regression=False,
-             lag_max=9, lag_step=0.3, l_degree=0, denoise_matrix=[],
-             scale_factor='', lag_map='', regr_dir='', skip_conv=False,
-             quiet=False, debug=False):
+def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
+             outdir=None, freq=None, tr=None, trial_len=None, n_trials=None,
+             highcut=None, lowcut=None, apply_filter=False,
+             run_regression=False, lagged_regression=True, lag_max=9,
+             lag_step=0.3, l_degree=0, denoise_matrix=[], scale_factor=None,
+             lag_map=None, regr_dir=None, skip_conv=False, quiet=False, debug=False):
     """
     Run main workflow of phys2cvr.
+    
+    Parameters
+    ----------
+    fname_func : str or path
+        Filename of the functional input (nifti or txt)
+    fname_co2 : str or path, optional
+        Filename of the CO2 (physiological regressor) timeseries.
+        Can be either peakdet's output or a txt file.
+        If not declared, phys2cvr will consider the average temporal value 
+        from the input.
+        Default: empty
+    fname_pidx : str or path, optional
+        Filename of the CO2 (physiological regressor) timeseries' PEAKS.
+        Required if CO2 file is a txt AND the convolution step is not skipped.
+        If not declared AND the convolution step is not skipped, raises an exception.
+        Default: empty
+    fname_mask : str or path, optional
+        Filename of the mask for nifti volume.
+        If declared, phys2cvr will run only on these voxels.
+        If not, phys2cvr will estimate a mask from the functional input.
+        Ignored if input is a txt file.
+        Default: empty
+    outdir : str or path, optional
+        Output directory
+        Default: the directory where `fname_func` is.
+    freq : str, int, or float, optional
+        Sample frequency of the CO2 regressor. Required if CO2 input is TXT file.
+        If declared with peakdet file, it will overwrite the file frequency. 
+    tr : str, int, or float, optional
+        TR of the timeseries. Required if input is TXT file.
+        If declared with nifti file, it will overwrite the file TR. 
+    trial_len : str or int, optional
+        Length of each single trial for tasks that have more than one
+        (E.g. BreathHold, CO2 challenges, ...)
+        Used to improve cross correlation estimation.
+        Default: None
+    n_trials : str or int, optional
+        Number of trials in the task.
+        Default: None
+    highcut : str, int, or float, optional
+        High frequency limit for filter.
+        Required if applying a filter.
+        Default: empty
+    lowcut : str, int, or float, optional
+        Low frequency limit for filter.
+        Required if applying a filter.
+        Default: empty
+    apply_filter : bool, optional
+        Apply a Butterworth filter to the functional input.
+        Default: False
+    run_regression : bool, optional
+        Also run the regression step within phys2cvr.
+        By default, phys2cvr will only estimate the regressor(s) of interest.
+        Default: False
+    lagged_regression : bool, optional
+        Estimates regressors to run a lagged regression approach.
+        If `run_regression` is True, also run the lagged regression.
+        Can be turned off.
+        Default: True
+    lag_max : int or float, optional
+        Limits (both positive and negative) of the temporal area to explore,
+        expressed in seconds.
+        Default: 9 (i.e. ±9 seconds)
+    lag_step : int or float, optional
+        Step of the lag to take into account.
+        Default: 0.3 (seconds)
+    l_degree : int, optional
+        Only used if performing the regression step.
+        Highest order of the Legendre polynomial to add to the denoising matrix.
+        phys2cvr will add all polynomials up to the specified order 
+        (e.g. if user specifies 3, orders 0, 1, 2, and 3 will be added). 
+        Default is 0, which will model only the mean of the timeseries.
+    denoise_matrix : list of np.array(s), optional
+        Add one or multiple denoising matrices to the regression model.
+        Ignored if not performing the regression step.
+    scale_factor : str, int, or float, optional
+        A scale factor to apply to the CVR map before exporting it.
+        Useful when using inputs recorded/stored in Volts that have a meaningful 
+        unit of measurement otherwise, e.g. (CO2 traces in mmHg).
+        V->mmHg: CO2[mmHg] = (Patm-Pvap)[mmHg] * 10*CO2[V]/100[V]
+        Default: None
+    lag_map : str or path, optional
+        Filename of a lag map to get lags from.
+        Ignored if not running a lagged-GLM regression.
+        Default: None
+    regr_dir : str, optional
+        Directory containing pre-generated lagged regressors, useful
+        to (re-)run a GLM analysis.
+        Default: None
+    skip_conv : bool, optional
+        Skip the convolution of the physiological trace.
+        Default: False
+    quiet : bool, optional
+        Return to screen only warnings and errors.
+        Default: False
+    debug : bool, optional
+        Return to screen more output.
+        Default: False
+    
+    Raises
+    ------
+    Exception
+        - If functional timeseries is lacking TR and the latter was not specified.
+        - If functional nifti file is not at least 4D.
+        - If mask was specified but it has different dimensions than the 
+            functional nifti file.
+        - If a file type is not supported yet.
+        - If physiological file is a txt file and no peaks were provided.
+        - If physiological file is lacking frequency and the latter was not specified.
+        - If a lag map was specified but it has different dimensions than the 
+            functional nifti file.
+        - If a lag map was specified, lag_step was not, and the lag map seems 
+            to have different lag_steps inside.
     """
     # If lagged regression is selected, make sure run_regression is true.
     if lagged_regression:
