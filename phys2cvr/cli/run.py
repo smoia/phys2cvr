@@ -147,13 +147,14 @@ def _get_parser():
                                 'assuming that the regression itself will be '
                                 'carried out with other software (e.g. AFNI, FSL, ...).'),
                           default=False)
-    optional.add_argument('-lagreg', '--run-lagged-regression',
+    optional.add_argument('-skip_lagreg', '--skip-lagged-regression',
                           dest='lagged_regression',
-                          action='store_true',
+                          action='store_false',
                           type=bool,
-                          help=('Run regression at bulk shift AND lagged regression '
-                                'around it.'),
-                          default=False)
+                          help=('Skip estimating the lagged regressors, '
+                                'estimating only the central one. '
+                                'Skip running the lagged regression if the regression is run.'),
+                          default=True)
     optional.add_argument('-lm', '--lag-max',
                           dest='lag_max',
                           type=float,

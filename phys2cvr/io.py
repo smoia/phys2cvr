@@ -11,6 +11,50 @@ LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
 
 
+def if_declared_force_type(var, dtype, varname='an input variable'):
+    """
+    Make sure `var` is of type `dtype`.
+    
+    Parameters
+    ----------
+    var : str, int, or float
+        Variable to change type of
+    dtype : str
+        Type to change `var` to.
+    
+    Returns
+    -------
+    int, float, str, list, or var
+        The given `var` in the given `dtype`, or `var` if '' or None
+    
+    Raises
+    ------
+    NameError
+        If dtype is not 'int', 'float', 'str', or 'list'
+    """
+    if var:
+        if dtype == 'int':
+            tmpvar = int(var)
+        elif dtype == 'float':
+            tmpvar = float(var)
+        elif dtype == 'str':
+            tmpvar = str(var)
+        elif dtype == 'list':
+            tmpvar = [var]
+        else:
+            raise NameError(f'Type {dtype} not supported')
+
+        if varname != 'an input variable':
+            varname = 'variable {varname}'
+
+        LGR.warning(f'Changing type of {varname} from {type(var)} to {dtype}')
+
+        return tmpvar
+
+    else:
+        return var
+
+
 def check_ext(all_ext, fname):
     """
     Check which extension a file has.
