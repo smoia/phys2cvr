@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+"""
+I/O and related utils.
+
+Attributes
+----------
+LGR :
+    logger
+"""
 
 import logging
 
