@@ -4,12 +4,8 @@ Signal analysis module for phys2cvr.
 
 Attributes
 ----------
-FIGSIZE : tuple
-    Figure size
 LGR :
     Logger
-SET_DPI : int
-    DPI of the figure
 """
 
 import logging

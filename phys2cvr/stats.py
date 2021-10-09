@@ -4,16 +4,8 @@ Statistical module for phys2cvr.
 
 Attributes
 ----------
-EXT_1D : list
-    Supported txt (1D) extensions
-EXT_NIFTI : list
-    Supported nifti extensions
-FIGSIZE : tuple
-    Size of figure
 LGR :
     Logger
-SET_DPI : int
-    DPI of figure
 """
 
 import logging
