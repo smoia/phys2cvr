@@ -16,9 +16,9 @@ import scipy.interpolate as spint
 import scipy.stats as sct
 from scipy.signal import butter, filtfilt
 
+from phys2cvr.phys2cvr import SET_DPI, FIGSIZE
 
-SET_DPI = 100
-FIGSIZE = (18, 10)
+
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
 
