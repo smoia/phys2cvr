@@ -9,14 +9,11 @@ import scipy.interpolate as spint
 import scipy.stats as sct
 
 from phys2cvr import io
+from phys2cvr.phys2cvr import SET_DPI, FIGSIZE
 
 
-SET_DPI = 100
-FIGSIZE = (18, 10)
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
-EXT_1D = ['.txt', '.csv', '.tsv', '.1d', '.par', '.tsv.gz']
-EXT_NIFTI = ['.nii', '.nii.gz']
 
 
 def x_corr(func, co2, lastrep, firstrep=0, offset=0):
