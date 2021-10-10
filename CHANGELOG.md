@@ -1,3 +1,15 @@
+# 0.0.3 (Sun Oct 10 2021)
+
+#### 🐛 Bug Fix
+
+- Improve Exception types [#17](https://github.com/smoia/phys2cvr/pull/17) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.0.2 (Sat Oct 09 2021)
 
 #### 🐛 Bug Fix
