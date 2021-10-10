@@ -1,3 +1,15 @@
+# 0.1.1 (Sun Oct 10 2021)
+
+#### 🐛 Bug Fix
+
+- Fix zenodo metadata [#21](https://github.com/smoia/phys2cvr/pull/21) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.1.0 (Sun Oct 10 2021)
 
 #### 💥 Breaking Change during development
