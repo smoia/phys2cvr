@@ -244,12 +244,12 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
                 LGR.info('Applying butterworth filter to {fname_func}')
                 func_avg = signal.filter_signal(func_avg, tr, lowcut, highcut)
         else:
-            raise Exception('Provided functional signal, but no TR specified! '
+            raise NameError('Provided functional signal, but no TR specified! '
                             'Rerun specifying the TR')
     elif func_is_nifti:
         func, dmask, img = io.load_nifti_get_mask(fname_func)
         if len(func.shape) < 4:
-            raise Exception(f'Provided functional file {fname_func} is not a 4D file!')
+            raise ValueError(f'Provided functional file {fname_func} is not a 4D file!')
         # Read TR or declare its overwriting
         if tr:
             LGR.warning(f'Forcing TR to be {tr} seconds')
@@ -260,7 +260,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         if fname_mask:
             _, mask, _ = io.load_nifti_get_mask(fname_mask, is_mask=True)
             if func.shape[:3] != mask.shape:
-                raise Exception(f'{fname_mask} and {fname_func} have different sizes!')
+                raise ValueError(f'{fname_mask} and {fname_func} have different sizes!')
             mask = mask * dmask
         else:
             mask = dmask
@@ -274,8 +274,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
             func_avg = func[mask].mean(axis=0)
 
     else:
-        raise Exception(f'{fname_func} file type is not supported yet, or '
-                        'the extension was not specified.')
+        raise NotImplementedError(f'{fname_func} file type is not supported yet, or '
+                                  'the extension was not specified.')
 
     if fname_co2 == '':
         LGR.info(f'Computing "CVR" maps using {fname_func} only')
@@ -296,12 +296,12 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
             if fname_pidx:
                 pidx = np.genfromtxt(fname_pidx)
             elif not skip_conv:
-                raise Exception(f'{fname_co2} file is a text file, but no '
+                raise NameError(f'{fname_co2} file is a text file, but no '
                                 'file containing its peaks was provided. '
                                 ' Please provide peak file!')
 
             if not freq:
-                raise Exception(f'{fname_co2} file is a text file, but no '
+                raise NameError(f'{fname_co2} file is a text file, but no '
                                 'frequency was specified. Please provide peak '
                                 ' file!')
 
@@ -317,8 +317,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
             else:
                 freq = phys.fs
         else:
-            raise Exception(f'{fname_co2} file type is not supported yet, or '
-                            'the extension was not specified.')
+            raise NotImplementedError(f'{fname_co2} file type is not supported yet, or '
+                                      'the extension was not specified.')
 
         # Set output file & path - calling splitext twice cause .gz
         basename_co2 = os.path.splitext(os.path.splitext(os.path.basename(fname_co2))[0])[0]
@@ -338,7 +338,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
     elif run_regression:
         try:
             regr = np.genfromtxt(f'{outname}_petco2hrf.1D')
-        except:
+        except IOError:
             LGR.warning(f'Regressor {outname}_petco2hrf.1D not found. '
                         'Estimating it.')
             regr, _ = stats.get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max,
@@ -401,14 +401,14 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
             if lag_map:
                 lag, _, _ = io.load_nifti_get_mask(lag_map)
                 if func.shape[:3] != lag.shape:
-                    raise Exception(f'{lag_map} and {fname_func} have different sizes!')
+                    raise ValueError(f'{lag_map} and {fname_func} have different sizes!')
 
                 # Read lag_step from file (or try to)
                 lag_list = np.unique(lag)
                 if not lag_step:
                     lag_step = np.unique(lag_list[1:] - lag_list[:-1])
                     if lag_step.size > 1:
-                        raise Exception(f'phys2cvr found different delta lags in {lag_map}')
+                        raise ValueError(f'phys2cvr found different delta lags in {lag_map}')
                     else:
                         LGR.warning(f'phys2cvr detected a delta lag of {lag_step} seconds')
                 if lag_step:
