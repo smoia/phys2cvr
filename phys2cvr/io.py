@@ -66,17 +66,17 @@ def if_declared_force_type(var, dtype, varname='an input variable'):
 def check_ext(all_ext, fname):
     """
     Check which extension a file has.
-
+    
     Parameters
     ----------
-    all_ext: list
+    all_ext : list
         All possibel extensions to check within
-    fname: str
+    fname : str
         The filename to check
-
+    
     Returns
     -------
-    has_ext: boolean
+    has_ext : boolean
         True if the extension is found, false otherwise.
     """
     has_ext = False
@@ -91,6 +91,27 @@ def check_ext(all_ext, fname):
 def check_nifti_dim(fname, data, dim=4):
     """
     Remove extra dimensions.
+    
+    Parameters
+    ----------
+    fname : str
+        The name of the file representing `data`
+    data : np.ndarray
+        The data which dimensionality needs to be checked
+    dim : int, optional
+        The amount of dimensions expected/desired in the data.
+
+    Returns
+    -------
+    np.ndarray
+        If `len(data.shape)` = `dim`, returns data.
+        If `len(data.shape)` > `dim`, returns a version of data without the
+        dimensions above `dim`.
+    
+    Raises
+    ------
+    ValueError
+        If `data` has less dimensions than `dim`
     """
     if len(data.shape) < dim:
         raise ValueError(f'{fname} does not seem to be a {dim}D file. '
@@ -103,29 +124,38 @@ def check_nifti_dim(fname, data, dim=4):
     return np.squeeze(data)
 
 
-def load_nifti_get_mask(fname, is_mask=False):
+def load_nifti_get_mask(fname, is_mask=False, mask_dim=3):
     """
     Load a nifti file and returns its data, its image, and a 3d mask.
-
+    
     Parameters
     ----------
-    fname: str
+    fname : str
         The filename to read in
-    dim: int
-        The number of dimensions expected
-
+    is_mask : bool, optional
+        If the file contains a mask.
+        Default: False
+    mask_dim : int
+        The number of dimensions expected in the mask
+    
     Returns
     -------
-    data: np.ndarray
+    data : np.ndarray
         Data from nifti file.
-    mask: np.ndarray
-
+    mask : np.ndarray
+        If `is_mask` is False, np.ndarray of one dimension less than data, 
+        in which any element that has at least a value different from zero 
+        in the last dimension of `data` is True.
+        If `is_mask` is True, mask is a boolean representation of data.
+    img : nib.img
+        Image object from nibabel.
+    
     """
     img = nib.load(fname)
     data = img.get_fdata()
 
     if is_mask:
-        data = check_nifti_dim(fname, data, dim=3)
+        data = check_nifti_dim(fname, data, dim=mask_dim)
         mask = (data < 0) + (data > 0)
     else:
         data = check_nifti_dim(fname, data)
@@ -134,9 +164,36 @@ def load_nifti_get_mask(fname, is_mask=False):
     return data, mask, img
 
 
-def export_regressor(regr_x, petco2hrf_shift, func_x, outname, suffix='petco2hrf', ext='.1D'):
-    f = spint.interp1d(regr_x, petco2hrf_shift, fill_value='extrapolate')
-    petco2hrf_demean = f(func_x)
+def export_regressor(regr_t, petco2hrf_shift, func_t, outname, suffix='petco2hrf', ext='.1D'):
+    """
+    Export generated regressors for fMRI analysis.
+    
+    Parameters
+    ----------
+    regr_t : np.ndarray
+        The time range of the fMRI data, with the same sampling of `petco2hrf_shift`
+        Its last element should be equal to the last element of `func_t`
+    petco2hrf_shift : np.ndarray
+        The regressors that needs to be exported, in its original sample
+    func_t : np.ndarray
+        The time range of the fMRI data, with the fMRI data sampling.
+        Its last element should be equal to the last element of `regr_t`
+    outname : str or path
+        Prefix of the output file - can contain a path.
+    suffix : str, optional
+        The suffix of the output file.
+    ext : str, optional
+        The extension of the output file.
+    
+    Returns
+    -------
+    petco2hrf_demean : np.ndarray
+        Interpolated version of `petco2hrf_shift` in the sampling of the fMRI data.
+    """
+    if regr_t[-1] != func_t[-1]:
+        raise ValueError('The two given time ranges do not express the same range!')
+    f = spint.interp1d(regr_t, petco2hrf_shift, fill_value='extrapolate')
+    petco2hrf_demean = f(func_t)
     petco2hrf_demean = petco2hrf_demean - petco2hrf_demean.mean()
     np.savetxt(f'{outname}_{suffix}{ext}', petco2hrf_demean, fmt='%.6f')
 
@@ -146,6 +203,15 @@ def export_regressor(regr_x, petco2hrf_shift, func_x, outname, suffix='petco2hrf
 def export_nifti(data, img, fname):
     """
     Export a nifti file.
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        Data to be exported
+    img : nib.img
+        Nibabel image object
+    fname : str or path
+        Name of the output file
     """
     if fname.endswith('.nii.gz'):
         fname = fname[:-7]

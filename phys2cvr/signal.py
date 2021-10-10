@@ -103,9 +103,9 @@ def convolve_petco2(co2, pidx, freq, outname):
     
     Parameters
     ----------
-    co2 : np.array
+    co2 : np.ndarray
         CO2 (or physiological) regressor
-    pidx : np.array
+    pidx : np.ndarray
         index of peaks
     freq : str, int, or float
         sample frequency of the CO2 regressor
@@ -115,7 +115,7 @@ def convolve_petco2(co2, pidx, freq, outname):
     
     Returns
     -------
-    co2_conv : np.array
+    co2_conv : np.ndarray
         Convolved CO2 trace
     """
     # Extract PETco2

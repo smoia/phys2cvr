@@ -30,9 +30,9 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
     
     Parameters
     ----------
-    func : np.array
+    func : np.ndarray
         Timeseries, must be SHORTER (or of equal length) than `co2`
-    co2 : np.array
+    co2 : np.ndarray
         Second timeseries, can be LONGER than `func` 
     lastrep : int
         Last index to take into account in `func`
@@ -47,7 +47,7 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
         Highest correlation
     int :
         Index of higher correlation
-    xcorr : np.array
+    xcorr : np.ndarray
         Full Xcorr
     
     Raises
@@ -78,9 +78,9 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
     
     Parameters
     ----------
-    func_avg : np.array
+    func_avg : np.ndarray
         Functional timeseries
-    petco2hrf : np.array
+    petco2hrf : np.ndarray
         Regressor of interest
     tr : str, int, or float
         TR of timeseries
@@ -108,9 +108,9 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
     
     Returns
     -------
-    petco2hrf_demean : np.array
+    petco2hrf_demean : np.ndarray
         The central, demeaned petco2hrf regressor.
-    petco2hrf_shifts : np.array
+    petco2hrf_shifts : np.ndarray
         The other shifted versions of the regressor.
     """
     # Setting up some variables
@@ -139,10 +139,10 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
 
     # Upsample functional signal
     func_len = len(func_avg)
-    regr_x = np.arange(0, ((func_len-1) * tr + 1/freq), 1/freq)
-    func_x = np.linspace(0, (func_len - 1) * tr, func_len)
-    f = spint.interp1d(func_x, func_avg, fill_value='extrapolate')
-    func_upsampled = f(regr_x)
+    regr_t = np.arange(0, ((func_len-1) * tr + 1/freq), 1/freq)
+    func_t = np.linspace(0, (func_len - 1) * tr, func_len)
+    f = spint.interp1d(func_t, func_avg, fill_value='extrapolate')
+    func_upsampled = f(regr_t)
     len_upd = len(func_upsampled)
 
     # Preparing breathhold and CO2 trace for Xcorr
@@ -191,7 +191,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
     plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
     plt.close()
 
-    petco2hrf_demean = io.export_regressor(regr_x, petco2hrf_shift, func_x, outname, 'petco2hrf', ext)
+    petco2hrf_demean = io.export_regressor(regr_t, petco2hrf_shift, func_t, outname, 'petco2hrf', ext)
 
     if lagged_regression:
         outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
@@ -217,8 +217,8 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
 
         for i in range(-nrep, nrep):
             petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-            petco2hrf_shifts[:, i] = io.export_regressor(regr_x, petco2hrf_lagged,
-                                                         func_x, outprefix,
+            petco2hrf_shifts[:, i] = io.export_regressor(regr_t, petco2hrf_lagged,
+                                                         func_t, outprefix,
                                                          f'_{(i + nrep):04g}', ext)
     else:
         petco2hrf_shifts = None
@@ -239,7 +239,7 @@ def get_legendre(degree, length):
     
     Returns
     -------
-    legendre : np.array
+    legendre : np.ndarray
         A `degree`*`length` array with all the polynomials up to order `degree`
     """
     def _bonnet(d, x):
@@ -263,22 +263,22 @@ def regression(data, mask, regr, mat_conf):
     
     Parameters
     ----------
-    data : np.array
+    data : np.ndarray
         Dependent variable of the model (i.e. Y), as a 4D volume.
-    mask : np.array
+    mask : np.ndarray
         A 3D mask to reduce the number of voxels to run the regression for.
-    regr : np.array
+    regr : np.ndarray
         Regressor of interest
-    mat_conf : np.array
+    mat_conf : np.ndarray
         Confounding effects (regressors)
     
     Returns
     -------
-    bout : np.array
+    bout : np.ndarray
         Beta map
-    tout : np.array
+    tout : np.ndarray
         T-stats map
-    rout : np.array
+    rout : np.ndarray
         R^2 map
     
     Raises
