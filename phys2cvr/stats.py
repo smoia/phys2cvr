@@ -139,10 +139,10 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
 
     # Upsample functional signal
     func_len = len(func_avg)
-    regr_x = np.arange(0, ((func_len-1) * tr + 1/freq), 1/freq)
-    func_x = np.linspace(0, (func_len - 1) * tr, func_len)
-    f = spint.interp1d(func_x, func_avg, fill_value='extrapolate')
-    func_upsampled = f(regr_x)
+    regr_t = np.arange(0, ((func_len-1) * tr + 1/freq), 1/freq)
+    func_t = np.linspace(0, (func_len - 1) * tr, func_len)
+    f = spint.interp1d(func_t, func_avg, fill_value='extrapolate')
+    func_upsampled = f(regr_t)
     len_upd = len(func_upsampled)
 
     # Preparing breathhold and CO2 trace for Xcorr
@@ -191,7 +191,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
     plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
     plt.close()
 
-    petco2hrf_demean = io.export_regressor(regr_x, petco2hrf_shift, func_x, outname, 'petco2hrf', ext)
+    petco2hrf_demean = io.export_regressor(regr_t, petco2hrf_shift, func_t, outname, 'petco2hrf', ext)
 
     if lagged_regression:
         outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
@@ -217,8 +217,8 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
 
         for i in range(-nrep, nrep):
             petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-            petco2hrf_shifts[:, i] = io.export_regressor(regr_x, petco2hrf_lagged,
-                                                         func_x, outprefix,
+            petco2hrf_shifts[:, i] = io.export_regressor(regr_t, petco2hrf_lagged,
+                                                         func_t, outprefix,
                                                          f'_{(i + nrep):04g}', ext)
     else:
         petco2hrf_shifts = None

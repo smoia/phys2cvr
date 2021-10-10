@@ -134,9 +134,9 @@ def load_nifti_get_mask(fname, is_mask=False):
     return data, mask, img
 
 
-def export_regressor(regr_x, petco2hrf_shift, func_x, outname, suffix='petco2hrf', ext='.1D'):
-    f = spint.interp1d(regr_x, petco2hrf_shift, fill_value='extrapolate')
-    petco2hrf_demean = f(func_x)
+def export_regressor(regr_t, petco2hrf_shift, func_t, outname, suffix='petco2hrf', ext='.1D'):
+    f = spint.interp1d(regr_t, petco2hrf_shift, fill_value='extrapolate')
+    petco2hrf_demean = f(func_t)
     petco2hrf_demean = petco2hrf_demean - petco2hrf_demean.mean()
     np.savetxt(f'{outname}_{suffix}{ext}', petco2hrf_demean, fmt='%.6f')
 
