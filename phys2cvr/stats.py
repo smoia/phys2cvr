@@ -191,7 +191,8 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
     plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
     plt.close()
 
-    petco2hrf_demean = io.export_regressor(regr_t, petco2hrf_shift, func_t, outname, 'petco2hrf', ext)
+    petco2hrf_demean = io.export_regressor(regr_x, petco2hrf_shift, func_x, outname,
+                                           'petco2hrf', ext)
 
     if lagged_regression:
         outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
@@ -217,9 +218,9 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
 
         for i in range(-nrep, nrep):
             petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-            petco2hrf_shifts[:, i] = io.export_regressor(regr_t, petco2hrf_lagged,
-                                                         func_t, outprefix,
-                                                         f'_{(i + nrep):04g}', ext)
+            petco2hrf_shifts[:, i] = io.export_regressor(regr_x, petco2hrf_lagged,
+                                                         func_x, outprefix,
+                                                         f'{(i + nrep):04g}', ext)
     else:
         petco2hrf_shifts = None
 
@@ -332,3 +333,20 @@ def regression(data, mask, regr, mat_conf):
     tout[mask] = tstats[-1, :]
     rout[mask] = r_square
     return bout, tout, rout
+
+
+"""
+Copyright 2021, Stefano Moia.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""

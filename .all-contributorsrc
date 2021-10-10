@@ -6,27 +6,6 @@
   "commit": false,
   "contributors": [
     {
-      "login": "BrightMG",
-      "name": "Molly Bright",
-      "avatar_url": "https://avatars2.githubusercontent.com/u/32640425?v=4",
-      "profile": "http://brightlab.northwestern.edu",
-      "contributions": [
-        "ideas",
-        "mentoring"
-      ]
-    },
-    {
-      "login": "CesarCaballeroGaudes",
-      "name": "Cesar Caballero Gaudes",
-      "avatar_url": "https://avatars1.githubusercontent.com/u/7611340?v=4",
-      "profile": "https://github.com/CesarCaballeroGaudes",
-      "contributions": [
-        "code",
-        "ideas",
-        "mentoring"
-      ]
-    },
-    {
       "login": "smoia",
       "name": "Stefano Moia",
       "avatar_url": "https://avatars3.githubusercontent.com/u/35300580?v=4",
@@ -36,15 +15,6 @@
         "ideas",
         "infra",
         "projectManagement"
-      ]
-    },
-    {
-      "login": "raystick",
-      "name": "Rachael Stickland",
-      "avatar_url": "https://avatars3.githubusercontent.com/u/50215726?v=4",
-      "profile": "https://github.com/RayStick",
-      "contributions": [
-        "ideas"
       ]
     },
 
