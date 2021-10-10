@@ -4,14 +4,16 @@
 phys2cvr
 ========
 
-**The project is currently under development**.
+A python-based tool to generate regressor for and/or estimate CVR maps and their lag.
+
+**The project is currently under development stage alpha**.
 Any suggestion/bug report is welcome! Feel free to open an issue.
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
 
-## Contributors ✨
+<!-- ## Contributors ✨
 
-Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)): -->
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
