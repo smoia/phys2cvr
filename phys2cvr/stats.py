@@ -294,8 +294,8 @@ def regression(data, mask, regr, mat_conf):
     if regr.shape[0] != mat_conf.shape[0]:
         regr = regr.T
         if regr.shape[0] != mat_conf.shape[0]:
-            raise Exception('The provided confounding matrix does not match '
-                            'the dimensionality of the PetCO2hrf regressor!')
+            raise ValueError('The provided confounding matrix does not match '
+                             'the dimensionality of the PetCO2hrf regressor!')
     # Stack mat and solve least square with it demeaned
     mat = np.hstack([mat_conf, regr])
     betas = np.linalg.lstsq(mat-mat.mean(axis=0),

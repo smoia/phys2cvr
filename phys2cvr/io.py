@@ -37,7 +37,7 @@ def if_declared_force_type(var, dtype, varname='an input variable'):
     
     Raises
     ------
-    NameError
+    NotImplementedError
         If dtype is not 'int', 'float', 'str', or 'list'
     """
     if var:
@@ -50,7 +50,7 @@ def if_declared_force_type(var, dtype, varname='an input variable'):
         elif dtype == 'list':
             tmpvar = [var]
         else:
-            raise NameError(f'Type {dtype} not supported')
+            raise NotImplementedError(f'Type {dtype} not supported')
 
         if varname != 'an input variable':
             varname = 'variable {varname}'
@@ -93,8 +93,8 @@ def check_nifti_dim(fname, data, dim=4):
     Remove extra dimensions.
     """
     if len(data.shape) < dim:
-        raise Exception(f'{fname} does not seem to be a {dim}D file. '
-                        f'Plase provide a {dim}D nifti file.')
+        raise ValueError(f'{fname} does not seem to be a {dim}D file. '
+                         f'Plase provide a {dim}D nifti file.')
     if len(data.shape) > dim:
         LGR.warning(f'{fname} has more than {dim} dimensions. Removing D > {dim}.')
         for ax in range(dim, len(data.shape)):
