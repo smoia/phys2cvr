@@ -16,13 +16,18 @@ def _get_parser():
     -------
     parser.parse_args() : argparse dict
 
-    Notes
-    -----
-    # Argument parser follow template provided by RalphyZ.
-    # https://stackoverflow.com/a/43456577
     """
-    parser = argparse.ArgumentParser()
-    optional = parser._action_groups.pop()
+    parser = argparse.ArgumentParser(description=('%(prog)s, a tool to compute '
+                                                  'Cerebrovascular Reactivity '
+                                                  'maps and their lags.%n'
+                                                  '%(prog)s is compatible with '
+                                                  'different designs and techniques '
+                                                  'to estimate CVR maps.'
+                                                  'It can also be used to generate '
+                                                  'regressors to run the estimation '
+                                                  'with other softwares.%n'
+                                                  f'Version {__version__}'),
+                                     add_help=False)
     required = parser.add_argument_group('Required Argument:')
     required.add_argument('-i', '--input-func',
                           dest='fname_func',
@@ -31,28 +36,21 @@ def _get_parser():
                                 'of the file containing fMRI signal. This file '
                                 'can be a nifti file or a 1D txt file.'),
                           required=True)
-    optional.add_argument('-co2', '--input-co2',
-                          dest='fname_co2',
-                          type=str,
-                          help=('Complete path (absolute or relative) and name '
-                                'of the file containing CO2 signal (or equivalent '
-                                'physiological trace to compute the regressor). '
-                                'This file can be a 1D txt file or a .phys file '
-                                'from peakdet. If nothing is specified, the '
-                                'average timeseries of the mask will be used '
-                                'as regressor.'),
-                          default='')
-    optional.add_argument('-pk', '--input-peaks',
-                          dest='fname_pidx',
-                          type=str,
-                          help=('Complete path (absolute or relative) and name '
-                                'of the file containing the peak of the '
-                                'physiological trace. Required if the physiological '
-                                'trace file is not a .phys file. '
-                                'Use this option to overwrite the peaks specified '
-                                'in the .phys file.'),
-                          default='')
-    optional.add_argument('-m', '--input-mask',
+
+    opt_out = parser.add_argument_group('Optional Argument for output:')
+    opt_out.add_argument('-o', '--output-directory',
+                         dest='outdir',
+                         type=str,
+                         help=('Complete path (absolute or relative) and name '
+                               'of the desired output directory. If it does not '
+                               'exist, it will be created. If it is not '
+                               'specified, a folder named "phys2cvr" will be '
+                               'created in the folder containing the functional '
+                               'file.'),
+                         default='')
+
+    opt_func = parser.add_argument_group('Optional Arguments for fMRI timeseries:')
+    opt_func.add_argument('-m', '--input-mask',
                           dest='fname_mask',
                           type=str,
                           help=('Complete path (absolute or relative) and name '
@@ -60,32 +58,14 @@ def _get_parser():
                                 'This mask will be used to extract the functional '
                                 'signal to run the cross correlation with the '
                                 'physiological regressor. Use this option to '
-                                'specify a GM mask or overwrite a full brain mask.'
+                                'specify a GM mask or overwrite a full brain mask.%n'
                                 'If the functional file is specified and this '
                                 'option is not used, or the mask cannot be '
                                 'loaded, the program will create a mask using '
                                 'any voxel of the functional file constantly '
                                 'different from zero.'),
                           default='')
-    optional.add_argument('-o', '--output-directory',
-                          dest='outdir',
-                          type=str,
-                          help=('Complete path (absolute or relative) and name '
-                                'of the desired output directory. If it does not '
-                                'exist, it will be created. If it is not '
-                                'specified, a folder named "phys2cvr" will be '
-                                'created in the folder containing the functional '
-                                'file.'),
-                          default='')
-    optional.add_argument('-fr', '--frequency',
-                          dest='freq',
-                          type=float,
-                          help=('Frequency of the physiological trace. Required '
-                                'if the latter is not passed as a .phys file. '
-                                'Use this option to overwrite the frequency of a '
-                                '.phys file.'),
-                          default='')
-    optional.add_argument('-tr', '--repetition-time',
+    opt_func.add_argument('-tr', '--repetition-time',
                           dest='tr',
                           type=float,
                           help=('TR of functional data. Required '
@@ -93,25 +73,63 @@ def _get_parser():
                                 'Use this option to overwrite the frequency of a '
                                 'nifti file.'),
                           default='')
-    optional.add_argument('-tlen', '--trial-length',
-                          dest='trial_len',
+
+    opt_phys = parser.add_argument_group('Optional Arguments for physiological '
+                                         'timeseries (regressor of interest):')
+    opt_phys.add_argument('-co2', '--input-co2',
+                          dest='fname_co2',
+                          type=str,
+                          help=('Complete path (absolute or relative) and name '
+                                'of the file containing CO2 signal (or equivalent '
+                                'physiological trace to compute the regressor). '
+                                'This file can be a 1D txt file or a .phys file '
+                                'from peakdet.%n If nothing is specified, the '
+                                'average timeseries of the mask will be used '
+                                'as regressor.'),
+                          default='')
+    opt_phys.add_argument('-pk', '--input-peaks',
+                          dest='fname_pidx',
+                          type=str,
+                          help=('Complete path (absolute or relative) and name '
+                                'of the file containing the peak of the '
+                                'physiological trace. Required if the physiological '
+                                'trace file is not a .phys file.%n'
+                                'Use this option to overwrite the peaks specified '
+                                'in the .phys file.'),
+                          default='')
+    opt_phys.add_argument('-fr', '--frequency',
+                          dest='freq',
                           type=float,
-                          help=('Total duration of a respiration trial in seconds. '
-                                'Specify this with the number of trials to run '
-                                'a double cross-correlation between functional '
-                                'signal and physiological regressor to improve '
-                                'the detection of the bulk shift.'),
+                          help=('Frequency of the physiological trace. Required '
+                                'if the latter is not passed as a .phys file.%n'
+                                'Use this option to overwrite the frequency of a '
+                                '.phys file.'),
                           default='')
-    optional.add_argument('-ntrial', '--trial-number',
-                          dest='n_trials',
-                          type=int,
-                          help=('Number or respiration trials in the sequence. '
-                                'Specify this with the duration of trials to run '
-                                'a double cross-correlation between functional '
-                                'signal and physiological regressor to improve '
-                                'the detection of the bulk shift.'),
-                          default='')
-    optional.add_argument('-af', '--apply-filter',
+
+    opt_xcorr = parser.add_argument_group('Optional Arguments for the cross correlation '
+                                          '(bulk shift estimation step):')
+    opt_xcorr.add_argument('-tlen', '--trial-length',
+                           dest='trial_len',
+                           type=float,
+                           help=('Total duration of a single trial of the task '
+                                 'in seconds (useful for block designs).%n'
+                                 'Specify this with the number of trials to run '
+                                 'a double cross-correlation between functional '
+                                 'signal and physiological regressor to improve '
+                                 'the detection of the bulk shift.'),
+                           default='')
+    opt_xcorr.add_argument('-ntrial', '--trial-number',
+                           dest='n_trials',
+                           type=int,
+                           help=('Number of trials in the task (useful for block designs).%n'
+                                 'Specify this with the duration of trials to run '
+                                 'a double cross-correlation between functional '
+                                 'signal and physiological regressor to improve '
+                                 'the detection of the bulk shift.'),
+                           default='')
+
+    opt_filt = parser.add_argument_group('Optional Arguments for temporal filter:')
+    opt_filt.add_argument('-af', '--apply-filter',
                           dest='apply_filter',
                           action='store_true',
                           type=bool,
@@ -119,9 +137,9 @@ def _get_parser():
                                 'estimating the bulk shift. The filter will not '
                                 'be applied on the data before the GLM computation. '
                                 'If you want that, consider applying it before '
-                                'running phys2cvr (or running it a second time).'),
+                                'running %(prog)s (or running it a second time).'),
                           default=False)
-    optional.add_argument('-hf', '--highcut-frequency',
+    opt_filt.add_argument('-hf', '--highcut-frequency',
                           dest='highcut',
                           type=float,
                           help=('Higher frequency to use in signal filtering. '
@@ -129,7 +147,7 @@ def _get_parser():
                                 'data to estimate the bulk shift. This option '
                                 'is suggested when only using a functional file.'),
                           default='')
-    optional.add_argument('-lf', '--lowcut-frequency',
+    opt_filt.add_argument('-lf', '--lowcut-frequency',
                           dest='lowcut',
                           type=float,
                           help=('Lower frequency to use in signal filtering. '
@@ -137,48 +155,47 @@ def _get_parser():
                                 'data to estimate the bulk shift. This option '
                                 'is suggested when only using a functional file.'),
                           default='')
-    optional.add_argument('-reg', '--run-regression',
+
+    opt_flow = parser.add_argument_group('Optional Arguments to modify the workflow:')
+    opt_flow.add_argument('-skip_reg', '--skip-regression',
                           dest='run_regression',
-                          action='store_true',
+                          action='store_false',
                           type=bool,
-                          help=('Actually run physiological regression(s) '
-                                'internally. By default phys2cvr only '
-                                'estimates and produces physiological regressors, '
-                                'assuming that the regression itself will be '
-                                'carried out with other software (e.g. AFNI, FSL, ...).'),
-                          default=False)
-    optional.add_argument('-skip_lagreg', '--skip-lagged-regression',
+                          help=('Skip running physiological regression(s) '
+                                'internally. This will make %(prog)s '
+                                'generate the desired physiological regressors '
+                                'and quit, assuming that the regression itself '
+                                'will be carried out with other software '
+                                '(e.g. AFNI, FSL, ...).'),
+                          default=True)
+    opt_flow.add_argument('-skip_lagreg', '--skip-lagged-regression',
                           dest='lagged_regression',
                           action='store_false',
                           type=bool,
                           help=('Skip estimating the lagged regressors, '
-                                'estimating only the central one. '
-                                'Skip running the lagged regression if the regression is run.'),
+                                'estimating only the bulk shifted one.%n'
+                                'Skip running the lagged regression if the '
+                                'regression step is run.'),
                           default=True)
-    optional.add_argument('-lm', '--lag-max',
-                          dest='lag_max',
-                          type=float,
-                          help=('Maximum lag to consider during lag regression '
-                                'in seconds. The same lag will be considered in '
-                                'both directions. Default is ±9 seconds. '
-                                'Remember that being this python, the upper limit '
-                                'is excluded from the computation, i.e. default is'
-                                '[-9, +8.7] or [-9, +9).'),
-                          default=9)
-    optional.add_argument('-ls', '--lag-step',
-                          dest='lag_step',
-                          type=float,
-                          help=('Lag step to consider during lagged regression '
-                                'in seconds. Default is 0.3 seconds.'),
-                          default=0.3)
-    optional.add_argument('-ldeg', '--legendre-degree',
+    opt_flow.add_argument('-skip_conv', '--skip-convolution',
+                          dest='run_conv',
+                          action='store_false',
+                          type=bool,
+                          help=('Skip convolution of physiological trace. '
+                                'By default %(prog)s convolves the physiological '
+                                'trace with a standard HRF. Skip it when using '
+                                'fMRI signal only.'),
+                          default=True)
+
+    opt_regr = parser.add_argument_group('Optional Arguments for the regression step:')
+    opt_regr.add_argument('-ldeg', '--legendre-degree',
                           dest='l_degree',
                           type=int,
                           help=('Maximum legendre degree to add to the regression '
                                 'matrix as nuisance. Default is 0, to account for '
                                 'the degree of freedom lost in computing the SPC.'),
                           default=0)
-    optional.add_argument('-dmat', '--denoise-matrix',
+    opt_regr.add_argument('-dmat', '--denoise-matrix',
                           dest='denoise_matrix',
                           action='append',
                           nargs='*',
@@ -190,7 +207,7 @@ def _get_parser():
                                 'denoising matrices can be specified one after '
                                 'the other, separated by a space.'),
                           default=None)
-    optional.add_argument('-scale', '--scale-factor',
+    opt_regr.add_argument('-scale', '--scale-factor',
                           dest='scale_factor',
                           type=float,
                           help=('Scale factor for the CVR map output. Since BIDS '
@@ -199,29 +216,64 @@ def _get_parser():
                                 'and their scaling factor to transform Volts into '
                                 'mmHg. Use this option for other standardisations too.'),
                           default='')
-    optional.add_argument('-lmap', '--lag-map',
+
+    opt_lreg = parser.add_argument_group('Optional Arguments for the lagged regression:')
+    opt_lreg.add_argument('-lm', '--lag-max',
+                          dest='lag_max',
+                          type=float,
+                          help=('Maximum lag to consider during lag regression '
+                                'in seconds. The same lag will be considered in '
+                                'both directions. Default is ±9 seconds. '
+                                'Remember that being this python, the upper limit '
+                                'is excluded from the computation, i.e. default is'
+                                '[-9, +8.7] or [-9, +9).'),
+                          default=9)
+    opt_lreg.add_argument('-ls', '--lag-step',
+                          dest='lag_step',
+                          type=float,
+                          help=('Lag step to consider during lagged regression '
+                                'in seconds. Default is 0.3 seconds.'),
+                          default=0.3)
+
+    opt_regr = parser.add_argument_group('Optional Arguments to re-run a lagged '
+                                         'regression (also useful to use a lag estimation '
+                                         'on a different functional timeseries):')
+    opt_regr.add_argument('-lmap', '--lag-map',
                           dest='lag_map',
                           type=str,
                           help=('Complete path (absolute or relative) and name '
                                 'of a previously computed lag map to use in '
                                 'lagged regression.'),
                           default=None)
-    optional.add_argument('-rdir', '--regr-dir',
+    opt_regr.add_argument('-rdir', '--regr-dir',
                           dest='regr_dir',
                           type=str,
                           help=('Complete path (absolute or relative) and name '
                                 'of previously computed lagged regressors to '
                                 'use in a new lagged regression.'),
                           default=None)
-    optional.add_argument('-sc', '--skip-conv',
-                          dest='skip_conv',
-                          action='store_true',
-                          type=bool,
-                          help=('Skip convolution of physiological trace. '
-                                'By default phys2cvr convolves the physiological '
-                                'trace with a standard HRF. Skip it when using '
-                                'fMRI signal only.'),
-                          default=False)
+
+    title_opt_conf = parser.add_argument_group('Optional Arguments to set up specific '
+                                               'workflows:')
+
+    opt_conf = title_opt_conf.add_mutually_exclusive_group() 
+    opt_conf.add_argument('--brightspin',
+                          dest='workflow_config',
+                          action='store_const',
+                          const='brightspin',
+                          help=('Estimate CVR using a specific set of L-GLM parameters, '
+                                'as used in: (...)'),
+                          default=None)
+    opt_conf.add_argument('--baltimore',
+                          dest='workflow_config',
+                          action='store_const',
+                          const='baltimore',
+                          help=('Estimate CVR using the average timeseries in the '
+                                '(...) frequency spectrum, as used in: (...)'),
+                          default=None)
+
+
+    optional = parser.add_argument_group('Other Optional Arguments:')
     optional.add_argument('-debug', '--debug',
                           dest='debug',
                           action='store_true',
@@ -232,6 +284,8 @@ def _get_parser():
                           action='store_true',
                           help='Only print warnings to log file. Default is False.',
                           default=False)
+    optional.add_argument('-h', '--help', action='help',
+                          help='Show this help message and exit')
     optional.add_argument('-v', '--version', action='version',
                           version=('%(prog)s ' + __version__))
     return parser
