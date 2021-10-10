@@ -1,13 +1,13 @@
 {
-    "license": "Apache-2.0", 
-    "title": "physiopy/phys2cvr: A tool to compute Cerebrovascular Reactivity maps and associated lag maps",
-    "upload_type": "software",
-    "creators": [
-         {
-            "orcid": "0000-0002-2553-3327", 
-            "affiliation": "BCBL - Basque Center on Cognition, Brain and Language", 
-            "name": "Stefano Moia"
-        }, 
-    ], 
-    "access_right": "open"
+    "license":"Apache-2.0",
+    "title":"physiopy/phys2cvr: A tool to compute Cerebrovascular Reactivity maps and associated lag maps",
+    "upload_type":"software",
+    "creators":[
+        {
+            "orcid":"0000-0002-2553-3327",
+            "affiliation":"BCBL - Basque Center on Cognition, Brain and Language",
+            "name":"Stefano Moia"
+        }
+    ],
+    "access_right":"open"
 }
