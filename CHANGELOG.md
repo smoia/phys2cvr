@@ -1,3 +1,20 @@
+# 0.1.0 (Sun Oct 10 2021)
+
+#### 💥 Breaking Change during development
+
+- Fix `auto` config file [#20](https://github.com/smoia/phys2cvr/pull/20) ([@smoia](https://github.com/smoia))
+- Add configuration files for CD, declare licence in all codefiles, update development status [#19](https://github.com/smoia/phys2cvr/pull/19) ([@smoia](https://github.com/smoia))
+
+#### 🐛 Bug Fix
+
+- Add docstrings for `io.py` [#18](https://github.com/smoia/phys2cvr/pull/18) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.0.3 (Sun Oct 10 2021)
 
 #### 🐛 Bug Fix
