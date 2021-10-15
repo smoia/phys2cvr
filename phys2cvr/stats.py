@@ -71,10 +71,10 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
     return xcorr.max(), (xcorr.argmax() + firstrep + offset), xcorr
 
 
-def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
-             n_trials='', ext='.1D', lagged_regression=True):
+def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
+             trial_len=None, n_trials=None, ext='.1D', lagged_regression=True):
     """
-    Creates regressor(s) of interest for nifti GLM
+    Create regressor(s) of interest for nifti GLM.
     
     Parameters
     ----------
@@ -191,10 +191,12 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
     plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
     plt.close()
 
-    petco2hrf_demean = io.export_regressor(regr_x, petco2hrf_shift, func_x, outname,
+    petco2hrf_demean = io.export_regressor(regr_t, petco2hrf_shift, func_t, outname,
                                            'petco2hrf', ext)
 
-    if lagged_regression:
+    # Initialise the shifts first.
+    petco2hrf_shift = None
+    if lagged_regression and lag_max:
         outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
         os.makedirs(os.path.join(os.path.split(outname)[0], 'regr'), exist_ok=True)
 
@@ -218,11 +220,14 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=9, trial_len='',
 
         for i in range(-nrep, nrep):
             petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-            petco2hrf_shifts[:, i] = io.export_regressor(regr_x, petco2hrf_lagged,
-                                                         func_x, outprefix,
+            petco2hrf_shifts[:, i] = io.export_regressor(regr_t, petco2hrf_lagged,
+                                                         func_t, outprefix,
                                                          f'{(i + nrep):04g}', ext)
-    else:
-        petco2hrf_shifts = None
+
+    elif not lag_max:
+        LGR.warning('The generation of lagged regressors was requested, '
+                    'but the maximum lag was not specified. Skipping '
+                    'lagged regressor generation.')
 
     return petco2hrf_demean, petco2hrf_shifts
 

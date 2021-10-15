@@ -223,17 +223,17 @@ def _get_parser():
                           type=float,
                           help=('Maximum lag to consider during lag regression '
                                 'in seconds. The same lag will be considered in '
-                                'both directions. Default is ±9 seconds. '
+                                'both directions.%n'
                                 'Remember that being this python, the upper limit '
-                                'is excluded from the computation, i.e. default is'
+                                'is excluded from the computation, i.e. 9 is '
                                 '[-9, +8.7] or [-9, +9).'),
-                          default=9)
+                          default=None)
     opt_lreg.add_argument('-ls', '--lag-step',
                           dest='lag_step',
                           type=float,
                           help=('Lag step to consider during lagged regression '
                                 'in seconds. Default is 0.3 seconds.'),
-                          default=0.3)
+                          default=None)
 
     opt_regr = parser.add_argument_group('Optional Arguments to re-run a lagged '
                                          'regression (also useful to use a lag estimation '
@@ -256,22 +256,39 @@ def _get_parser():
     title_opt_conf = parser.add_argument_group('Optional Arguments to set up specific '
                                                'workflows:')
 
-    opt_conf = title_opt_conf.add_mutually_exclusive_group() 
+    opt_conf = title_opt_conf.add_mutually_exclusive_group()
     opt_conf.add_argument('--brightspin',
                           dest='workflow_config',
                           action='store_const',
                           const='brightspin',
                           help=('Estimate CVR using a specific set of L-GLM parameters, '
-                                'as used in: (...)'),
+                                'as used in: (...)%n'
+                                'Same as setting --lag-max 9 --lag-step 0.3'),
+                          default=None)
+    opt_conf.add_argument('--brightspin-clinical',
+                          dest='workflow_config',
+                          action='store_const',
+                          const='brightspin-clinical',
+                          help=('Like "brightspin", but use a larger lag range%n'
+                                'Same as setting --lag-max 20 --lag-step 0.3'),
                           default=None)
     opt_conf.add_argument('--baltimore',
                           dest='workflow_config',
                           action='store_const',
                           const='baltimore',
                           help=('Estimate CVR using the average timeseries in the '
-                                '(...) frequency spectrum, as used in: (...)'),
+                                '(...) frequency spectrum, as used in: (...)%n'
+                                'Same as setting --apply-filter -hf -lf '
+                                '-skip_conv -skip_lagreg -co2 \'\' '),
                           default=None)
-
+    opt_conf.add_argument('--baltimore-lag',
+                          dest='workflow_config',
+                          action='store_const',
+                          const='baltimore-lag',
+                          help=('Like "baltimore", but use a L-GLM instead%n'
+                                'Same as setting --apply-filter -hf -lf '
+                                '-skip_conv -co2 \'\' '),
+                          default=None)
 
     optional = parser.add_argument_group('Other Optional Arguments:')
     optional.add_argument('-debug', '--debug',
@@ -288,6 +305,61 @@ def _get_parser():
                           help='Show this help message and exit')
     optional.add_argument('-v', '--version', action='version',
                           version=('%(prog)s ' + __version__))
+    return parser
+
+
+def _check_opt_conf(parser):
+    """
+    Check for particular configuration flags.
+    
+    Parameters
+    ----------
+    parser : argparse.ArgumentParser
+        A parser with a 'workflow_config' item inside.
+    
+    Returns
+    -------
+    parser : argparse.ArgumentParser
+        If parser.workflow_config is None, returns the unmodified
+        input parameter. Otherwise, set its items based on the flag.
+    
+    Raises
+    ------
+    NotImplementedError
+        If parser.workflow_config is not equal to a supported string.
+        Which shouldn't happen, because this function should not be 
+        called on its own.
+    """
+    if parser.workflow_config is not None:
+        if parser.workflow_config == 'brightspin':
+            parser.lag_max = 9
+            parser.lag_step = 0.3
+            parser.lagged_regression = True
+            parser.run_conv = True
+            parser.apply_filter = False
+        elif parser.workflow_config == 'brightspin-clinical':
+            parser.lag_max = 20
+            parser.lag_step = 0.3
+            parser.lagged_regression = True
+            parser.run_conv = True
+            parser.apply_filter = False
+        elif parser.workflow_config == 'baltimore':
+            parser.run_conv = False
+            parser.apply_filter = True
+            parser.lowcut = 0.02
+            parser.highcut = 0.04
+            parser.fname_co2 = ''
+            parser.lagged_regression = False
+        elif parser.workflow_config == 'baltimore-lag':
+            parser.run_conv = False
+            parser.apply_filter = True
+            parser.lowcut = 0.02
+            parser.highcut = 0.04
+            parser.fname_co2 = ''
+            parser.lagged_regression = True
+        else:
+            raise NotImplementedError(f'{parser.workflow_config} is not configured. '
+                                      'In fact, you shouldn\'t see this message at all.')
     return parser
 
 
