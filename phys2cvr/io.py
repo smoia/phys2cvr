@@ -4,8 +4,16 @@ I/O and related utils.
 
 Attributes
 ----------
+EXT_1D : list
+    List of supported TXT/1D file extensions, in lower case.
+EXT_NIFTI : list
+    List of supported nifti file extensions, in lower case.
+FIGSIZE : tuple
+    Figure size
+SET_DPI : int
+    DPI of the figure
 LGR :
-    logger
+    Logger
 """
 
 import logging
@@ -14,6 +22,11 @@ import nibabel as nib
 import numpy as np
 import scipy.interpolate as spint
 
+
+SET_DPI = 100
+FIGSIZE = (18, 10)
+EXT_1D = ['.txt', '.csv', '.tsv', '.1d', '.par', '.tsv.gz']
+EXT_NIFTI = ['.nii', '.nii.gz']
 
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)

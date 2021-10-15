@@ -17,7 +17,7 @@ import scipy.interpolate as spint
 import scipy.stats as sct
 
 from phys2cvr import io
-from phys2cvr.phys2cvr import SET_DPI, FIGSIZE
+from phys2cvr.io import SET_DPI, FIGSIZE
 
 
 LGR = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ LGR.setLevel(logging.INFO)
 
 def x_corr(func, co2, lastrep, firstrep=0, offset=0):
     """
-    Cross correlation between `func` and `co2`
+    Cross correlation between `func` and `co2`.
     
     Parameters
     ----------
@@ -234,7 +234,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
 
 def get_legendre(degree, length):
     """
-    Produces the Legendre polynomials of order `degree`.
+    Producesthe Legendre polynomials of order `degree`.
     
     Parameters
     ----------
@@ -265,7 +265,7 @@ def get_legendre(degree, length):
 
 def regression(data, mask, regr, mat_conf):
     """
-    Estimates regression parameters
+    Estimate regression parameters.
     
     Parameters
     ----------

@@ -4,16 +4,8 @@ Main file for phys2cvr.
 
 Attributes
 ----------
-EXT_1D : list
-    List of supported TXT/1D file extensions, in lower case.
-EXT_NIFTI : list
-    List of supported nifti file extensions, in lower case.
-FIGSIZE : tuple
-    Figure size
 LGR :
     Logger
-SET_DPI : int
-    DPI of the figure
 """
 
 import datetime
@@ -29,12 +21,8 @@ from phys2cvr import io, signal, stats, _version
 from phys2cvr.cli.run import _get_parser, _check_opt_conf
 
 
-SET_DPI = 100
-FIGSIZE = (18, 10)
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
-EXT_1D = ['.txt', '.csv', '.tsv', '.1d', '.par', '.tsv.gz']
-EXT_NIFTI = ['.nii', '.nii.gz']
 
 
 def save_bash_call(fname, outdir):
