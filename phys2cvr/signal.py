@@ -16,7 +16,7 @@ import scipy.interpolate as spint
 import scipy.stats as sct
 from scipy.signal import butter, filtfilt
 
-from phys2cvr.phys2cvr import SET_DPI, FIGSIZE
+from phys2cvr.io import SET_DPI, FIGSIZE
 
 
 LGR = logging.getLogger(__name__)
@@ -99,7 +99,7 @@ def filter_signal(data, tr, lowcut='', highcut=''):
 
 def convolve_petco2(co2, pidx, freq, outname):
     """
-    Convolve the CO2 trace into the PetCO2 trace
+    Convolve the CO2 trace into the PetCO2 trace.
     
     Parameters
     ----------

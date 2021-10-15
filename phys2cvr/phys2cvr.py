@@ -4,16 +4,8 @@ Main file for phys2cvr.
 
 Attributes
 ----------
-EXT_1D : list
-    List of supported TXT/1D file extensions, in lower case.
-EXT_NIFTI : list
-    List of supported nifti file extensions, in lower case.
-FIGSIZE : tuple
-    Figure size
 LGR :
     Logger
-SET_DPI : int
-    DPI of the figure
 """
 
 import datetime
@@ -26,18 +18,15 @@ import numpy as np
 from peakdet.io import load_physio
 
 from phys2cvr import io, signal, stats, _version
-from phys2cvr.cli.run import _get_parser
+from phys2cvr.cli.run import _get_parser, _check_opt_conf
+from phys2cvr.io import EXT_NIFTI, EXT_1D
 
 
-SET_DPI = 100
-FIGSIZE = (18, 10)
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
-EXT_1D = ['.txt', '.csv', '.tsv', '.1d', '.par', '.tsv.gz']
-EXT_NIFTI = ['.nii', '.nii.gz']
 
 
-def save_bash_call(outdir):
+def save_bash_call(fname, outdir):
     """
     Save the bash call into file `p2d_call.sh`.
     
@@ -52,7 +41,8 @@ def save_bash_call(outdir):
     log_path = os.path.join(outdir, 'logs')
     os.makedirs(log_path, exist_ok=True)
     isotime = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
-    f = open(os.path.join(log_path, f'p2c_call_{isotime}.sh'), 'a')
+    fname = os.path.basename(fname).split('.')[0]
+    f = open(os.path.join(log_path, f'p2c_call_{fname}_{isotime}.sh'), 'a')
     f.write(f'#!bin/bash \n{call_str}')
     f.close()
 
@@ -60,9 +50,9 @@ def save_bash_call(outdir):
 def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
              outdir=None, freq=None, tr=None, trial_len=None, n_trials=None,
              highcut=None, lowcut=None, apply_filter=False,
-             run_regression=False, lagged_regression=True, lag_max=9,
-             lag_step=0.3, l_degree=0, denoise_matrix=[], scale_factor=None,
-             lag_map=None, regr_dir=None, skip_conv=False, quiet=False, debug=False):
+             run_regression=False, lagged_regression=True, lag_max=None,
+             lag_step=None, l_degree=0, denoise_matrix=[], scale_factor=None,
+             lag_map=None, regr_dir=None, run_conv=True, quiet=False, debug=False):
     """
     Run main workflow of phys2cvr.
     
@@ -126,11 +116,11 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         Default: True
     lag_max : int or float, optional
         Limits (both positive and negative) of the temporal area to explore,
-        expressed in seconds.
-        Default: 9 (i.e. ±9 seconds)
+        expressed in seconds (i.e. ±9 seconds).
+        Default: None 
     lag_step : int or float, optional
-        Step of the lag to take into account.
-        Default: 0.3 (seconds)
+        Step of the lag to take into account in seconds.
+        Default: None
     l_degree : int, optional
         Only used if performing the regression step.
         Highest order of the Legendre polynomial to add to the denoising matrix.
@@ -154,9 +144,10 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         Directory containing pre-generated lagged regressors, useful
         to (re-)run a GLM analysis.
         Default: None
-    skip_conv : bool, optional
-        Skip the convolution of the physiological trace.
-        Default: False
+    run_conv : bool, optional
+        Run the convolution of the physiological trace.
+        Can be turned off
+        Default: True
     quiet : bool, optional
         Return to screen only warnings and errors.
         Default: False
@@ -295,7 +286,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         if co2_is_1d:
             if fname_pidx:
                 pidx = np.genfromtxt(fname_pidx)
-            elif not skip_conv:
+            elif run_conv:
                 raise NameError(f'{fname_co2} file is a text file, but no '
                                 'file containing its peaks was provided. '
                                 ' Please provide peak file!')
@@ -325,7 +316,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         outname = os.path.join(outdir, basename_co2)
 
         # Unless user asks to skip this step, convolve the end tidal signal.
-        if skip_conv or not fname_co2:
+        if not run_conv or not fname_co2:
             petco2hrf = co2
         else:
             petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
@@ -341,8 +332,9 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         except IOError:
             LGR.warning(f'Regressor {outname}_petco2hrf.1D not found. '
                         'Estimating it.')
-            regr, _ = stats.get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max,
-                                     trial_len, n_trials, '.1D')
+            regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq,
+                                               outname, lag_max, trial_len,
+                                               n_trials, '.1D')
 
     # Run internal regression if required and possible!
     if func_is_nifti and run_regression:
@@ -384,9 +376,13 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         io.export_nifti(beta, oimg, f'{outfuncname}_cvr_simple')
         io.export_nifti(tstat, oimg, f'{outfuncname}_tstat_simple')
 
-        if lagged_regression:
-            LGR.info(f'Running lagged CVR estimation with max lag = {lag_max}!'
-                     '(might take a while...)')
+        if lagged_regression and regr_shifts is not None and ((lag_max and lag_step) or lag_map):
+            if lag_max:
+                LGR.info(f'Running lagged CVR estimation with max lag = {lag_max}! '
+                         '(might take a while...)')
+            elif lag_map is not None:
+                LGR.info(f'Running lagged CVR estimation with lag map {lag_map}! '
+                         '(might take a while...)')
 
             nrep = int(lag_max * freq * 2)
             if lag_step:
@@ -403,7 +399,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
                 if func.shape[:3] != lag.shape:
                     raise ValueError(f'{lag_map} and {fname_func} have different sizes!')
 
-                # Read lag_step from file (or try to)
+                # Read lag_step and lag_max from file (or try to)
                 lag_list = np.unique(lag)
                 if not lag_step:
                     lag_step = np.unique(lag_list[1:] - lag_list[:-1])
@@ -411,8 +407,14 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
                         raise ValueError(f'phys2cvr found different delta lags in {lag_map}')
                     else:
                         LGR.warning(f'phys2cvr detected a delta lag of {lag_step} seconds')
-                if lag_step:
+                else:
                     LGR.warning(f'Forcing delta lag to be {lag_step}')
+
+                if not lag_max:
+                    lag_max = abs(np.min(lag_list))
+                    LGR.warning(f'phys2cvr detected a max lag of {lag_max} seconds')
+                else:
+                    LGR.warning(f'Forcing max lag to be {lag_max}')
 
                 lag = lag * dmask
 
@@ -490,7 +492,9 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
 def _main(argv=None):
     options = _get_parser().parse_args(argv)
 
-    save_bash_call(options.outdir)
+    options = _check_opt_conf(options)
+
+    save_bash_call(options.fname_func, options.outdir)
 
     phys2cvr(**vars(options))
 

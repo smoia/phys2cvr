@@ -4,8 +4,16 @@ I/O and related utils.
 
 Attributes
 ----------
+EXT_1D : list
+    List of supported TXT/1D file extensions, in lower case.
+EXT_NIFTI : list
+    List of supported nifti file extensions, in lower case.
+FIGSIZE : tuple
+    Figure size
+SET_DPI : int
+    DPI of the figure
 LGR :
-    logger
+    Logger
 """
 
 import logging
@@ -14,6 +22,11 @@ import nibabel as nib
 import numpy as np
 import scipy.interpolate as spint
 
+
+SET_DPI = 100
+FIGSIZE = (18, 10)
+EXT_1D = ['.txt', '.csv', '.tsv', '.1d', '.par', '.tsv.gz']
+EXT_NIFTI = ['.nii', '.nii.gz']
 
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
@@ -52,10 +65,11 @@ def if_declared_force_type(var, dtype, varname='an input variable'):
         else:
             raise NotImplementedError(f'Type {dtype} not supported')
 
-        if varname != 'an input variable':
-            varname = 'variable {varname}'
+        if type(tmpvar) != type(var):
+            if varname != 'an input variable':
+                varname = f'variable {varname}'
 
-        LGR.warning(f'Changing type of {varname} from {type(var)} to {dtype}')
+            LGR.warning(f'Changing type of {varname} from {type(var)} to {dtype}')
 
         return tmpvar
 
