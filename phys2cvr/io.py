@@ -65,10 +65,11 @@ def if_declared_force_type(var, dtype, varname='an input variable'):
         else:
             raise NotImplementedError(f'Type {dtype} not supported')
 
-        if varname != 'an input variable':
-            varname = 'variable {varname}'
+        if type(tmpvar) != type(var):
+            if varname != 'an input variable':
+                varname = f'variable {varname}'
 
-        LGR.warning(f'Changing type of {varname} from {type(var)} to {dtype}')
+            LGR.warning(f'Changing type of {varname} from {type(var)} to {dtype}')
 
         return tmpvar
 

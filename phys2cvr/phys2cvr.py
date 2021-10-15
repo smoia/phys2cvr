@@ -19,6 +19,7 @@ from peakdet.io import load_physio
 
 from phys2cvr import io, signal, stats, _version
 from phys2cvr.cli.run import _get_parser, _check_opt_conf
+from phys2cvr.io import EXT_NIFTI, EXT_1D
 
 
 LGR = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
              highcut=None, lowcut=None, apply_filter=False,
              run_regression=False, lagged_regression=True, lag_max=None,
              lag_step=None, l_degree=0, denoise_matrix=[], scale_factor=None,
-             lag_map=None, regr_dir=None, skip_conv=False, quiet=False, debug=False):
+             lag_map=None, regr_dir=None, run_conv=True, quiet=False, debug=False):
     """
     Run main workflow of phys2cvr.
     
@@ -143,9 +144,10 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         Directory containing pre-generated lagged regressors, useful
         to (re-)run a GLM analysis.
         Default: None
-    skip_conv : bool, optional
-        Skip the convolution of the physiological trace.
-        Default: False
+    run_conv : bool, optional
+        Run the convolution of the physiological trace.
+        Can be turned off
+        Default: True
     quiet : bool, optional
         Return to screen only warnings and errors.
         Default: False
@@ -284,7 +286,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         if co2_is_1d:
             if fname_pidx:
                 pidx = np.genfromtxt(fname_pidx)
-            elif not skip_conv:
+            elif run_conv:
                 raise NameError(f'{fname_co2} file is a text file, but no '
                                 'file containing its peaks was provided. '
                                 ' Please provide peak file!')
@@ -314,7 +316,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         outname = os.path.join(outdir, basename_co2)
 
         # Unless user asks to skip this step, convolve the end tidal signal.
-        if skip_conv or not fname_co2:
+        if not run_conv or not fname_co2:
             petco2hrf = co2
         else:
             petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
@@ -376,10 +378,10 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
 
         if lagged_regression and regr_shifts is not None and ((lag_max and lag_step) or lag_map):
             if lag_max:
-                LGR.info(f'Running lagged CVR estimation with max lag = {lag_max}!'
+                LGR.info(f'Running lagged CVR estimation with max lag = {lag_max}! '
                          '(might take a while...)')
             elif lag_map is not None:
-                LGR.info(f'Running lagged CVR estimation with lag map {lag_map}!'
+                LGR.info(f'Running lagged CVR estimation with lag map {lag_map}! '
                          '(might take a while...)')
 
             nrep = int(lag_max * freq * 2)
