@@ -258,7 +258,10 @@ def _get_parser():
                           action='store_const',
                           const='brightspin',
                           help=('Estimate CVR using a specific set of L-GLM parameters, '
-                                'as used in: (...)\n'
+                                'as used in:\n'
+                                'S. Moia, et al., \'ICA-based denoising strategies in '
+                                'breath-hold induced cerebrovascular reactivity mapping '
+                                'with multi echo BOLD fMRI\' (2021), NeuroImage\n'
                                 'Same as setting --lag-max 9 --lag-step 0.3'),
                           default=None)
     opt_conf.add_argument('--brightspin-clinical',
@@ -273,7 +276,9 @@ def _get_parser():
                           action='store_const',
                           const='baltimore',
                           help=('Estimate CVR using the average timeseries in the '
-                                '(...) frequency spectrum, as used in: (...)\n'
+                                '0.02-0.04 frequency spectrum, as used in:\n'
+                                'P. Liu, et al., \'Cerebrovascular reactivity '
+                                'mapping without gas challenges\' (2017), NeuroImage\n'
                                 'Same as setting --apply-filter -hf -lf '
                                 '-skip_conv -skip_lagreg -co2 \'\' '),
                           default=None)
