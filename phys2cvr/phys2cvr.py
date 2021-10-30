@@ -41,7 +41,7 @@ def save_bash_call(fname, outdir):
     log_path = os.path.join(outdir, 'logs')
     os.makedirs(log_path, exist_ok=True)
     isotime = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
-    fname = os.path.basename(fname).split('.')[0]
+    fname, _ = io.check_ext('.nii.gz', os.path.basename(fname), remove=True)
     f = open(os.path.join(log_path, f'p2c_call_{fname}_{isotime}.sh'), 'a')
     f.write(f'#!bin/bash \n{call_str}')
     f.close()
@@ -342,8 +342,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
 
         # Change dimensions in image header before export
         LGR.info('Prepare output image')
-        outfuncname = os.path.splitext(os.path.splitext(fname_func)[0])[0]
-        outfuncname = os.path.join(outdir, outfuncname)
+        fname_out_func = io.check_ext('.nii.gz', os.path.basename(fname_func), remove=True)
+        fname_out_func = os.path.join(outdir, fname_out_func)
         newdim = deepcopy(img.header['dim'])
         newdim[0], newdim[4] = 3, 1
         oimg = deepcopy(img)
@@ -373,8 +373,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         else:
             beta = beta * float(scale_factor)
         # Scale beta by scale factor while exporting (useful to transform V in mmHg)
-        io.export_nifti(beta, oimg, f'{outfuncname}_cvr_simple')
-        io.export_nifti(tstat, oimg, f'{outfuncname}_tstat_simple')
+        io.export_nifti(beta, oimg, f'{fname_out_func}_cvr_simple')
+        io.export_nifti(tstat, oimg, f'{fname_out_func}_tstat_simple')
 
         if lagged_regression and regr_shifts is not None and ((lag_max and lag_step) or lag_map):
             if lag_max:
@@ -476,11 +476,11 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
             else:
                 beta = beta * scale_factor
 
-            io.export_nifti(beta, oimg, f'{outfuncname}_cvr')
-            io.export_nifti(tstat, oimg, f'{outfuncname}_tstat')
+            io.export_nifti(beta, oimg, f'{fname_out_func}_cvr')
+            io.export_nifti(tstat, oimg, f'{fname_out_func}_tstat')
             if not lag_map:
-                io.export_nifti(lag, oimg, f'{outfuncname}_lag')
-                io.export_nifti(lag_rel, oimg, f'{outfuncname}_lag_mkrel')
+                io.export_nifti(lag, oimg, f'{fname_out_func}_lag')
+                io.export_nifti(lag_rel, oimg, f'{fname_out_func}_lag_mkrel')
 
     elif run_regression:
         LGR.warning('The input file is not a nifti volume. At the moment, '

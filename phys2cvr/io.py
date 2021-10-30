@@ -32,7 +32,7 @@ LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
 
 
-def if_declared_force_type(var, dtype, varname='an input variable'):
+def if_declared_force_type(var, dtype, varname='an input variable', silent=False):
     """
     Make sure `var` is of type `dtype`.
     
@@ -41,7 +41,11 @@ def if_declared_force_type(var, dtype, varname='an input variable'):
     var : str, int, or float
         Variable to change type of
     dtype : str
-        Type to change `var` to.
+        Type to change `var` to
+    varname : str, optional
+        The name of the variable
+    silent : bool, optional
+        If True, don't return any message
     
     Returns
     -------
@@ -61,15 +65,19 @@ def if_declared_force_type(var, dtype, varname='an input variable'):
         elif dtype == 'str':
             tmpvar = str(var)
         elif dtype == 'list':
-            tmpvar = [var]
+            if type(var) == list:
+                tmpvar = var
+            else:
+                tmpvar = [var]
         else:
             raise NotImplementedError(f'Type {dtype} not supported')
 
-        if type(tmpvar) != type(var):
-            if varname != 'an input variable':
-                varname = f'variable {varname}'
+        if not silent:
+            if type(tmpvar) != type(var):
+                if varname != 'an input variable':
+                    varname = f'variable {varname}'
 
-            LGR.warning(f'Changing type of {varname} from {type(var)} to {dtype}')
+                LGR.warning(f'Changing type of {varname} from {type(var)} to {dtype}')
 
         return tmpvar
 
@@ -77,29 +85,40 @@ def if_declared_force_type(var, dtype, varname='an input variable'):
         return var
 
 
-def check_ext(all_ext, fname):
+def check_ext(all_ext, fname, remove=False):
     """
-    Check which extension a file has.
+    Check which extension a file has, and possibly remove it.
     
     Parameters
     ----------
     all_ext : list
-        All possibel extensions to check within
+        All possible extensions to check within
     fname : str
         The filename to check
+    remove : bool, optional
+        Remove the extention from fname if it has one
     
     Returns
     -------
+    str : 
+        If "remove" is True, return (extensionless) fname
     has_ext : boolean
-        True if the extension is found, false otherwise.
+        True if the extension is found, false otherwise
     """
     has_ext = False
+    all_ext = if_declared_force_type(all_ext, 'list', silent=True)
     for ext in all_ext:
         if fname.endswith(ext):
             has_ext = True
             break
 
-    return has_ext
+    if remove:
+        if has_ext:
+            return fname.replace(ext, ''), has_ext
+        else:
+            return fname, has_ext
+    else:
+        return has_ext
 
 
 def check_nifti_dim(fname, data, dim=4):
