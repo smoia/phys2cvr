@@ -1,3 +1,15 @@
+# 0.2.3 (Sat Oct 30 2021)
+
+#### 🐛 Bug Fix
+
+- Fix denoise_matrix input from CLI that was causing it to be a list of lists [#24](https://github.com/smoia/phys2cvr/pull/24) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.2.2 (Sat Oct 30 2021)
 
 #### ⚠️ Pushed to `master`
