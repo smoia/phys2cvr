@@ -1,3 +1,15 @@
+# 0.2.1 (Sat Oct 30 2021)
+
+#### 🐛 Bug Fix
+
+- Fix outputs paths and names [#23](https://github.com/smoia/phys2cvr/pull/23) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.2.0 (Fri Oct 15 2021)
 
 #### 💥 Breaking Change during development
