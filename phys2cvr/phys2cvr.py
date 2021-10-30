@@ -342,7 +342,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
 
         # Change dimensions in image header before export
         LGR.info('Prepare output image')
-        fname_out_func = io.check_ext('.nii.gz', os.path.basename(fname_func), remove=True)
+        fname_out_func, _ = io.check_ext('.nii.gz', os.path.basename(fname_func), remove=True)
         fname_out_func = os.path.join(outdir, fname_out_func)
         newdim = deepcopy(img.header['dim'])
         newdim[0], newdim[4] = 3, 1
