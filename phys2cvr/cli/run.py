@@ -193,10 +193,9 @@ def _get_parser():
                           default=0)
     opt_regr.add_argument('-dmat', '--denoise-matrix',
                           dest='denoise_matrix',
-                          action='append',
                           nargs='*',
                           type=str,
-                          help=('Complete path (absolute or relative) and name '
+                          help=('Complete path (absolute or relative) and filename '
                                 'of denoising matrices to add to the regression model. '
                                 'This option can be specified multiple times to '
                                 'add multiple denoising matrices, but multiple '

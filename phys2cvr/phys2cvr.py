@@ -127,7 +127,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         phys2cvr will add all polynomials up to the specified order 
         (e.g. if user specifies 3, orders 0, 1, 2, and 3 will be added). 
         Default is 0, which will model only the mean of the timeseries.
-    denoise_matrix : list of np.array(s), optional
+    denoise_matrix : list of str(s) or path(s), optional
         Add one or multiple denoising matrices to the regression model.
         Ignored if not performing the regression step.
     scale_factor : str, int, or float, optional
@@ -359,6 +359,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
 
         # Read in eventual denoising factors
         if denoise_matrix:
+            denoise_matrix = io.if_declared_force_type(denoise_matrix, 'list', 'denoise_matrix')
             for matrix in denoise_matrix:
                 LGR.info(f'Read confounding factor from {matrix}')
                 conf = np.genfromtxt(matrix)
