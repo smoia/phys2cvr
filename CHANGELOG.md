@@ -1,3 +1,15 @@
+# 0.2.2 (Sat Oct 30 2021)
+
+#### ⚠️ Pushed to `master`
+
+- Fix check_ext call in generating output name ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.2.1 (Sat Oct 30 2021)
 
 #### 🐛 Bug Fix
