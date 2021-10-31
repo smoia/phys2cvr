@@ -1,3 +1,15 @@
+# 0.3.0 (Sun Oct 31 2021)
+
+#### 💥 Breaking Change during development
+
+- Allow to provide a mask to exclude voxels from the computations, and a separate ROI to use for Xcorr average signal (and lag correction) [#26](https://github.com/smoia/phys2cvr/pull/26) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.2.4 (Sun Oct 31 2021)
 
 :tada: This release contains work from a new contributor! :tada:
