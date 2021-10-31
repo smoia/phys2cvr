@@ -1,3 +1,19 @@
+# 0.2.4 (Sun Oct 31 2021)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, Kristina Zvolanek ([@kristinazvolanek](https://github.com/kristinazvolanek)), for all your work!
+
+#### 🐛 Bug Fix
+
+- Fixed output regressor to be the optimally shifted version, rather than the original demeaned regressor [#25](https://github.com/smoia/phys2cvr/pull/25) ([@kristinazvolanek](https://github.com/kristinazvolanek))
+
+#### Authors: 1
+
+- Kristina Zvolanek ([@kristinazvolanek](https://github.com/kristinazvolanek))
+
+---
+
 # 0.2.3 (Sat Oct 30 2021)
 
 #### 🐛 Bug Fix
