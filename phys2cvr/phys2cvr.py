@@ -47,7 +47,7 @@ def save_bash_call(fname, outdir):
     f.close()
 
 
-def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
+def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_mask=None,
              outdir=None, freq=None, tr=None, trial_len=None, n_trials=None,
              highcut=None, lowcut=None, apply_filter=False,
              run_regression=False, lagged_regression=True, lag_max=None,
@@ -71,8 +71,15 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         Required if CO2 file is a txt AND the convolution step is not skipped.
         If not declared AND the convolution step is not skipped, raises an exception.
         Default: empty
+    fname_roi : str or path, optional
+        Filename of the roi in a nifti volume.
+        If declared, phys2cvr will use these voxels .
+        If not, phys2cvr will use a mask, either the declared one or estimated 
+        from the functional input.
+        Ignored if input is a txt file.
+        Default: empty
     fname_mask : str or path, optional
-        Filename of the mask for nifti volume.
+        Filename of the mask in a nifti volume.
         If declared, phys2cvr will run only on these voxels.
         If not, phys2cvr will estimate a mask from the functional input.
         Ignored if input is a txt file.
@@ -231,6 +238,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
     if func_is_1d:
         if tr:
             func_avg = np.genfromtxt(fname_func)
+            LGR.info(f'Loading {fname_func}')
             if apply_filter:
                 LGR.info('Applying butterworth filter to {fname_func}')
                 func_avg = signal.filter_signal(func_avg, tr, lowcut, highcut)
@@ -247,29 +255,47 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
         else:
             tr = img.header['pixdim'][4]
 
-        # Read mask if provided
+        # Read mask (and mask func) if provided
         if fname_mask:
             _, mask, _ = io.load_nifti_get_mask(fname_mask, is_mask=True)
             if func.shape[:3] != mask.shape:
                 raise ValueError(f'{fname_mask} and {fname_func} have different sizes!')
             mask = mask * dmask
+            LGR.info(f'Masking {os.path.basename(fname_func)} using {os.path.basename(fname_mask)}')
+            func = func * mask[..., np.newaxis]
+            roiref = os.path.basename(fname_mask)
         else:
             mask = dmask
-            LGR.warning(f'No mask specified, using any voxel different from 0 in {fname_func}')
+            LGR.warning(f'No mask specified, using any voxel different from 0 in '
+                        f'{os.path.basename(fname_func)}')
+            roiref = os.path.basename(fname_func)
+
+        # Read roi if provided
+        if fname_roi:
+            _, roi, _ = io.load_nifti_get_mask(fname_roi, is_mask=True)
+            if func.shape[:3] != roi.shape:
+                raise ValueError(f'{fname_roi} and {fname_func} have different sizes!')
+            roi = roi * mask
+            roiref = os.path.basename(fname_roi)
+        else:
+            roi = mask
+            LGR.warning(f'No ROI specified, using any voxel different from 0 in '
+                        f'{roiref}')
 
         if apply_filter:
-            LGR.info(f'Obtaining filtered average of {fname_func}')
+            LGR.info(f'Obtaining filtered average signal in {roiref}')
             func_filt = signal.filter_signal(func, tr, lowcut, highcut)
-            func_avg = func_filt[mask].mean(axis=0)
+            func_avg = func_filt[roi].mean(axis=0)
         else:
-            func_avg = func[mask].mean(axis=0)
+            LGR.info(f'Obtaining average signal in {roiref}')
+            func_avg = func[roi].mean(axis=0)
 
     else:
         raise NotImplementedError(f'{fname_func} file type is not supported yet, or '
                                   'the extension was not specified.')
 
     if fname_co2 == '':
-        LGR.info(f'Computing "CVR" maps using {fname_func} only')
+        LGR.info(f'Computing "CVR" (approximation) maps using {fname_func} only')
         if func_is_1d:
             LGR.warning('Using an average signal only, solution might be unoptimal.')
 
@@ -366,7 +392,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
                 mat_conf = np.hstack([mat_conf, conf])
 
         LGR.info('Compute simple CVR estimation (bulk shift only)')
-        beta, tstat, _ = stats.regression(func, dmask, regr, mat_conf)
+        beta, tstat, _ = stats.regression(func, mask, regr, mat_conf)
 
         LGR.info('Export bulk shift results')
         if not scale_factor:
@@ -417,7 +443,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
                 else:
                     LGR.warning(f'Forcing max lag to be {lag_max}')
 
-                lag = lag * dmask
+                lag = lag * mask
 
                 lag_idx = (lag + lag_max) * freq / step
 
@@ -454,14 +480,14 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_mask=None,
 
                     (beta_all[:, :, :, n],
                      tstat_all[:, :, :, n],
-                     r_square[:, :, :, n]) = stats.regression(func, dmask, regr,
+                     r_square[:, :, :, n]) = stats.regression(func, mask, regr,
                                                               mat_conf)
 
                 # Find the right lag for CVR estimation
                 lag_idx = np.argmax(r_square, axis=-1)
-                lag = (lag_idx * step) / freq - (dmask * lag_max)
-                # Express lag map relative to median of the mask
-                lag_rel = lag - (dmask * np.median(lag[mask]))
+                lag = (lag_idx * step) / freq - (mask * lag_max)
+                # Express lag map relative to median of the roi
+                lag_rel = lag - (mask * np.median(lag[roi]))
 
                 # Run through indexes to pick the right value
                 lag_idx_list = np.unique(lag_idx)

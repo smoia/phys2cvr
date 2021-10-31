@@ -55,13 +55,29 @@ def _get_parser():
                           type=str,
                           help=('Complete path (absolute or relative) and name '
                                 'of the file containing a brain mask (nifti file). '
-                                'This mask will be used to extract the functional '
-                                'signal to run the cross correlation with the '
-                                'physiological regressor. Use this option to '
+                                'Only the voxels in this mask will be considered '
+                                'by phys2cvr. Use this option to '
                                 'specify a GM mask or overwrite a full brain mask.\n'
                                 'If the functional file is specified and this '
                                 'option is not used, or the mask cannot be '
                                 'loaded, the program will create a mask using '
+                                'any voxel of the functional file constantly '
+                                'different from zero.'),
+                          default='')
+    opt_func.add_argument('-r', '--input-roi',
+                          dest='fname_roi',
+                          type=str,
+                          help=('Complete path (absolute or relative) and name '
+                                'of the nifti file containing a subset of voxels to '
+                                'treat as a region of interest (ROI). '
+                                'The average functional signal of the ROI will be used '
+                                'to run the cross correlation with the '
+                                'physiological regressor. The median lag value in '
+                                'the ROI will be used to correct the final lag map.\n'
+                                'If the functional file is specified and this '
+                                'option is not used, or the ROI cannot be '
+                                'loaded, the program will either use a specified mask '
+                                '(see `--input-mask`) or create a mask using '
                                 'any voxel of the functional file constantly '
                                 'different from zero.'),
                           default='')
