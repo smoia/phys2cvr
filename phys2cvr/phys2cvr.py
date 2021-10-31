@@ -287,7 +287,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             func_filt = signal.filter_signal(func, tr, lowcut, highcut)
             func_avg = func_filt[roi].mean(axis=0)
         else:
-            LGR.info(f'Obtaining average signal {roiref} of {fname_func}')
+            LGR.info(f'Obtaining average signal in {roiref}')
             func_avg = func[roi].mean(axis=0)
 
     else:
