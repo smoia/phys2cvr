@@ -185,6 +185,7 @@ def load_nifti_get_mask(fname, is_mask=False, mask_dim=3):
 
     """
     img = nib.load(fname)
+    LGR.info(f'Loading {fname}')
     data = img.get_fdata()
 
     if is_mask:

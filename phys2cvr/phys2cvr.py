@@ -238,6 +238,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
     if func_is_1d:
         if tr:
             func_avg = np.genfromtxt(fname_func)
+            LGR.info(f'Loading {fname_func}')
             if apply_filter:
                 LGR.info('Applying butterworth filter to {fname_func}')
                 func_avg = signal.filter_signal(func_avg, tr, lowcut, highcut)
@@ -260,12 +261,14 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             if func.shape[:3] != mask.shape:
                 raise ValueError(f'{fname_mask} and {fname_func} have different sizes!')
             mask = mask * dmask
+            LGR.info(f'Masking {os.path.basename(fname_func)} using {os.path.basename(fname_mask)}')
             func = func * mask[..., np.newaxis]
-            extramsg = 'in {os.basename(fname_mask)}'
+            roiref = os.path.basename(fname_mask)
         else:
             mask = dmask
-            extramsg = 'in any non-zero voxels '
-            LGR.warning(f'No mask specified, using any voxel different from 0 in {fname_func}')
+            LGR.warning(f'No mask specified, using any voxel different from 0 in '
+                        f'{os.path.basename(fname_func)}')
+            roiref = os.path.basename(fname_func)
 
         # Read roi if provided
         if fname_roi:
@@ -273,17 +276,18 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             if func.shape[:3] != roi.shape:
                 raise ValueError(f'{fname_roi} and {fname_func} have different sizes!')
             roi = roi * mask
-            extramsg = 'in {os.basename(fname_roi)}'
+            roiref = os.path.basename(fname_roi)
         else:
             roi = mask
-            LGR.warning(f'No ROI specified, using any voxel different from 0 in {fname_func}')
+            LGR.warning(f'No ROI specified, using any voxel different from 0 in '
+                        f'{roiref}')
 
         if apply_filter:
-            LGR.info(f'Obtaining filtered average signal {extramsg} of {fname_func}')
+            LGR.info(f'Obtaining filtered average signal in {roiref}')
             func_filt = signal.filter_signal(func, tr, lowcut, highcut)
             func_avg = func_filt[roi].mean(axis=0)
         else:
-            LGR.info(f'Obtaining average signal {extramsg} of {fname_func}')
+            LGR.info(f'Obtaining average signal {roiref} of {fname_func}')
             func_avg = func[roi].mean(axis=0)
 
     else:
