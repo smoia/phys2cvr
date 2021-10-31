@@ -35,7 +35,7 @@ LGR.setLevel(logging.INFO)
 def if_declared_force_type(var, dtype, varname='an input variable', silent=False):
     """
     Make sure `var` is of type `dtype`.
-    
+
     Parameters
     ----------
     var : str, int, or float
@@ -46,12 +46,12 @@ def if_declared_force_type(var, dtype, varname='an input variable', silent=False
         The name of the variable
     silent : bool, optional
         If True, don't return any message
-    
+
     Returns
     -------
     int, float, str, list, or var
         The given `var` in the given `dtype`, or `var` if '' or None
-    
+
     Raises
     ------
     NotImplementedError
@@ -88,7 +88,7 @@ def if_declared_force_type(var, dtype, varname='an input variable', silent=False
 def check_ext(all_ext, fname, remove=False):
     """
     Check which extension a file has, and possibly remove it.
-    
+
     Parameters
     ----------
     all_ext : list
@@ -97,10 +97,10 @@ def check_ext(all_ext, fname, remove=False):
         The filename to check
     remove : bool, optional
         Remove the extention from fname if it has one
-    
+
     Returns
     -------
-    str : 
+    str :
         If "remove" is True, return (extensionless) fname
     has_ext : boolean
         True if the extension is found, false otherwise
@@ -124,7 +124,7 @@ def check_ext(all_ext, fname, remove=False):
 def check_nifti_dim(fname, data, dim=4):
     """
     Remove extra dimensions.
-    
+
     Parameters
     ----------
     fname : str
@@ -140,7 +140,7 @@ def check_nifti_dim(fname, data, dim=4):
         If `len(data.shape)` = `dim`, returns data.
         If `len(data.shape)` > `dim`, returns a version of data without the
         dimensions above `dim`.
-    
+
     Raises
     ------
     ValueError
@@ -160,7 +160,7 @@ def check_nifti_dim(fname, data, dim=4):
 def load_nifti_get_mask(fname, is_mask=False, mask_dim=3):
     """
     Load a nifti file and returns its data, its image, and a 3d mask.
-    
+
     Parameters
     ----------
     fname : str
@@ -170,19 +170,19 @@ def load_nifti_get_mask(fname, is_mask=False, mask_dim=3):
         Default: False
     mask_dim : int
         The number of dimensions expected in the mask
-    
+
     Returns
     -------
     data : np.ndarray
         Data from nifti file.
     mask : np.ndarray
-        If `is_mask` is False, np.ndarray of one dimension less than data, 
-        in which any element that has at least a value different from zero 
+        If `is_mask` is False, np.ndarray of one dimension less than data,
+        in which any element that has at least a value different from zero
         in the last dimension of `data` is True.
         If `is_mask` is True, mask is a boolean representation of data.
     img : nib.img
         Image object from nibabel.
-    
+
     """
     img = nib.load(fname)
     data = img.get_fdata()
@@ -200,7 +200,7 @@ def load_nifti_get_mask(fname, is_mask=False, mask_dim=3):
 def export_regressor(regr_t, petco2hrf_shift, func_t, outname, suffix='petco2hrf', ext='.1D'):
     """
     Export generated regressors for fMRI analysis.
-    
+
     Parameters
     ----------
     regr_t : np.ndarray
@@ -217,7 +217,7 @@ def export_regressor(regr_t, petco2hrf_shift, func_t, outname, suffix='petco2hrf
         The suffix of the output file.
     ext : str, optional
         The extension of the output file.
-    
+
     Returns
     -------
     petco2hrf_demean : np.ndarray
@@ -226,8 +226,8 @@ def export_regressor(regr_t, petco2hrf_shift, func_t, outname, suffix='petco2hrf
     if regr_t[-1] != func_t[-1]:
         raise ValueError('The two given time ranges do not express the same range!')
     f = spint.interp1d(regr_t, petco2hrf_shift, fill_value='extrapolate')
-    petco2hrf_demean = f(func_t)
-    petco2hrf_demean = petco2hrf_demean - petco2hrf_demean.mean()
+    petco2hrf_shift = f(func_t)
+    petco2hrf_demean = petco2hrf_shift - petco2hrf_shift.mean()
     np.savetxt(f'{outname}_{suffix}{ext}', petco2hrf_demean, fmt='%.6f')
 
     return petco2hrf_demean
@@ -236,7 +236,7 @@ def export_regressor(regr_t, petco2hrf_shift, func_t, outname, suffix='petco2hrf
 def export_nifti(data, img, fname):
     """
     Export a nifti file.
-    
+
     Parameters
     ----------
     data : np.ndarray
