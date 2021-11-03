@@ -1,3 +1,15 @@
+# 0.3.1 (Wed Nov 03 2021)
+
+#### ⚠️ Pushed to `master`
+
+- Extension check are case insensitive ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.3.0 (Sun Oct 31 2021)
 
 #### 💥 Breaking Change during development
