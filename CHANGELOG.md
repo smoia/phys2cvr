@@ -1,3 +1,15 @@
+# 0.4.0 (Wed Nov 03 2021)
+
+#### 💥 Breaking Change during development
+
+- If scale factor is declared, *divide* the betas by the scale factor [#27](https://github.com/smoia/phys2cvr/pull/27) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.3.1 (Wed Nov 03 2021)
 
 #### ⚠️ Pushed to `master`
