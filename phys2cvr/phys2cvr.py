@@ -501,7 +501,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             if not scale_factor:
                 LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
             else:
-                beta = beta * scale_factor
+                beta = beta / scale_factor
 
             io.export_nifti(beta, oimg, f'{fname_out_func}_cvr')
             io.export_nifti(tstat, oimg, f'{fname_out_func}_tstat')

@@ -221,7 +221,8 @@ def _get_parser():
     opt_regr.add_argument('-scale', '--scale-factor',
                           dest='scale_factor',
                           type=float,
-                          help=('Scale factor for the CVR map output. Since BIDS '
+                          help=('Scale factor by which the beta maps will be divided '
+                                'to create the CVR map output. Since BIDS '
                                 'currently does not support mmHg as unit, if '
                                 'using CO2 traces check their unit of measure '
                                 'and their scaling factor to transform Volts into '
