@@ -108,13 +108,13 @@ def check_ext(all_ext, fname, remove=False):
     has_ext = False
     all_ext = if_declared_force_type(all_ext, 'list', silent=True)
     for ext in all_ext:
-        if fname.endswith(ext):
+        if fname.lower().endswith(ext):
             has_ext = True
             break
 
     if remove:
         if has_ext:
-            return fname.replace(ext, ''), has_ext
+            return fname[:-len(ext)], has_ext  # case insensitive solution
         else:
             return fname, has_ext
     else:
