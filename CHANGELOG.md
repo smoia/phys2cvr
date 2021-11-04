@@ -1,3 +1,15 @@
+# 0.4.1 (Thu Nov 04 2021)
+
+#### 🐛 Bug Fix
+
+- Fix peak array loading for index purposes [#28](https://github.com/smoia/phys2cvr/pull/28) ([@kristinazvolanek](https://github.com/kristinazvolanek))
+
+#### Authors: 1
+
+- Kristina Zvolanek ([@kristinazvolanek](https://github.com/kristinazvolanek))
+
+---
+
 # 0.4.0 (Wed Nov 03 2021)
 
 #### 💥 Breaking Change during development
