@@ -29,7 +29,7 @@ LGR.setLevel(logging.INFO)
 def save_bash_call(fname, outdir):
     """
     Save the bash call into file `p2d_call.sh`.
-    
+
     Parameters
     ----------
     outdir : str or path, optional
@@ -55,7 +55,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
              lag_map=None, regr_dir=None, run_conv=True, quiet=False, debug=False):
     """
     Run main workflow of phys2cvr.
-    
+
     Parameters
     ----------
     fname_func : str or path
@@ -63,7 +63,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
     fname_co2 : str or path, optional
         Filename of the CO2 (physiological regressor) timeseries.
         Can be either peakdet's output or a txt file.
-        If not declared, phys2cvr will consider the average temporal value 
+        If not declared, phys2cvr will consider the average temporal value
         from the input.
         Default: empty
     fname_pidx : str or path, optional
@@ -74,7 +74,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
     fname_roi : str or path, optional
         Filename of the roi in a nifti volume.
         If declared, phys2cvr will use these voxels .
-        If not, phys2cvr will use a mask, either the declared one or estimated 
+        If not, phys2cvr will use a mask, either the declared one or estimated
         from the functional input.
         Ignored if input is a txt file.
         Default: empty
@@ -89,10 +89,10 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         Default: the directory where `fname_func` is.
     freq : str, int, or float, optional
         Sample frequency of the CO2 regressor. Required if CO2 input is TXT file.
-        If declared with peakdet file, it will overwrite the file frequency. 
+        If declared with peakdet file, it will overwrite the file frequency.
     tr : str, int, or float, optional
         TR of the timeseries. Required if input is TXT file.
-        If declared with nifti file, it will overwrite the file TR. 
+        If declared with nifti file, it will overwrite the file TR.
     trial_len : str or int, optional
         Length of each single trial for tasks that have more than one
         (E.g. BreathHold, CO2 challenges, ...)
@@ -124,22 +124,22 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
     lag_max : int or float, optional
         Limits (both positive and negative) of the temporal area to explore,
         expressed in seconds (i.e. ±9 seconds).
-        Default: None 
+        Default: None
     lag_step : int or float, optional
         Step of the lag to take into account in seconds.
         Default: None
     l_degree : int, optional
         Only used if performing the regression step.
         Highest order of the Legendre polynomial to add to the denoising matrix.
-        phys2cvr will add all polynomials up to the specified order 
-        (e.g. if user specifies 3, orders 0, 1, 2, and 3 will be added). 
+        phys2cvr will add all polynomials up to the specified order
+        (e.g. if user specifies 3, orders 0, 1, 2, and 3 will be added).
         Default is 0, which will model only the mean of the timeseries.
     denoise_matrix : list of str(s) or path(s), optional
         Add one or multiple denoising matrices to the regression model.
         Ignored if not performing the regression step.
     scale_factor : str, int, or float, optional
         A scale factor to apply to the CVR map before exporting it.
-        Useful when using inputs recorded/stored in Volts that have a meaningful 
+        Useful when using inputs recorded/stored in Volts that have a meaningful
         unit of measurement otherwise, e.g. (CO2 traces in mmHg).
         V->mmHg: CO2[mmHg] = (Patm-Pvap)[mmHg] * 10*CO2[V]/100[V]
         Default: None
@@ -161,20 +161,20 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
     debug : bool, optional
         Return to screen more output.
         Default: False
-    
+
     Raises
     ------
     Exception
         - If functional timeseries is lacking TR and the latter was not specified.
         - If functional nifti file is not at least 4D.
-        - If mask was specified but it has different dimensions than the 
+        - If mask was specified but it has different dimensions than the
             functional nifti file.
         - If a file type is not supported yet.
         - If physiological file is a txt file and no peaks were provided.
         - If physiological file is lacking frequency and the latter was not specified.
-        - If a lag map was specified but it has different dimensions than the 
+        - If a lag map was specified but it has different dimensions than the
             functional nifti file.
-        - If a lag map was specified, lag_step was not, and the lag map seems 
+        - If a lag map was specified, lag_step was not, and the lag map seems
             to have different lag_steps inside.
     """
     # If lagged regression is selected, make sure run_regression is true.
@@ -312,6 +312,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         if co2_is_1d:
             if fname_pidx:
                 pidx = np.genfromtxt(fname_pidx)
+                pidx = np.astype(int)
             elif run_conv:
                 raise NameError(f'{fname_co2} file is a text file, but no '
                                 'file containing its peaks was provided. '
