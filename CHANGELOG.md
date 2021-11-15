@@ -1,3 +1,15 @@
+# 0.4.2 (Mon Nov 15 2021)
+
+#### 🐛 Bug Fix
+
+- Fix scale factor (divide instead of multiply) for bulk shift output [#29](https://github.com/smoia/phys2cvr/pull/29) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.4.1 (Thu Nov 04 2021)
 
 #### 🐛 Bug Fix
