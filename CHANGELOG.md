@@ -1,3 +1,15 @@
+# 0.5.0 (Mon Nov 15 2021)
+
+#### 🚀 Enhancement
+
+- Add output of all regression results for debug [#30](https://github.com/smoia/phys2cvr/pull/30) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.4.2 (Mon Nov 15 2021)
 
 #### 🐛 Bug Fix
