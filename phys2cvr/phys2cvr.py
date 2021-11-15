@@ -393,7 +393,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 mat_conf = np.hstack([mat_conf, conf])
 
         LGR.info('Compute simple CVR estimation (bulk shift only)')
-        beta, tstat, _ = stats.regression(func, mask, regr, mat_conf)
+        beta, tstat, r_square = stats.regression(func, mask, regr, mat_conf)
 
         LGR.info('Export bulk shift results')
         if not scale_factor:
@@ -401,8 +401,13 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         else:
             beta = beta / float(scale_factor)
         # Scale beta by scale factor while exporting (useful to transform V in mmHg)
+        LGR.info('Export CVR and T-stat of simple regression')
         io.export_nifti(beta, oimg, f'{fname_out_func}_cvr_simple')
         io.export_nifti(tstat, oimg, f'{fname_out_func}_tstat_simple')
+
+        if debug:
+            LGR.debug('Export R^2 volume of simple regression')
+            io.export_nifti(r_square, oimg, f'{fname_out_func}_r_square_simple')
 
         if lagged_regression and regr_shifts is not None and ((lag_max and lag_step) or lag_map):
             if lag_max:
@@ -468,7 +473,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
 
             else:
                 # Prepare empty matrices
-                r_square = np.empty(list(func.shape[:3]) + [nrep // step])
+                r_square_all = np.empty(list(func.shape[:3]) + [nrep // step])
                 beta_all = np.empty(list(func.shape[:3]) + [nrep // step])
                 tstat_all = np.empty(list(func.shape[:3]) + [nrep // step])
 
@@ -481,11 +486,22 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
 
                     (beta_all[:, :, :, n],
                      tstat_all[:, :, :, n],
-                     r_square[:, :, :, n]) = stats.regression(func, mask, regr,
-                                                              mat_conf)
+                     r_square_all[:, :, :, n]) = stats.regression(func, mask,
+                                                                  regr,
+                                                                  mat_conf)
+                
+                if debug:
+                    LGR.debug('Export all betas, tstats, and R^2 volumes.')
+                    newdim_all = deepcopy(img.header['dim'])
+                    newdim_all[0], newdim_all[4] = 4, int(nrep // step)
+                    oimg_all = deepcopy(img)
+                    oimg_all.header['dim'] = newdim_all
+                    io.export_nifti(r_square_all, oimg_all, f'{fname_out_func}_r_square_all')
+                    io.export_nifti(tstat_all, oimg_all, f'{fname_out_func}_tstat_all')
+                    io.export_nifti(beta_all, oimg_all, f'{fname_out_func}_beta_all')
 
                 # Find the right lag for CVR estimation
-                lag_idx = np.argmax(r_square, axis=-1)
+                lag_idx = np.argmax(r_square_all, axis=-1)
                 lag = (lag_idx * step) / freq - (mask * lag_max)
                 # Express lag map relative to median of the roi
                 lag_rel = lag - (mask * np.median(lag[roi]))
