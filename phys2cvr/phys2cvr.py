@@ -312,7 +312,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         if co2_is_1d:
             if fname_pidx:
                 pidx = np.genfromtxt(fname_pidx)
-                pidx = np.astype(int)
+                pidx = pidx.astype(int)
             elif run_conv:
                 raise NameError(f'{fname_co2} file is a text file, but no '
                                 'file containing its peaks was provided. '
