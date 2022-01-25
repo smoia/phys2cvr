@@ -325,7 +325,7 @@ def regression(data, mask, regr, mat_conf):
     # std(betas) = sqrt(sigma * C)
     C = np.diag(np.linalg.pinv(np.dot(Xmat.T, Xmat)))
     C = C[..., np.newaxis]
-    std_betas = np.sqrt(np.outer(np.dot(C, sigma))
+    std_betas = np.sqrt(np.outer(C, sigma))
     tstats = betas / std_betas
 
     # Compute R^2 coefficient of multiple determination!
