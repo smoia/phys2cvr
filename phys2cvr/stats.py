@@ -20,6 +20,8 @@ from phys2cvr import io
 from phys2cvr.io import SET_DPI, FIGSIZE
 
 
+R2MODEL = ['full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept']
+
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
 
@@ -263,7 +265,7 @@ def get_legendre(degree, length):
     return legendre
 
 
-def regression(data, mask, regr, mat_conf):
+def regression(data, mask, regr, mat_conf, r2model='full'):
     """
     Estimate regression parameters.
 
@@ -277,6 +279,26 @@ def regression(data, mask, regr, mat_conf):
         Regressor of interest
     mat_conf : np.ndarray
         Confounding effects (regressors)
+    r2model : 'full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept', optional
+        R^2 to report.
+        Possible models are:
+            - 'full' (default)
+                Use every regressor in the model, i.e. compare versus baseline 0
+            - 'partial'
+                Consider only `regr` in the model, i.e. compare versus baseline 
+                composed by all other regressors (`mat_conf`)
+            - 'intercept'
+                Use every regressor in the model, but the intercept, i.e. compare 
+                versus baseline intercept (Legendre polynomial order 0, a.k.a. 
+                average signal)
+            - 'adj_*'
+                Adjusted R^2 version of normal counterpart
+        Under normal conditions, while the R^2 value will be different between options, 
+        a lagged regression based on any R^2 model will give the same results.
+        This WILL NOT be the case if orthogonalisations between `regr` and `mat_conf`
+        are introduced: a lagged regression based on `partial` might hold different 
+        results.
+        Default: 'full'
 
     Returns
     -------
@@ -329,25 +351,40 @@ def regression(data, mask, regr, mat_conf):
     tstats = betas / std_betas
 
     # Compute R^2 coefficient of multiple determination!
+    r2model_support = False
+    for model in R2MODEL:
+        if r2model == model:
+            r2model_support = True
+    if not r2model_support:
+        raise ValueError(f'{r2model} R^2 not supported. Supported R^2 models are {R2MODEL}')
+
     # R^2 = 1 - RSS/TSS, (TSS = total sum of square)
-    # Baseline model is 0 - this is what we're using ATM
-    TSS = np.sum(np.power(Ymat, 2), axis=1)
+    if 'full' in r2model:
+        # Baseline model is 0 - this is what we're using ATM
+        TSS = np.sum(np.power(Ymat, 2), axis=1)
+    elif 'intercept' in r2model:
+        # Baseline model is intercept: TSS is variance*samples
+        TSS = Ymat.var(axis=1) * Ymat.shape[1]
+    elif 'poly' in r2model:
+        # Baseline model is legendre polynomials - or others: TSS is RSS of partial matrix
+        # Could improve efficiency by moving this fitting step outside the regression loop
+        # polynomials = Xmat[:, 0:4]
+        # TSS = np.linalg.lstsq(polynomials, Ymat.T, rcond=None)[1]
+        raise NotImplementedError('\'poly\' R^2 not implemented yet')
+    elif 'partial' in r2model:
+        pass
 
-    # Baseline model is intercept: TSS is variance*samples
-    # TSS = Ymat.var(axis=1) * Ymat.shape[1]
-    # Baseline model is legendre polynomials - or others: TSS is RSS of partial matrix
-    # Could improve efficiency by moving this fitting step outside the regression loop
-    # polynomials = Xmat[:, 0:4]
-    # TSS = np.linalg.lstsq(polynomials, Ymat.T, rcond=None)[1]
+    if 'partial' in r2model:
+        # We could also compute PARTIAL R square of regr instead (or on top)
+        # See for computation: https://sscc.nimh.nih.gov/sscc/gangc/tr.html
+        tstats_square = np.power(tstats, 2)
+        r_square = (tstats_square / (tstats_square + df))[-1, :]
+    else:
+        r_square = np.ones(Ymat.shape[0]) - (RSS / TSS)
 
-    r_square = np.ones(Ymat.shape[0]) - (RSS / TSS)
-    # We could compute adjusted R^2 instead
-    # adjusted_r_square = 1-((1-r_square)*(Xmat.shape[0]-1)/(Xmat.shape[0]-Xmat.shape[1]))
-
-    # We could also compute Partial R square of CO2 instead (or on top)
-    # See for computation: https://sscc.nimh.nih.gov/sscc/gangc/tr.html
-    tstats_square = np.power(tstats, 2)
-    partial_r_square = tstats_square / (tstats_square + df)
+    if 'adj_' in r2model:
+        # We could compute ADJUSTED R^2 instead
+        r_square = 1-((1-r_square)*(Xmat.shape[0]-1)/(Xmat.shape[0]-Xmat.shape[1]))
 
     # Assign betas, Rsquare and tstats to new volume
     bout = mask * 1.0
