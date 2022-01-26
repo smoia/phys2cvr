@@ -329,15 +329,23 @@ def regression(data, mask, regr, mat_conf):
     tstats = betas / std_betas
 
     # Compute R^2 coefficient of multiple determination!
-    # R^2 = 1 - RSS/TSS, where TSS (total sum of square) is variance*samples
-    # TSS = Ymat.var(axis=1) * Ymat.shape[1] # baseline model is intercept
-    TSS = np.sum(np.power(Ymat,2),axis=1) # baseline model is 0
+    # R^2 = 1 - RSS/TSS, (TSS = total sum of square)
+    # Baseline model is 0 - this is what we're using ATM
+    TSS = np.sum(np.power(Ymat, 2), axis=1)
+
+    # Baseline model is intercept: TSS is variance*samples
+    # TSS = Ymat.var(axis=1) * Ymat.shape[1]
+    # Baseline model is legendre polynomials - or others: TSS is RSS of partial matrix
+    # Could improve efficiency by moving this fitting step outside the regression loop
     # polynomials = Xmat[:, 0:4]
-    # TSS = np.linalg.lstsq(polynomials, Ymat.T, rcond=None)[1] # baseline model
-    # is legendre polynomials --> could improve efficiency by moving this
-    # fitting step outside the regression loop
+    # TSS = np.linalg.lstsq(polynomials, Ymat.T, rcond=None)[1]
+
     r_square = np.ones(Ymat.shape[0]) - (RSS / TSS)
-    #  adjusted_r_square = 1-((1-r_square)*(Xmat.shape[0]-1)/(Xmat.shape[0]-Xmat.shape[1]))
+    # We could compute adjusted R^2 instead
+    # adjusted_r_square = 1-((1-r_square)*(Xmat.shape[0]-1)/(Xmat.shape[0]-Xmat.shape[1]))
+
+    # We could also compute Partial R square of CO2 instead (or on top)
+    # See for computation: https://sscc.nimh.nih.gov/sscc/gangc/tr.html
     tstats_square = np.power(tstats, 2)
     partial_r_square = tstats_square / (tstats_square + df)
 
