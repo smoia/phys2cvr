@@ -20,6 +20,8 @@ from phys2cvr import io
 from phys2cvr.io import SET_DPI, FIGSIZE
 
 
+R2MODEL = ['full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept']
+
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
 
@@ -27,20 +29,20 @@ LGR.setLevel(logging.INFO)
 def x_corr(func, co2, lastrep, firstrep=0, offset=0):
     """
     Cross correlation between `func` and `co2`.
-    
+
     Parameters
     ----------
     func : np.ndarray
         Timeseries, must be SHORTER (or of equal length) than `co2`
     co2 : np.ndarray
-        Second timeseries, can be LONGER than `func` 
+        Second timeseries, can be LONGER than `func`
     lastrep : int
         Last index to take into account in `func`
     firstrep : int, optional
         First index totake into account in `func`
     offset : int, optional
         Optional amount of offset desired for `func`
-    
+
     Returns
     -------
     float :
@@ -49,7 +51,7 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
         Index of higher correlation
     xcorr : np.ndarray
         Full Xcorr
-    
+
     Raises
     ------
     ValueError
@@ -75,7 +77,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
              trial_len=None, n_trials=None, ext='.1D', lagged_regression=True):
     """
     Create regressor(s) of interest for nifti GLM.
-    
+
     Parameters
     ----------
     func_avg : np.ndarray
@@ -105,7 +107,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
     lagged_regression : bool, optional
         Estimate regressors for each possible lag of `petco2hrf`.
         If True, the maximum number of regressors will be `(freq*lag_max*2)-1`
-    
+
     Returns
     -------
     petco2hrf_demean : np.ndarray
@@ -235,14 +237,14 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
 def get_legendre(degree, length):
     """
     Producesthe Legendre polynomials of order `degree`.
-    
+
     Parameters
     ----------
     degree : int
         Highest order desired.
     length : int
         Number of samples of the polynomials.
-    
+
     Returns
     -------
     legendre : np.ndarray
@@ -263,10 +265,10 @@ def get_legendre(degree, length):
     return legendre
 
 
-def regression(data, mask, regr, mat_conf):
+def regression(data, mask, regr, mat_conf, r2model='full'):
     """
     Estimate regression parameters.
-    
+
     Parameters
     ----------
     data : np.ndarray
@@ -277,7 +279,27 @@ def regression(data, mask, regr, mat_conf):
         Regressor of interest
     mat_conf : np.ndarray
         Confounding effects (regressors)
-    
+    r2model : 'full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept', optional
+        R^2 to report.
+        Possible models are:
+            - 'full' (default)
+                Use every regressor in the model, i.e. compare versus baseline 0
+            - 'partial'
+                Consider only `regr` in the model, i.e. compare versus baseline 
+                composed by all other regressors (`mat_conf`)
+            - 'intercept'
+                Use every regressor in the model, but the intercept, i.e. compare 
+                versus baseline intercept (Legendre polynomial order 0, a.k.a. 
+                average signal)
+            - 'adj_*'
+                Adjusted R^2 version of normal counterpart
+        Under normal conditions, while the R^2 value will be different between options, 
+        a lagged regression based on any R^2 model will give the same results.
+        This WILL NOT be the case if orthogonalisations between `regr` and `mat_conf`
+        are introduced: a lagged regression based on `partial` might hold different 
+        results.
+        Default: 'full'
+
     Returns
     -------
     bout : np.ndarray
@@ -286,14 +308,14 @@ def regression(data, mask, regr, mat_conf):
         T-stats map
     rout : np.ndarray
         R^2 map
-    
+
     Raises
     ------
     Exception
         If `mat_conf` and `regr` do not have at least one common dimension.
     """
     # Obtain data in 2d
-    data_2d = data[mask]
+    Ymat = data[mask]
     # Check that regr has "two" dimensions
     if len(regr.shape) < 2:
         regr = regr[..., np.newaxis]
@@ -302,33 +324,67 @@ def regression(data, mask, regr, mat_conf):
         if regr.shape[0] != mat_conf.shape[0]:
             raise ValueError('The provided confounding matrix does not match '
                              'the dimensionality of the PetCO2hrf regressor!')
-    # Stack mat and solve least square with it demeaned
-    mat = np.hstack([mat_conf, regr])
-    betas = np.linalg.lstsq(mat-mat.mean(axis=0),
-                            data_2d.T, rcond=None)[0]
+    # Stack mat and solve least square
+    # Note: Xmat is not currently demeaned within this function, so inputs should
+    # already be demeaned (or within this function, demean all columns except zero order polynomial)
+    Xmat = np.hstack([mat_conf, regr])
+    # Xmat = mat-mat.mean(axis=0)
+    betas, RSS, _, _ = np.linalg.lstsq(Xmat, Ymat.T, rcond=None)
 
     # compute t-values of betas (estimates)
     # first compute number of degrees of freedom
-    dofs = data_2d.shape[1] - mat.shape[1]
+    df = Xmat.shape[0] - Xmat.shape[1]
+
     # compute sigma:
     # RSS = sum{[mdata - (X * betas)]^2}
     # sigma = RSS / Degrees_of_Freedom
-    RSS = np.sum(np.power(data_2d.T - np.dot(mat, betas), 2), axis=0)
-    sigma = (RSS / dofs)
+    # RSS = np.sum(np.power(Ymat.T - np.dot(Xmat, betas), 2), axis=0)
+    sigma = (RSS / df)
     sigma = sigma[..., np.newaxis]
+
     # Copmute std of betas:
     # C = (mat^T * mat)_ii^(-1)
     # std(betas) = sqrt(sigma * C)
-    C = np.diag(np.linalg.pinv(np.dot(mat.T, mat)))
+    C = np.diag(np.linalg.pinv(np.dot(Xmat.T, Xmat)))
     C = C[..., np.newaxis]
-    std_betas = np.sqrt(np.dot(sigma, C.T))
-    tstats = betas / std_betas.T
+    std_betas = np.sqrt(np.outer(C, sigma))
+    tstats = betas / std_betas
 
     # Compute R^2 coefficient of multiple determination!
-    # R^2 = 1 - RSS/TSS, where TSS (total sum of square) is variance*samples
-    # #!# Check the axis here
-    TSS = data_2d.var(axis=1) * data_2d.shape[1]
-    r_square = np.ones(data_2d.shape[0]) - (RSS / TSS)
+    r2model_support = False
+    for model in R2MODEL:
+        if r2model == model:
+            r2model_support = True
+    if not r2model_support:
+        raise ValueError(f'{r2model} R^2 not supported. Supported R^2 models are {R2MODEL}')
+
+    # R^2 = 1 - RSS/TSS, (TSS = total sum of square)
+    if 'full' in r2model:
+        # Baseline model is 0 - this is what we're using ATM
+        TSS = np.sum(np.power(Ymat, 2), axis=1)
+    elif 'intercept' in r2model:
+        # Baseline model is intercept: TSS is variance*samples
+        TSS = Ymat.var(axis=1) * Ymat.shape[1]
+    elif 'poly' in r2model:
+        # Baseline model is legendre polynomials - or others: TSS is RSS of partial matrix
+        # Could improve efficiency by moving this fitting step outside the regression loop
+        # polynomials = Xmat[:, 0:4]
+        # TSS = np.linalg.lstsq(polynomials, Ymat.T, rcond=None)[1]
+        raise NotImplementedError('\'poly\' R^2 not implemented yet')
+    elif 'partial' in r2model:
+        pass
+
+    if 'partial' in r2model:
+        # We could also compute PARTIAL R square of regr instead (or on top)
+        # See for computation: https://sscc.nimh.nih.gov/sscc/gangc/tr.html
+        tstats_square = np.power(tstats, 2)
+        r_square = (tstats_square / (tstats_square + df))[-1, :]
+    else:
+        r_square = np.ones(Ymat.shape[0]) - (RSS / TSS)
+
+    if 'adj_' in r2model:
+        # We could compute ADJUSTED R^2 instead
+        r_square = 1-((1-r_square)*(Xmat.shape[0]-1)/(Xmat.shape[0]-Xmat.shape[1]))
 
     # Assign betas, Rsquare and tstats to new volume
     bout = mask * 1.0

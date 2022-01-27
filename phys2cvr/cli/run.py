@@ -199,6 +199,50 @@ def _get_parser():
                                 'fMRI signal only.'),
                           default=True)
 
+    title_opt_r2model = parser.add_argument_group('Optional Arguments to select R^2 model '
+                                                  'for regresion step')
+
+    opt_r2model = title_opt_r2model.add_mutually_exclusive_group()
+    opt_r2model.add_argument('--r2full',
+                             dest='r2model',
+                             action='store_const',
+                             const='full',
+                             help=('Use full R^2 of the model, , i.e. compare versus baseline 0'),
+                             default=None)
+    opt_r2model.add_argument('--r2partial',
+                             dest='r2model',
+                             action='store_const',
+                             const='partial',
+                             help=('Use partial R^2 of the regressor of interest, i.e. compare '
+                                   'versus any other regressor'),
+                             default=None)
+    opt_r2model.add_argument('--r2intercept',
+                             dest='r2model',
+                             action='store_const',
+                             const='intercept',
+                             help=('Use full R^2 of the model but the intercept, i.e. compare '
+                                   'versus baseline intercept (Legendre polynomial order 0, '
+                                   'a.k.a. average signal)'),
+                             default=None)
+    opt_r2model.add_argument('--r2adjfull',
+                             dest='r2model',
+                             action='store_const',
+                             const='adj_full',
+                             help=('Same as \'full\', but adjusted'),
+                             default=None)
+    opt_r2model.add_argument('--r2adjpartial',
+                             dest='r2model',
+                             action='store_const',
+                             const='adj_partial',
+                             help=('Same as \'partial\', but adjusted'),
+                             default=None)
+    opt_r2model.add_argument('--r2adjintercept',
+                             dest='r2model',
+                             action='store_const',
+                             const='adj_intercept',
+                             help=('Same as \'intercept\', but adjusted'),
+                             default=None)
+
     opt_regr = parser.add_argument_group('Optional Arguments for the regression step')
     opt_regr.add_argument('-ldeg', '--legendre-degree',
                           dest='l_degree',
@@ -278,14 +322,14 @@ def _get_parser():
                                 'S. Moia, et al., \'ICA-based denoising strategies in '
                                 'breath-hold induced cerebrovascular reactivity mapping '
                                 'with multi echo BOLD fMRI\' (2021), NeuroImage\n'
-                                'Same as setting --lag-max 9 --lag-step 0.3'),
+                                'Same as setting --lag-max 9 --lag-step 0.3 --r2full'),
                           default=None)
     opt_conf.add_argument('--brightspin-clinical',
                           dest='workflow_config',
                           action='store_const',
                           const='brightspin-clinical',
                           help=('Like "brightspin", but use a larger lag range.\n'
-                                'Same as setting --lag-max 20 --lag-step 0.3'),
+                                'Same as setting --lag-max 20 --lag-step 0.3 --r2full'),
                           default=None)
     opt_conf.add_argument('--baltimore',
                           dest='workflow_config',
@@ -332,13 +376,14 @@ def _check_opt_conf(parser):
     Parameters
     ----------
     parser : argparse.ArgumentParser
-        A parser with a 'workflow_config' item inside.
+        A parser with a 'workflow_config' and 'r2model' item inside.
     
     Returns
     -------
     parser : argparse.ArgumentParser
         If parser.workflow_config is None, returns the unmodified
         input parameter. Otherwise, set its items based on the flag.
+        If parser.r2model is None, set it to 'full'
     
     Raises
     ------
@@ -354,12 +399,14 @@ def _check_opt_conf(parser):
             parser.lagged_regression = True
             parser.run_conv = True
             parser.apply_filter = False
+            parser.r2model = 'full'
         elif parser.workflow_config == 'brightspin-clinical':
             parser.lag_max = 20
             parser.lag_step = 0.3
             parser.lagged_regression = True
             parser.run_conv = True
             parser.apply_filter = False
+            parser.r2model = 'full'
         elif parser.workflow_config == 'baltimore':
             parser.run_conv = False
             parser.apply_filter = True
@@ -377,6 +424,9 @@ def _check_opt_conf(parser):
         else:
             raise NotImplementedError(f'{parser.workflow_config} is not configured. '
                                       'In fact, you shouldn\'t see this message at all.')
+
+    if parser.r2model is None:
+        parser.r2model = 'full'
 
     del parser.workflow_config
     return parser
