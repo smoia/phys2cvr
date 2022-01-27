@@ -1,3 +1,16 @@
+# 0.6.0 (Thu Jan 27 2022)
+
+#### 💥 Breaking Change during development
+
+- Updated regression function [#32](https://github.com/smoia/phys2cvr/pull/32) ([@kristinazvolanek](https://github.com/kristinazvolanek) [@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- Kristina Zvolanek ([@kristinazvolanek](https://github.com/kristinazvolanek))
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.5.1 (Thu Jan 13 2022)
 
 #### 🐛 Bug Fix
