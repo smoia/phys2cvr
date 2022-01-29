@@ -1,3 +1,19 @@
+# 0.6.1 (Sat Jan 29 2022)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, DeepSource Bot ([@deepsourcebot](https://github.com/deepsourcebot)), for all your work!
+
+#### ⚠️ Pushed to `master`
+
+- Add .deepsource.toml ([@deepsourcebot](https://github.com/deepsourcebot))
+
+#### Authors: 1
+
+- DeepSource Bot ([@deepsourcebot](https://github.com/deepsourcebot))
+
+---
+
 # 0.6.0 (Thu Jan 27 2022)
 
 #### 💥 Breaking Change during development
