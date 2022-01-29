@@ -19,8 +19,7 @@ import scipy.stats as sct
 from phys2cvr import io
 from phys2cvr.io import SET_DPI, FIGSIZE
 
-
-R2MODEL = ['full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept']
+R2MODEL = ["full", "partial", "intercept", "adj_full", "adj_partial", "adj_intercept"]
 
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
@@ -58,23 +57,37 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
         If `offset` is too high for the functional file
     """
     if len(func) + offset > len(co2):
-        raise ValueError(f'The specified offset of {offset} is too high to '
-                         f'compare func of length {len(func)} with co2 of '
-                         f'length {len(co2)}')
+        raise ValueError(
+            f"The specified offset of {offset} is too high to "
+            f"compare func of length {len(func)} with co2 of "
+            f"length {len(co2)}"
+        )
     if firstrep + offset < 0:
         firstrep = -offset
     if lastrep + offset + len(func) > len(co2):
         lastrep = len(co2) - offset - len(func)
 
-    xcorr = np.empty(lastrep+firstrep)
+    xcorr = np.empty(lastrep + firstrep)
     for i in range(firstrep, lastrep):
-        xcorr[i] = np.corrcoef(func, co2[0+i+offset:len(func)+i+offset].T)[1, 0]
+        xcorr[i] = np.corrcoef(func, co2[0 + i + offset : len(func) + i + offset].T)[
+            1, 0
+        ]
 
     return xcorr.max(), (xcorr.argmax() + firstrep + offset), xcorr
 
 
-def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
-             trial_len=None, n_trials=None, ext='.1D', lagged_regression=True):
+def get_regr(
+    func_avg,
+    petco2hrf,
+    tr,
+    freq,
+    outname,
+    lag_max=None,
+    trial_len=None,
+    n_trials=None,
+    ext=".1D",
+    lagged_regression=True,
+):
     """
     Create regressor(s) of interest for nifti GLM.
 
@@ -120,30 +133,34 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
 
     if trial_len and n_trials:
         # If both are specified, disregard two extreme _trial from matching.
-        LGR.info(f'Specified {n_trials} trials lasting {trial_len} seconds')
+        LGR.info(f"Specified {n_trials} trials lasting {trial_len} seconds")
         if n_trials > 2:
-            LGR.info('Ignoring first trial to improve first bulk shift estimation')
-            first_tp = int(trial_len*freq)
+            LGR.info("Ignoring first trial to improve first bulk shift estimation")
+            first_tp = int(trial_len * freq)
         else:
-            LGR.info('Using all trials for bulk shift estimation')
+            LGR.info("Using all trials for bulk shift estimation")
         if n_trials > 3:
-            LGR.info('Ignoring last trial to improve first bulk shift estimation')
-            last_tp = first_tp*(n_trials-1)
+            LGR.info("Ignoring last trial to improve first bulk shift estimation")
+            last_tp = first_tp * (n_trials - 1)
 
     elif trial_len and not n_trials:
-        LGR.warning('The length of trial was specified, but the number of '
-                    'trials was not. Using all trials for bulk shift estimation')
+        LGR.warning(
+            "The length of trial was specified, but the number of "
+            "trials was not. Using all trials for bulk shift estimation"
+        )
     elif not trial_len and n_trials:
-        LGR.warning('The number of trials was specified, but the length of '
-                    'trial was not. Using all trials for bulk shift estimation')
+        LGR.warning(
+            "The number of trials was specified, but the length of "
+            "trial was not. Using all trials for bulk shift estimation"
+        )
     else:
-        LGR.info('Using all trials for bulk shift estimation.')
+        LGR.info("Using all trials for bulk shift estimation.")
 
     # Upsample functional signal
     func_len = len(func_avg)
-    regr_t = np.arange(0, ((func_len-1) * tr + 1/freq), 1/freq)
+    regr_t = np.arange(0, ((func_len - 1) * tr + 1 / freq), 1 / freq)
     func_t = np.linspace(0, (func_len - 1) * tr, func_len)
-    f = spint.interp1d(func_t, func_avg, fill_value='extrapolate')
+    f = spint.interp1d(func_t, func_avg, fill_value="extrapolate")
     func_upsampled = f(regr_t)
     len_upd = len(func_upsampled)
 
@@ -154,58 +171,65 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
     nrep = len(petco2hrf_cut) - len(func_cut)
 
     _, optshift, xcorr = x_corr(func_cut, petco2hrf, nrep)
-    LGR.info(f'First cross correlation estimated bulk shift at {optshift/freq} seconds')
+    LGR.info(f"First cross correlation estimated bulk shift at {optshift/freq} seconds")
 
     if trial_len and n_trials and n_trials > 2:
-        LGR.info('Running second bulk shift estimation')
+        LGR.info("Running second bulk shift estimation")
         if len(func_upsampled) + nrep > len(petco2hrf):
             pad = len(func_upsampled) + nrep - len(petco2hrf)
-            petco2hrf_padded = np.pad(petco2hrf, pad, mode='mean')
+            petco2hrf_padded = np.pad(petco2hrf, pad, mode="mean")
         else:
             petco2hrf_padded = petco2hrf
 
-        _, optshift, xcorr = x_corr(func_upsampled, petco2hrf_padded, nrep, -nrep, optshift)
-        LGR.info(f'Second cross correlation estimated bulk shift at {optshift/freq} seconds')
+        _, optshift, xcorr = x_corr(
+            func_upsampled, petco2hrf_padded, nrep, -nrep, optshift
+        )
+        LGR.info(
+            f"Second cross correlation estimated bulk shift at {optshift/freq} seconds"
+        )
 
     # Export estimated optimal shift in seconds
-    with open(f'{outname}_optshift.1D', 'w') as f:
-        print(f'{(optshift/freq):.4f}', file=f)
+    with open(f"{outname}_optshift.1D", "w") as f:
+        print(f"{(optshift/freq):.4f}", file=f)
 
-    petco2hrf_shift = petco2hrf[optshift:optshift+len_upd]
+    petco2hrf_shift = petco2hrf[optshift : optshift + len_upd]
 
     # preparing for and exporting figures of shift
-    time_axis = np.arange(0, nrep/freq, 1/freq)
+    time_axis = np.arange(0, nrep / freq, 1 / freq)
 
     if nrep < len(time_axis):
         time_axis = time_axis[:nrep]
     elif nrep > len(time_axis):
-        time_axis = np.pad(time_axis, (0, int(nrep - len(time_axis))), 'linear_ramp')
+        time_axis = np.pad(time_axis, (0, int(nrep - len(time_axis))), "linear_ramp")
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.plot(time_axis, xcorr)
-    plt.title('optshift')
-    plt.savefig(f'{outname}_optshift.png', dpi=SET_DPI)
+    plt.title("optshift")
+    plt.savefig(f"{outname}_optshift.png", dpi=SET_DPI)
     plt.close()
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.plot(sct.zscore(petco2hrf_shift), '-', sct.zscore(func_upsampled), '-')
-    plt.title('GM and shift')
-    plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
+    plt.plot(sct.zscore(petco2hrf_shift), "-", sct.zscore(func_upsampled), "-")
+    plt.title("GM and shift")
+    plt.savefig(f"{outname}_petco2hrf.png", dpi=SET_DPI)
     plt.close()
 
-    petco2hrf_demean = io.export_regressor(regr_t, petco2hrf_shift, func_t, outname,
-                                           'petco2hrf', ext)
+    petco2hrf_demean = io.export_regressor(
+        regr_t, petco2hrf_shift, func_t, outname, "petco2hrf", ext
+    )
 
     # Initialise the shifts first.
     petco2hrf_shift = None
     if lagged_regression and lag_max:
-        outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
-        os.makedirs(os.path.join(os.path.split(outname)[0], 'regr'), exist_ok=True)
+        outprefix = os.path.join(
+            os.path.split(outname)[0], "regr", os.path.split(outname)[1]
+        )
+        os.makedirs(os.path.join(os.path.split(outname)[0], "regr"), exist_ok=True)
 
         # Set num of fine shifts: 9 seconds is a bit more than physiologically feasible
         nrep = int(lag_max * freq)
 
-        petco2hrf_shifts = np.empty([func_len, nrep*2])
+        petco2hrf_shifts = np.empty([func_len, nrep * 2])
 
         # Padding regressor for shift, and padding optshift too
         if (optshift - nrep) < 0:
@@ -218,18 +242,22 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
         else:
             rpad = 0
 
-        petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
+        petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), "mean")
 
         for i in range(-nrep, nrep):
-            petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-            petco2hrf_shifts[:, i] = io.export_regressor(regr_t, petco2hrf_lagged,
-                                                         func_t, outprefix,
-                                                         f'{(i + nrep):04g}', ext)
+            petco2hrf_lagged = petco2hrf_padded[
+                optshift + lpad - i : optshift + lpad - i + len_upd
+            ]
+            petco2hrf_shifts[:, i] = io.export_regressor(
+                regr_t, petco2hrf_lagged, func_t, outprefix, f"{(i + nrep):04g}", ext
+            )
 
     elif not lag_max:
-        LGR.warning('The generation of lagged regressors was requested, '
-                    'but the maximum lag was not specified. Skipping '
-                    'lagged regressor generation.')
+        LGR.warning(
+            "The generation of lagged regressors was requested, "
+            "but the maximum lag was not specified. Skipping "
+            "lagged regressor generation."
+        )
 
     return petco2hrf_demean, petco2hrf_shifts
 
@@ -250,22 +278,25 @@ def get_legendre(degree, length):
     legendre : np.ndarray
         A `degree`*`length` array with all the polynomials up to order `degree`
     """
+
     def _bonnet(d, x):
-        if(d == 0):
+        if d == 0:
             return np.ones_like(x)
-        elif(d == 1):
+        elif d == 1:
             return x
         else:
-            return ((2*d-1)*x*_bonnet(d-1, x)-(d-1)*_bonnet(d-2, x))/d
+            return (
+                (2 * d - 1) * x * _bonnet(d - 1, x) - (d - 1) * _bonnet(d - 2, x)
+            ) / d
 
     x = np.linspace(-1, 1, length)
-    legendre = np.empty([length, degree+1])
-    for n in range(degree+1):
+    legendre = np.empty([length, degree + 1])
+    for n in range(degree + 1):
         legendre[:, n] = _bonnet(n, x)
     return legendre
 
 
-def regression(data, mask, regr, mat_conf, r2model='full'):
+def regression(data, mask, regr, mat_conf, r2model="full"):
     """
     Estimate regression parameters.
 
@@ -285,18 +316,18 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
             - 'full' (default)
                 Use every regressor in the model, i.e. compare versus baseline 0
             - 'partial'
-                Consider only `regr` in the model, i.e. compare versus baseline 
+                Consider only `regr` in the model, i.e. compare versus baseline
                 composed by all other regressors (`mat_conf`)
             - 'intercept'
-                Use every regressor in the model, but the intercept, i.e. compare 
-                versus baseline intercept (Legendre polynomial order 0, a.k.a. 
+                Use every regressor in the model, but the intercept, i.e. compare
+                versus baseline intercept (Legendre polynomial order 0, a.k.a.
                 average signal)
             - 'adj_*'
                 Adjusted R^2 version of normal counterpart
-        Under normal conditions, while the R^2 value will be different between options, 
+        Under normal conditions, while the R^2 value will be different between options,
         a lagged regression based on any R^2 model will give the same results.
         This WILL NOT be the case if orthogonalisations between `regr` and `mat_conf`
-        are introduced: a lagged regression based on `partial` might hold different 
+        are introduced: a lagged regression based on `partial` might hold different
         results.
         Default: 'full'
 
@@ -322,8 +353,10 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
     if regr.shape[0] != mat_conf.shape[0]:
         regr = regr.T
         if regr.shape[0] != mat_conf.shape[0]:
-            raise ValueError('The provided confounding matrix does not match '
-                             'the dimensionality of the PetCO2hrf regressor!')
+            raise ValueError(
+                "The provided confounding matrix does not match "
+                "the dimensionality of the PetCO2hrf regressor!"
+            )
     # Stack mat and solve least square
     # Note: Xmat is not currently demeaned within this function, so inputs should
     # already be demeaned (or within this function, demean all columns except zero order polynomial)
@@ -339,7 +372,7 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
     # RSS = sum{[mdata - (X * betas)]^2}
     # sigma = RSS / Degrees_of_Freedom
     # RSS = np.sum(np.power(Ymat.T - np.dot(Xmat, betas), 2), axis=0)
-    sigma = (RSS / df)
+    sigma = RSS / df
     sigma = sigma[..., np.newaxis]
 
     # Copmute std of betas:
@@ -356,25 +389,27 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
         if r2model == model:
             r2model_support = True
     if not r2model_support:
-        raise ValueError(f'{r2model} R^2 not supported. Supported R^2 models are {R2MODEL}')
+        raise ValueError(
+            f"{r2model} R^2 not supported. Supported R^2 models are {R2MODEL}"
+        )
 
     # R^2 = 1 - RSS/TSS, (TSS = total sum of square)
-    if 'full' in r2model:
+    if "full" in r2model:
         # Baseline model is 0 - this is what we're using ATM
         TSS = np.sum(np.power(Ymat, 2), axis=1)
-    elif 'intercept' in r2model:
+    elif "intercept" in r2model:
         # Baseline model is intercept: TSS is variance*samples
         TSS = Ymat.var(axis=1) * Ymat.shape[1]
-    elif 'poly' in r2model:
+    elif "poly" in r2model:
         # Baseline model is legendre polynomials - or others: TSS is RSS of partial matrix
         # Could improve efficiency by moving this fitting step outside the regression loop
         # polynomials = Xmat[:, 0:4]
         # TSS = np.linalg.lstsq(polynomials, Ymat.T, rcond=None)[1]
-        raise NotImplementedError('\'poly\' R^2 not implemented yet')
-    elif 'partial' in r2model:
+        raise NotImplementedError("'poly' R^2 not implemented yet")
+    elif "partial" in r2model:
         pass
 
-    if 'partial' in r2model:
+    if "partial" in r2model:
         # We could also compute PARTIAL R square of regr instead (or on top)
         # See for computation: https://sscc.nimh.nih.gov/sscc/gangc/tr.html
         tstats_square = np.power(tstats, 2)
@@ -382,9 +417,11 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
     else:
         r_square = np.ones(Ymat.shape[0]) - (RSS / TSS)
 
-    if 'adj_' in r2model:
+    if "adj_" in r2model:
         # We could compute ADJUSTED R^2 instead
-        r_square = 1-((1-r_square)*(Xmat.shape[0]-1)/(Xmat.shape[0]-Xmat.shape[1]))
+        r_square = 1 - (
+            (1 - r_square) * (Xmat.shape[0] - 1) / (Xmat.shape[0] - Xmat.shape[1])
+        )
 
     # Assign betas, Rsquare and tstats to new volume
     bout = mask * 1.0
