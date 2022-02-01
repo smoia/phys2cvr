@@ -1,3 +1,16 @@
+# 0.6.2 (Tue Feb 01 2022)
+
+#### ⚠️ Pushed to `master`
+
+- Merge branch 'master' of github.com:smoia/phys2cvr (s.moia@bcbl.eu)
+- Add full import (s.moia@bcbl.eu)
+
+#### Authors: 1
+
+- Stefano Moia (s.moia@bcbl.eu)
+
+---
+
 # 0.6.1 (Sat Jan 29 2022)
 
 :tada: This release contains work from a new contributor! :tada:
