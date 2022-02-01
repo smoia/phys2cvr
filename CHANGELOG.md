@@ -1,3 +1,44 @@
+# 0.6.1 (Sat Jan 29 2022)
+
+:tada: This release contains work from a new contributor! :tada:
+
+Thank you, DeepSource Bot ([@deepsourcebot](https://github.com/deepsourcebot)), for all your work!
+
+#### ⚠️ Pushed to `master`
+
+- Add .deepsource.toml ([@deepsourcebot](https://github.com/deepsourcebot))
+
+#### Authors: 1
+
+- DeepSource Bot ([@deepsourcebot](https://github.com/deepsourcebot))
+
+---
+
+# 0.6.0 (Thu Jan 27 2022)
+
+#### 💥 Breaking Change during development
+
+- Updated regression function [#32](https://github.com/smoia/phys2cvr/pull/32) ([@kristinazvolanek](https://github.com/kristinazvolanek) [@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- Kristina Zvolanek ([@kristinazvolanek](https://github.com/kristinazvolanek))
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.5.1 (Thu Jan 13 2022)
+
+#### 🐛 Bug Fix
+
+- Fix astype call on physiological indexes array [#31](https://github.com/smoia/phys2cvr/pull/31) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.5.0 (Mon Nov 15 2021)
 
 #### 🚀 Enhancement

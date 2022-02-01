@@ -50,7 +50,7 @@ def save_bash_call(fname, outdir):
 def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_mask=None,
              outdir=None, freq=None, tr=None, trial_len=None, n_trials=None,
              highcut=None, lowcut=None, apply_filter=False,
-             run_regression=False, lagged_regression=True, lag_max=None,
+             run_regression=False, lagged_regression=True, r2model='full', lag_max=None,
              lag_step=None, l_degree=0, denoise_matrix=[], scale_factor=None,
              lag_map=None, regr_dir=None, run_conv=True, quiet=False, debug=False):
     """
@@ -121,6 +121,12 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         If `run_regression` is True, also run the lagged regression.
         Can be turned off.
         Default: True
+    r2model : 'full', 'partial' or 'intercept', optional
+        Submit the model of the R^2 the regression should return (hence, which
+        R^2 model the lag regression should be based on).
+        Possible options are 'full', 'partial', 'intercept'.
+        See `stats.regression` help to understand them.
+        Default: 'full'
     lag_max : int or float, optional
         Limits (both positive and negative) of the temporal area to explore,
         expressed in seconds (i.e. ±9 seconds).
@@ -234,6 +240,9 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
     lag_step = io.if_declared_force_type(lag_step, 'float', 'lag_step')
     l_degree = io.if_declared_force_type(l_degree, 'int', 'l_degree')
     scale_factor = io.if_declared_force_type(scale_factor, 'float', 'scale_factor')
+    if r2model not in stats.R2MODEL:
+        raise ValueError(f'R^2 model {r2model} not supported. Supported models '
+                         f'are {stats.R2MODEL}')
 
     if func_is_1d:
         if tr:
@@ -312,7 +321,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         if co2_is_1d:
             if fname_pidx:
                 pidx = np.genfromtxt(fname_pidx)
-                pidx = np.astype(int)
+                pidx = pidx.astype(int)
             elif run_conv:
                 raise NameError(f'{fname_co2} file is a text file, but no '
                                 'file containing its peaks was provided. '
@@ -393,7 +402,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 mat_conf = np.hstack([mat_conf, conf])
 
         LGR.info('Compute simple CVR estimation (bulk shift only)')
-        beta, tstat, r_square = stats.regression(func, mask, regr, mat_conf)
+        beta, tstat, r_square = stats.regression(func, mask, regr, mat_conf, r2model)
 
         LGR.info('Export bulk shift results')
         if not scale_factor:
@@ -488,7 +497,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                      tstat_all[:, :, :, n],
                      r_square_all[:, :, :, n]) = stats.regression(func, mask,
                                                                   regr,
-                                                                  mat_conf)
+                                                                  mat_conf,
+                                                                  r2model)
                 
                 if debug:
                     LGR.debug('Export all betas, tstats, and R^2 volumes.')
