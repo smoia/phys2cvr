@@ -332,6 +332,7 @@ def regression(data, mask, regr, mat_conf, r2model='full', debug=False, x1D='mat
     Xmat = np.hstack([mat_conf, regr])
 
     if debug:
+        os.makedirs(os.path.dirname(x1D), exist_ok=True)
         np.savetxt(x1D, Xmat, fmt='%.6f')
     # Xmat = mat-mat.mean(axis=0)
     betas, RSS, _, _ = np.linalg.lstsq(Xmat, Ymat.T, rcond=None)
