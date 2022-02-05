@@ -197,7 +197,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
                                            'petco2hrf', ext)
 
     # Initialise the shifts first.
-    petco2hrf_shift = None
+    petco2hrf_shifts = None
     if lagged_regression and lag_max:
         outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
         os.makedirs(os.path.join(os.path.split(outname)[0], 'regr'), exist_ok=True)
