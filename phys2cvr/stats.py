@@ -360,6 +360,7 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
     if not r2model_support:
         raise ValueError(f'{r2model} R^2 not supported. Supported R^2 models are {R2MODEL}')
 
+    r2msg = ''
     # R^2 = 1 - RSS/TSS, (TSS = total sum of square)
     if 'full' in r2model:
         # Baseline model is 0 - this is what we're using ATM
@@ -373,6 +374,7 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
         # polynomials = Xmat[:, 0:4]
         # TSS = np.linalg.lstsq(polynomials, Ymat.T, rcond=None)[1]
         raise NotImplementedError('\'poly\' R^2 not implemented yet')
+        r2msg = 'polynomial'
     elif 'partial' in r2model:
         pass
 
@@ -384,9 +386,14 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
     else:
         r_square = np.ones(Ymat.shape[0]) - (RSS / TSS)
 
+    if r2msg == '':
+        r2msg = r2model
     if 'adj_' in r2model:
         # We could compute ADJUSTED R^2 instead
         r_square = 1-((1-r_square)*(Xmat.shape[0]-1)/(Xmat.shape[0]-Xmat.shape[1]))
+        r2msg = f'adjusted {r2msg}'
+
+    LGR.info(f'Adopting {r2msg} baseline to compute R^2.')
 
     # Assign betas, Rsquare and tstats to new volume
     bout = mask * 1.0
