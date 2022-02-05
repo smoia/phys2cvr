@@ -226,10 +226,12 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
                                                          func_t, outprefix,
                                                          f'{(i + nrep):04g}', ext)
 
-    elif not lag_max:
+    elif lagged_regression and lag_max is None:
         LGR.warning('The generation of lagged regressors was requested, '
                     'but the maximum lag was not specified. Skipping '
                     'lagged regressor generation.')
+    else:
+        LGR.info('Skipping lag regressors generation.')
 
     return petco2hrf_demean, petco2hrf_shifts
 
