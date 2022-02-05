@@ -404,7 +404,9 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 mat_conf = np.hstack([mat_conf, conf])
 
         LGR.info('Compute simple CVR estimation (bulk shift only)')
-        beta, tstat, r_square = stats.regression(func, mask, regr, mat_conf, r2model)
+        x1D = os.path.join(outdir, 'mat', 'mat_simple.1D')
+        beta, tstat, r_square = stats.regression(func, mask, regr, mat_conf,
+                                                 r2model, debug, x1D)
 
         LGR.info('Export bulk shift results')
         if not scale_factor:
@@ -444,8 +446,11 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                     raise ValueError(f'{lag_map} and {fname_func} have different sizes!')
 
                 # Read lag_step and lag_max from file (or try to)
+                lag = lag * mask
+
                 lag_list = np.unique(lag)
-                if not lag_step:
+
+                if lag_step is None:
                     lag_step = np.unique(lag_list[1:] - lag_list[:-1])
                     if lag_step.size > 1:
                         raise ValueError(f'phys2cvr found different delta lags in {lag_map}')
@@ -454,13 +459,11 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 else:
                     LGR.warning(f'Forcing delta lag to be {lag_step}')
 
-                if not lag_max:
-                    lag_max = abs(np.min(lag_list))
+                if lag_max is None:
+                    lag_max = np.abs(lag_list).max()
                     LGR.warning(f'phys2cvr detected a max lag of {lag_max} seconds')
                 else:
                     LGR.warning(f'Forcing max lag to be {lag_max}')
-
-                lag = lag * mask
 
                 lag_idx = (lag + lag_max) * freq / step
 
@@ -471,16 +474,19 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 tstat = np.empty_like(lag)
 
                 for i in lag_idx_list:
-                    LGR.info(f'Perform L-GLM number {i+1} of {nrep // step}')
+                    LGR.info(f'Perform L-GLM for lag {lag_list[i]} ({i+1} of '
+                             f'{nrep // step})')
                     try:
                         regr = regr_shifts[:, (i*step)]
                     except NameError:
-                        regr = np.genfromtxt(f'{outprefix}_{(i*step):04g}')
+                        regr = np.genfromtxt(f'{outprefix}_{i:04g}')
 
+                    x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
                     (beta[lag_idx == i],
                      tstat[lag_idx == i],
                      _) = stats.regression(func[lag_idx == i], [lag_idx == i],
-                                           regr, mat_conf)
+                                           regr, mat_conf, r2model, debug,
+                                           x1D)
 
             else:
                 # Prepare empty matrices
@@ -495,13 +501,16 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                     except NameError:
                         regr = np.genfromtxt(f'{outprefix}_{i:04g}')
 
+                    x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
                     (beta_all[:, :, :, n],
                      tstat_all[:, :, :, n],
                      r_square_all[:, :, :, n]) = stats.regression(func, mask,
                                                                   regr,
                                                                   mat_conf,
-                                                                  r2model)
-                
+                                                                  r2model,
+                                                                  debug,
+                                                                  x1D)
+
                 if debug:
                     LGR.debug('Export all betas, tstats, and R^2 volumes.')
                     newdim_all = deepcopy(img.header['dim'])

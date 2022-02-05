@@ -267,7 +267,7 @@ def get_legendre(degree, length):
     return legendre
 
 
-def regression(data, mask, regr, mat_conf, r2model='full'):
+def regression(data, mask, regr, mat_conf, r2model='full', debug=False, x1D='mat.1D'):
     """
     Estimate regression parameters.
 
@@ -330,6 +330,9 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
     # Note: Xmat is not currently demeaned within this function, so inputs should
     # already be demeaned (or within this function, demean all columns except zero order polynomial)
     Xmat = np.hstack([mat_conf, regr])
+
+    if debug:
+        np.savetxt(x1D, Xmat, fmt='%.6f')
     # Xmat = mat-mat.mean(axis=0)
     betas, RSS, _, _ = np.linalg.lstsq(Xmat, Ymat.T, rcond=None)
 
