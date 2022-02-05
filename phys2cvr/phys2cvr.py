@@ -390,6 +390,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         # Compute signal percentage change of functional data
         m = func.mean(axis=-1)[..., np.newaxis]
         func = (func - m) / m
+        func[np.isnan(func)] = 0
 
         # Start computing the polynomial regressor (at least average)
         LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
