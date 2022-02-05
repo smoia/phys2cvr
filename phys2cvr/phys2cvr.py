@@ -239,6 +239,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
     lag_max = io.if_declared_force_type(lag_max, 'float', 'lag_max')
     lag_step = io.if_declared_force_type(lag_step, 'float', 'lag_step')
     l_degree = io.if_declared_force_type(l_degree, 'int', 'l_degree')
+    if l_degree < 0:
+        raise ValueError('The specified order of the Legendre polynomials must be >= 0.')
     scale_factor = io.if_declared_force_type(scale_factor, 'float', 'scale_factor')
     if r2model not in stats.R2MODEL:
         raise ValueError(f'R^2 model {r2model} not supported. Supported models '
