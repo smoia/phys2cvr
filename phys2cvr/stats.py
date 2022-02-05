@@ -220,11 +220,11 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
 
         petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
 
-        for i in range(-nrep, nrep):
+        for n, i in enumerate(range(-nrep, nrep)):
             petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-            petco2hrf_shifts[:, i] = io.export_regressor(regr_t, petco2hrf_lagged,
+            petco2hrf_shifts[:, n] = io.export_regressor(regr_t, petco2hrf_lagged,
                                                          func_t, outprefix,
-                                                         f'{(i + nrep):04g}', ext)
+                                                         f'{n:04g}', ext)
 
     elif lagged_regression and lag_max is None:
         LGR.warning('The generation of lagged regressors was requested, '

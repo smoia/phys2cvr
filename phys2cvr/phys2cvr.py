@@ -310,7 +310,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         if func_is_1d:
             LGR.warning('Using an average signal only, solution might be unoptimal.')
 
-            if not apply_filter:
+            if apply_filter is None:
                 LGR.warning('No filter applied to the input average! You know '
                             'what you are doing, right?')
 
@@ -329,7 +329,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                                 'file containing its peaks was provided. '
                                 ' Please provide peak file!')
 
-            if not freq:
+            if freq is None:
                 raise NameError(f'{fname_co2} file is a text file, but no '
                                 'frequency was specified. Please provide peak '
                                 ' file!')
@@ -354,13 +354,13 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         outname = os.path.join(outdir, basename_co2)
 
         # Unless user asks to skip this step, convolve the end tidal signal.
-        if not run_conv or not fname_co2:
+        if run_conv is None or fname_co2 is None:
             petco2hrf = co2
         else:
             petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
 
     # If a regressor directory is not specified, compute the regressors.
-    if not regr_dir:
+    if regr_dir is None:
         regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq, outname,
                                            lag_max, trial_len, n_trials,
                                            '.1D', lagged_regression)
@@ -410,7 +410,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                                                  r2model, debug, x1D)
 
         LGR.info('Export bulk shift results')
-        if not scale_factor:
+        if scale_factor is None:
             LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
         else:
             beta = beta / float(scale_factor)
@@ -499,8 +499,10 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                     LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
                     try:
                         regr = regr_shifts[:, i]
+                        LGR.debug(f'Using shift {i} from matrix in memory: {regr}')
                     except NameError:
                         regr = np.genfromtxt(f'{outprefix}_{i:04g}')
+                        LGR.debug(f'Reading shift {i} from file {outprefix}_{i:04g}')
 
                     x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
                     (beta_all[:, :, :, n],
@@ -537,7 +539,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                     tstat[lag_idx == i] = tstat_all[:, :, :, i][lag_idx == i]
 
             LGR.info('Export fine shift results')
-            if not scale_factor:
+            if scale_factor is None:
                 LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
             else:
                 beta = beta / float(scale_factor)
