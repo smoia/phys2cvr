@@ -197,7 +197,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
                                            'petco2hrf', ext)
 
     # Initialise the shifts first.
-    petco2hrf_shift = None
+    petco2hrf_shifts = None
     if lagged_regression and lag_max:
         outprefix = os.path.join(os.path.split(outname)[0], 'regr', os.path.split(outname)[1])
         os.makedirs(os.path.join(os.path.split(outname)[0], 'regr'), exist_ok=True)
@@ -220,16 +220,18 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
 
         petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
 
-        for i in range(-nrep, nrep):
+        for n, i in enumerate(range(-nrep, nrep)):
             petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-            petco2hrf_shifts[:, i] = io.export_regressor(regr_t, petco2hrf_lagged,
+            petco2hrf_shifts[:, n] = io.export_regressor(regr_t, petco2hrf_lagged,
                                                          func_t, outprefix,
-                                                         f'{(i + nrep):04g}', ext)
+                                                         f'{n:04g}', ext)
 
-    elif not lag_max:
+    elif lagged_regression and lag_max is None:
         LGR.warning('The generation of lagged regressors was requested, '
                     'but the maximum lag was not specified. Skipping '
                     'lagged regressor generation.')
+    else:
+        LGR.info('Skipping lag regressors generation.')
 
     return petco2hrf_demean, petco2hrf_shifts
 
@@ -265,7 +267,7 @@ def get_legendre(degree, length):
     return legendre
 
 
-def regression(data, mask, regr, mat_conf, r2model='full'):
+def regression(data, mask, regr, mat_conf, r2model='full', debug=False, x1D='mat.1D'):
     """
     Estimate regression parameters.
 
@@ -328,6 +330,10 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
     # Note: Xmat is not currently demeaned within this function, so inputs should
     # already be demeaned (or within this function, demean all columns except zero order polynomial)
     Xmat = np.hstack([mat_conf, regr])
+
+    if debug:
+        os.makedirs(os.path.dirname(x1D), exist_ok=True)
+        np.savetxt(x1D, Xmat, fmt='%.6f')
     # Xmat = mat-mat.mean(axis=0)
     betas, RSS, _, _ = np.linalg.lstsq(Xmat, Ymat.T, rcond=None)
 
@@ -358,6 +364,7 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
     if not r2model_support:
         raise ValueError(f'{r2model} R^2 not supported. Supported R^2 models are {R2MODEL}')
 
+    r2msg = ''
     # R^2 = 1 - RSS/TSS, (TSS = total sum of square)
     if 'full' in r2model:
         # Baseline model is 0 - this is what we're using ATM
@@ -371,6 +378,7 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
         # polynomials = Xmat[:, 0:4]
         # TSS = np.linalg.lstsq(polynomials, Ymat.T, rcond=None)[1]
         raise NotImplementedError('\'poly\' R^2 not implemented yet')
+        r2msg = 'polynomial'
     elif 'partial' in r2model:
         pass
 
@@ -382,9 +390,14 @@ def regression(data, mask, regr, mat_conf, r2model='full'):
     else:
         r_square = np.ones(Ymat.shape[0]) - (RSS / TSS)
 
+    if r2msg == '':
+        r2msg = r2model
     if 'adj_' in r2model:
         # We could compute ADJUSTED R^2 instead
         r_square = 1-((1-r_square)*(Xmat.shape[0]-1)/(Xmat.shape[0]-Xmat.shape[1]))
+        r2msg = f'adjusted {r2msg}'
+
+    LGR.info(f'Adopting {r2msg} baseline to compute R^2.')
 
     # Assign betas, Rsquare and tstats to new volume
     bout = mask * 1.0

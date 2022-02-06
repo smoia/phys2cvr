@@ -239,6 +239,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
     lag_max = io.if_declared_force_type(lag_max, 'float', 'lag_max')
     lag_step = io.if_declared_force_type(lag_step, 'float', 'lag_step')
     l_degree = io.if_declared_force_type(l_degree, 'int', 'l_degree')
+    if l_degree < 0:
+        raise ValueError('The specified order of the Legendre polynomials must be >= 0.')
     scale_factor = io.if_declared_force_type(scale_factor, 'float', 'scale_factor')
     if r2model not in stats.R2MODEL:
         raise ValueError(f'R^2 model {r2model} not supported. Supported models '
@@ -308,7 +310,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         if func_is_1d:
             LGR.warning('Using an average signal only, solution might be unoptimal.')
 
-            if not apply_filter:
+            if apply_filter is None:
                 LGR.warning('No filter applied to the input average! You know '
                             'what you are doing, right?')
 
@@ -327,7 +329,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                                 'file containing its peaks was provided. '
                                 ' Please provide peak file!')
 
-            if not freq:
+            if freq is None:
                 raise NameError(f'{fname_co2} file is a text file, but no '
                                 'frequency was specified. Please provide peak '
                                 ' file!')
@@ -352,13 +354,13 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         outname = os.path.join(outdir, basename_co2)
 
         # Unless user asks to skip this step, convolve the end tidal signal.
-        if not run_conv or not fname_co2:
+        if run_conv is None or fname_co2 is None:
             petco2hrf = co2
         else:
             petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
 
     # If a regressor directory is not specified, compute the regressors.
-    if not regr_dir:
+    if regr_dir is None:
         regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq, outname,
                                            lag_max, trial_len, n_trials,
                                            '.1D', lagged_regression)
@@ -388,6 +390,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         # Compute signal percentage change of functional data
         m = func.mean(axis=-1)[..., np.newaxis]
         func = (func - m) / m
+        func[np.isnan(func)] = 0
 
         # Start computing the polynomial regressor (at least average)
         LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
@@ -402,10 +405,12 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 mat_conf = np.hstack([mat_conf, conf])
 
         LGR.info('Compute simple CVR estimation (bulk shift only)')
-        beta, tstat, r_square = stats.regression(func, mask, regr, mat_conf, r2model)
+        x1D = os.path.join(outdir, 'mat', 'mat_simple.1D')
+        beta, tstat, r_square = stats.regression(func, mask, regr, mat_conf,
+                                                 r2model, debug, x1D)
 
         LGR.info('Export bulk shift results')
-        if not scale_factor:
+        if scale_factor is None:
             LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
         else:
             beta = beta / float(scale_factor)
@@ -442,8 +447,11 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                     raise ValueError(f'{lag_map} and {fname_func} have different sizes!')
 
                 # Read lag_step and lag_max from file (or try to)
+                lag = lag * mask
+
                 lag_list = np.unique(lag)
-                if not lag_step:
+
+                if lag_step is None:
                     lag_step = np.unique(lag_list[1:] - lag_list[:-1])
                     if lag_step.size > 1:
                         raise ValueError(f'phys2cvr found different delta lags in {lag_map}')
@@ -452,13 +460,11 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 else:
                     LGR.warning(f'Forcing delta lag to be {lag_step}')
 
-                if not lag_max:
-                    lag_max = abs(np.min(lag_list))
+                if lag_max is None:
+                    lag_max = np.abs(lag_list).max()
                     LGR.warning(f'phys2cvr detected a max lag of {lag_max} seconds')
                 else:
                     LGR.warning(f'Forcing max lag to be {lag_max}')
-
-                lag = lag * mask
 
                 lag_idx = (lag + lag_max) * freq / step
 
@@ -469,16 +475,19 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 tstat = np.empty_like(lag)
 
                 for i in lag_idx_list:
-                    LGR.info(f'Perform L-GLM number {i+1} of {nrep // step}')
+                    LGR.info(f'Perform L-GLM for lag {lag_list[i]} ({i+1} of '
+                             f'{nrep // step})')
                     try:
                         regr = regr_shifts[:, (i*step)]
                     except NameError:
-                        regr = np.genfromtxt(f'{outprefix}_{(i*step):04g}')
+                        regr = np.genfromtxt(f'{outprefix}_{i:04g}')
 
+                    x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
                     (beta[lag_idx == i],
                      tstat[lag_idx == i],
                      _) = stats.regression(func[lag_idx == i], [lag_idx == i],
-                                           regr, mat_conf)
+                                           regr, mat_conf, r2model, debug,
+                                           x1D)
 
             else:
                 # Prepare empty matrices
@@ -490,16 +499,21 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                     LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
                     try:
                         regr = regr_shifts[:, i]
+                        LGR.debug(f'Using shift {i} from matrix in memory: {regr}')
                     except NameError:
                         regr = np.genfromtxt(f'{outprefix}_{i:04g}')
+                        LGR.debug(f'Reading shift {i} from file {outprefix}_{i:04g}')
 
+                    x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
                     (beta_all[:, :, :, n],
                      tstat_all[:, :, :, n],
                      r_square_all[:, :, :, n]) = stats.regression(func, mask,
                                                                   regr,
                                                                   mat_conf,
-                                                                  r2model)
-                
+                                                                  r2model,
+                                                                  debug,
+                                                                  x1D)
+
                 if debug:
                     LGR.debug('Export all betas, tstats, and R^2 volumes.')
                     newdim_all = deepcopy(img.header['dim'])
@@ -525,7 +539,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                     tstat[lag_idx == i] = tstat_all[:, :, :, i][lag_idx == i]
 
             LGR.info('Export fine shift results')
-            if not scale_factor:
+            if scale_factor is None:
                 LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
             else:
                 beta = beta / float(scale_factor)
