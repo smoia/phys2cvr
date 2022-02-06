@@ -1,3 +1,16 @@
+# 0.7.0 (Sun Feb 06 2022)
+
+#### 🚀 Enhancement
+
+- Fix lag regression and improve regression debugging options [#36](https://github.com/smoia/phys2cvr/pull/36) (s.moia@bcbl.eu [@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- smoia (s.moia@bcbl.eu)
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.6.2 (Tue Feb 01 2022)
 
 #### ⚠️ Pushed to `master`
