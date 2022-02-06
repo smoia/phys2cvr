@@ -1,3 +1,16 @@
+# 0.7.1 (Sun Feb 06 2022)
+
+#### 🐛 Bug Fix
+
+- Add mailmap to provide better "git shortlog -sn" [#37](https://github.com/smoia/phys2cvr/pull/37) (s.moia@bcbl.eu [@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- smoia (s.moia@bcbl.eu)
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.7.0 (Sun Feb 06 2022)
 
 #### 🚀 Enhancement
