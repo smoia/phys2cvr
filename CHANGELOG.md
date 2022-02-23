@@ -1,3 +1,16 @@
+# 0.10.0 (Wed Feb 23 2022)
+
+#### 💥 Breaking Change during development
+
+- Force all empty matrices to be float32 [#41](https://github.com/smoia/phys2cvr/pull/41) (s.moia@bcbl.eu [@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- smoia (s.moia@bcbl.eu)
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.9.0 (Wed Feb 23 2022)
 
 #### 💥 Breaking Change during development
