@@ -160,17 +160,6 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
     _, optshift, xcorr = x_corr(func_cut, petco2hrf, nrep)
     LGR.info(f'First cross correlation estimated bulk shift at {optshift/freq} seconds')
 
-    if trial_len and n_trials and n_trials > 2:
-        LGR.info('Running second bulk shift estimation')
-        if len(func_upsampled) + nrep > len(petco2hrf):
-            pad = len(func_upsampled) + nrep - len(petco2hrf)
-            petco2hrf_padded = np.pad(petco2hrf, pad, mode='mean')
-        else:
-            petco2hrf_padded = petco2hrf
-
-        _, optshift, xcorr = x_corr(func_upsampled, petco2hrf_padded, nrep, -nrep, optshift)
-        LGR.info(f'Second cross correlation estimated bulk shift at {optshift/freq} seconds')
-
     # Export estimated optimal shift in seconds
     with open(f'{outname}_optshift.1D', 'w') as f:
         print(f'{(optshift/freq):.4f}', file=f)
