@@ -477,8 +477,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 lag_idx_list = np.unique[lag_idx]
 
                 # Prepare empty matrices
-                beta = np.empty_like(lag)
-                tstat = np.empty_like(lag)
+                beta = np.empty_like(lag, dtype='float32')
+                tstat = np.empty_like(lag, dtype='float32')
 
                 for i in lag_idx_list:
                     LGR.info(f'Perform L-GLM for lag {lag_list[i]} ({i+1} of '
@@ -503,9 +503,12 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                     step = 1
                 lag_range = list(range(0, nrep, step))
                 # Prepare empty matrices
-                r_square_all = np.empty(list(func.shape[:3]) + [len(lag_range)])
-                beta_all = np.empty(list(func.shape[:3]) + [len(lag_range)])
-                tstat_all = np.empty(list(func.shape[:3]) + [len(lag_range)])
+                r_square_all = np.empty(list(func.shape[:3]) + [len(lag_range)],
+                                        dtype='float32')
+                beta_all = np.empty(list(func.shape[:3]) + [len(lag_range)],
+                                    dtype='float32')
+                tstat_all = np.empty(list(func.shape[:3]) + [len(lag_range)],
+                                     dtype='float32')
 
                 for n, i in enumerate(lag_range):
                     LGR.info(f'Perform L-GLM number {n+1} of {len(lag_range)}')
@@ -544,8 +547,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
 
                 # Run through indexes to pick the right value
                 lag_idx_list = np.unique(lag_idx)
-                beta = np.empty_like(lag)
-                tstat = np.empty_like(lag)
+                beta = np.empty_like(lag, dtype='float32')
+                tstat = np.empty_like(lag, dtype='float32')
                 for i in lag_idx_list:
                     beta[lag_idx == i] = beta_all[:, :, :, i][lag_idx == i]
                     tstat[lag_idx == i] = tstat_all[:, :, :, i][lag_idx == i]
