@@ -74,7 +74,8 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
 
 
 def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
-             trial_len=None, n_trials=None, ext='.1D', lagged_regression=True):
+             trial_len=None, n_trials=None, ext='.1D', lagged_regression=True,
+             legacy=False):
     """
     Create regressor(s) of interest for nifti GLM.
 
@@ -106,7 +107,10 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
         Extension to be used for the exported regressors.
     lagged_regression : bool, optional
         Estimate regressors for each possible lag of `petco2hrf`.
-        If True, the maximum number of regressors will be `(freq*lag_max*2)-1`
+        If True, the maximum number of regressors will be `(freq*lag_max*2)+1`
+    legacy : bool, optional
+        If True, exclude the upper lag limit from the regression estimation.
+        If True, the maximum number of regressors will be `(freq*lag_max*2)`
 
     Returns
     -------
@@ -203,24 +207,27 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
         os.makedirs(os.path.join(os.path.split(outname)[0], 'regr'), exist_ok=True)
 
         # Set num of fine shifts: 9 seconds is a bit more than physiologically feasible
-        nrep = int(lag_max * freq)
-
-        petco2hrf_shifts = np.empty([func_len, nrep*2])
+        negrep = int(lag_max * freq)
+        if legacy:
+            posrep = negrep
+        else:
+            posrep = negrep + 1
+        petco2hrf_shifts = np.empty([func_len, negrep+posrep])
 
         # Padding regressor for shift, and padding optshift too
-        if (optshift - nrep) < 0:
-            lpad = nrep - optshift
+        if (optshift - negrep) < 0:
+            lpad = negrep - optshift
         else:
             lpad = 0
 
-        if (optshift + nrep + len_upd) > len(petco2hrf):
-            rpad = (optshift + nrep + len_upd) - len(petco2hrf)
+        if (optshift + posrep + len_upd) > len(petco2hrf):
+            rpad = (optshift + posrep + len_upd) - len(petco2hrf)
         else:
             rpad = 0
 
         petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
 
-        for n, i in enumerate(range(-nrep, nrep)):
+        for n, i in enumerate(range(-negrep, posrep)):
             petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
             petco2hrf_shifts[:, n] = io.export_regressor(regr_t, petco2hrf_lagged,
                                                          func_t, outprefix,
