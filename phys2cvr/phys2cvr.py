@@ -51,7 +51,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
              outdir=None, freq=None, tr=None, trial_len=None, n_trials=None,
              highcut=None, lowcut=None, apply_filter=False,
              run_regression=False, lagged_regression=True, r2model='full', lag_max=None,
-             lag_step=None, l_degree=0, denoise_matrix=[], scale_factor=None,
+             lag_step=None, legacy=False, l_degree=0, denoise_matrix=[], scale_factor=None,
              lag_map=None, regr_dir=None, run_conv=True, quiet=False, debug=False):
     """
     Run main workflow of phys2cvr.
@@ -129,11 +129,16 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         Default: 'full'
     lag_max : int or float, optional
         Limits (both positive and negative) of the temporal area to explore,
-        expressed in seconds (i.e. ±9 seconds).
+        expressed in seconds (e.g. ±9 seconds). Caution: this is not a pythonic
+        range, but a real range, i.e. the upper limit is included (e.g. [-9, +9]).
         Default: None
     lag_step : int or float, optional
         Step of the lag to take into account in seconds.
         Default: None
+    legacy : bool, optional
+        If True, use pythonic ranges when creating the regressors, i.e. exclude
+        the upper range (e.g. [-9, +9) ).
+        Default: False
     l_degree : int, optional
         Only used if performing the regression step.
         Highest order of the Legendre polynomial to add to the denoising matrix.
@@ -363,7 +368,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
     if regr_dir is None:
         regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq, outname,
                                            lag_max, trial_len, n_trials,
-                                           '.1D', lagged_regression)
+                                           '.1D', lagged_regression, legacy)
     elif run_regression:
         try:
             regr = np.genfromtxt(f'{outname}_petco2hrf.1D')
@@ -372,7 +377,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                         'Estimating it.')
             regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq,
                                                outname, lag_max, trial_len,
-                                               n_trials, '.1D')
+                                               n_trials, '.1D', lagged_regression, 
+                                               legacy)
 
     # Run internal regression if required and possible!
     if func_is_nifti and run_regression:
@@ -430,12 +436,10 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             elif lag_map is not None:
                 LGR.info(f'Running lagged CVR estimation with lag map {lag_map}! '
                          '(might take a while...)')
-
-            nrep = int(lag_max * freq * 2)
-            if lag_step:
-                step = int(lag_step * freq)
+            if legacy:
+                nrep = int(lag_max * freq * 2)
             else:
-                step = 1
+                nrep = int(lag_max * freq * 2) + 1
 
             if regr_dir:
                 outprefix = os.path.join(regr_dir, os.path.split(outname)[1])
@@ -460,6 +464,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 else:
                     LGR.warning(f'Forcing delta lag to be {lag_step}')
 
+                step = int(lag_step * freq)
+
                 if lag_max is None:
                     lag_max = np.abs(lag_list).max()
                     LGR.warning(f'phys2cvr detected a max lag of {lag_max} seconds')
@@ -476,7 +482,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
 
                 for i in lag_idx_list:
                     LGR.info(f'Perform L-GLM for lag {lag_list[i]} ({i+1} of '
-                             f'{nrep // step})')
+                             f'{len(lag_idx_list)}')
                     try:
                         regr = regr_shifts[:, (i*step)]
                     except NameError:
@@ -490,13 +496,19 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                                            x1D)
 
             else:
+                # Check the number of repetitions first
+                if lag_step:
+                    step = int(lag_step * freq)
+                else:
+                    step = 1
+                lag_range = list(range(0, nrep, step))
                 # Prepare empty matrices
-                r_square_all = np.empty(list(func.shape[:3]) + [nrep // step])
-                beta_all = np.empty(list(func.shape[:3]) + [nrep // step])
-                tstat_all = np.empty(list(func.shape[:3]) + [nrep // step])
+                r_square_all = np.empty(list(func.shape[:3]) + [len(lag_range)])
+                beta_all = np.empty(list(func.shape[:3]) + [len(lag_range)])
+                tstat_all = np.empty(list(func.shape[:3]) + [len(lag_range)])
 
-                for n, i in enumerate(range(0, nrep, step)):
-                    LGR.info(f'Perform L-GLM number {n+1} of {nrep // step}')
+                for n, i in enumerate(lag_range):
+                    LGR.info(f'Perform L-GLM number {n+1} of {len(lag_range)}')
                     try:
                         regr = regr_shifts[:, i]
                         LGR.debug(f'Using shift {i} from matrix in memory: {regr}')
@@ -517,7 +529,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 if debug:
                     LGR.debug('Export all betas, tstats, and R^2 volumes.')
                     newdim_all = deepcopy(img.header['dim'])
-                    newdim_all[0], newdim_all[4] = 4, int(nrep // step)
+                    newdim_all[0], newdim_all[4] = 4, int(len(lag_range))
                     oimg_all = deepcopy(img)
                     oimg_all.header['dim'] = newdim_all
                     io.export_nifti(r_square_all, oimg_all, f'{fname_out_func}_r_square_all')

@@ -280,9 +280,9 @@ def _get_parser():
                           help=('Maximum lag to consider during lag regression '
                                 'in seconds. The same lag will be considered in '
                                 'both directions.\n'
-                                'Remember that being this python, the upper limit '
-                                'is excluded from the computation, i.e. 9 is '
-                                '[-9, +8.7] or [-9, +9).'),
+                                'Despite the code being python, the upper limit '
+                                'is included in the computation. E.g. -lm 9 '
+                                '-ls .3 means [-9, +9] (61 regressors).'),
                           default=None)
     opt_lreg.add_argument('-ls', '--lag-step',
                           dest='lag_step',
@@ -290,6 +290,13 @@ def _get_parser():
                           help=('Lag step to consider during lagged regression '
                                 'in seconds. Default is 0.3 seconds.'),
                           default=None)
+    opt_lreg.add_argument('--legacy',
+                          dest='legacy',
+                          action='store_true',
+                          help=('Use pythonic ranges, i.e. the upper limit '
+                                'is excluded from the computation.\nE.g. -lm 9 '
+                                '-ls .3 means [-9, +8.7] or [-9, +9) (60 regressors).'),
+                          default=False)
 
     opt_regr = parser.add_argument_group('Optional Arguments to re-run a lagged '
                                          'regression (also useful to use a lag estimation '
@@ -321,8 +328,9 @@ def _get_parser():
                                 'as used in:\n'
                                 'S. Moia, et al., \'ICA-based denoising strategies in '
                                 'breath-hold induced cerebrovascular reactivity mapping '
-                                'with multi echo BOLD fMRI\' (2021), NeuroImage\n'
-                                'Same as setting --lag-max 9 --lag-step 0.3 --r2full'),
+                                'with multi echo BOLD fMRI\' (2021), NeuroImage.\n'
+                                'Same as setting --lag-max 9 --lag-step 0.3 '
+                                '--legacy --r2full'),
                           default=None)
     opt_conf.add_argument('--brightspin-clinical',
                           dest='workflow_config',
@@ -338,16 +346,16 @@ def _get_parser():
                           help=('Estimate CVR using the average timeseries in the '
                                 '0.02-0.04 frequency spectrum, as used in:\n'
                                 'P. Liu, et al., \'Cerebrovascular reactivity '
-                                'mapping without gas challenges\' (2017), NeuroImage\n'
-                                'Same as setting --apply-filter -hf -lf '
+                                'mapping without gas challenges\' (2017), NeuroImage.\n'
+                                'Same as setting --apply-filter -hf 0.04 -lf 0.02 '
                                 '-skip_conv -skip_lagreg -co2 \'\' '),
                           default=None)
     opt_conf.add_argument('--baltimore-lag',
                           dest='workflow_config',
                           action='store_const',
                           const='baltimore-lag',
-                          help=('Like "baltimore", but use a L-GLM instead\n'
-                                'Same as setting --apply-filter -hf -lf '
+                          help=('Like "baltimore", but use a L-GLM instead.\n'
+                                'Same as setting --apply-filter -hf 0.04 -lf 0.02 '
                                 '-skip_conv -co2 \'\' '),
                           default=None)
 
@@ -399,6 +407,7 @@ def _check_opt_conf(parser):
             parser.lagged_regression = True
             parser.run_conv = True
             parser.apply_filter = False
+            parser.legacy = True
             parser.r2model = 'full'
         elif parser.workflow_config == 'brightspin-clinical':
             parser.lag_max = 20
@@ -412,14 +421,14 @@ def _check_opt_conf(parser):
             parser.apply_filter = True
             parser.lowcut = 0.02
             parser.highcut = 0.04
-            parser.fname_co2 = ''
+            parser.fname_co2 = None
             parser.lagged_regression = False
         elif parser.workflow_config == 'baltimore-lag':
             parser.run_conv = False
             parser.apply_filter = True
             parser.lowcut = 0.02
             parser.highcut = 0.04
-            parser.fname_co2 = ''
+            parser.fname_co2 = None
             parser.lagged_regression = True
         else:
             raise NotImplementedError(f'{parser.workflow_config} is not configured. '
