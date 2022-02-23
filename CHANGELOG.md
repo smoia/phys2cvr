@@ -1,3 +1,16 @@
+# 0.8.0 (Wed Feb 23 2022)
+
+#### 💥 Breaking Change during development
+
+- Include upper boundary of regression ranges (and add a legacy option for pythonic ranges). [#39](https://github.com/smoia/phys2cvr/pull/39) (s.moia@bcbl.eu [@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- smoia (s.moia@bcbl.eu)
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.7.1 (Sun Feb 06 2022)
 
 #### 🐛 Bug Fix
