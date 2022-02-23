@@ -1,3 +1,16 @@
+# 0.9.0 (Wed Feb 23 2022)
+
+#### 💥 Breaking Change during development
+
+- Remove second bulk shift estimation (doesn't make sense). [#40](https://github.com/smoia/phys2cvr/pull/40) (s.moia@bcbl.eu [@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- smoia (s.moia@bcbl.eu)
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.8.0 (Wed Feb 23 2022)
 
 #### 💥 Breaking Change during development
