@@ -66,7 +66,7 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
     if lastrep + offset + len(func) > len(co2):
         lastrep = len(co2) - offset - len(func)
 
-    xcorr = np.empty(lastrep+firstrep)
+    xcorr = np.empty(lastrep+firstrep, dtype='float32')
     for i in range(firstrep, lastrep):
         xcorr[i] = np.corrcoef(func, co2[0+i+offset:len(func)+i+offset].T)[1, 0]
 
@@ -201,7 +201,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
             posrep = negrep
         else:
             posrep = negrep + 1
-        petco2hrf_shifts = np.empty([func_len, negrep+posrep])
+        petco2hrf_shifts = np.empty([func_len, negrep+posrep], dtype='float32')
 
         # Padding regressor for shift, and padding optshift too
         if (optshift - negrep) < 0:
@@ -257,7 +257,7 @@ def get_legendre(degree, length):
             return ((2*d-1)*x*_bonnet(d-1, x)-(d-1)*_bonnet(d-2, x))/d
 
     x = np.linspace(-1, 1, length)
-    legendre = np.empty([length, degree+1])
+    legendre = np.empty([length, degree+1], dtype='float32')
     for n in range(degree+1):
         legendre[:, n] = _bonnet(n, x)
     return legendre
@@ -384,7 +384,7 @@ def regression(data, mask, regr, mat_conf, r2model='full', debug=False, x1D='mat
         tstats_square = np.power(tstats, 2)
         r_square = (tstats_square / (tstats_square + df))[-1, :]
     else:
-        r_square = np.ones(Ymat.shape[0]) - (RSS / TSS)
+        r_square = np.ones(Ymat.shape[0], dtype='float32') - (RSS / TSS)
 
     if r2msg == '':
         r2msg = r2model
