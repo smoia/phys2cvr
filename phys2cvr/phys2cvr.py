@@ -37,7 +37,10 @@ def save_bash_call(fname, outdir):
     """
     arg_str = ' '.join(sys.argv[1:])
     call_str = f'phys2cvr {arg_str}'
-    outdir = os.path.abspath(outdir)
+    if outdir:
+        outdir = os.path.abspath(outdir)
+    else:
+        outdir = os.path.join(os.path.split(fname)[0], 'phys2cvr')
     log_path = os.path.join(outdir, 'logs')
     os.makedirs(log_path, exist_ok=True)
     isotime = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
@@ -310,7 +313,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         raise NotImplementedError(f'{fname_func} file type is not supported yet, or '
                                   'the extension was not specified.')
 
-    if fname_co2 == '':
+    if fname_co2 is None:
         LGR.info(f'Computing "CVR" (approximation) maps using {fname_func} only')
         if func_is_1d:
             LGR.warning('Using an average signal only, solution might be unoptimal.')
@@ -319,8 +322,28 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 LGR.warning('No filter applied to the input average! You know '
                             'what you are doing, right?')
 
-        petco2hrf = func_avg
+        if func_is_1d:
+            petco2hrf = signal.spc(func_avg)
+        elif func_is_nifti:
+            # Get the average of the SPC rather than the SPC of the average
+            if apply_filter:
+                func_filt = signal.filter_signal(func, tr, lowcut, highcut)
+                petco2hrf = signal.spc(func_filt[roi]).mean(axis=0)
+            else:
+                petco2hrf = signal.spc(func[roi]).mean(axis=0)
 
+        # Reassign fname_co2 to fname_func for later use - calling splitext twice cause .gz
+        basename_co2 = os.path.splitext(os.path.splitext(f'avg_{os.path.basename(fname_func)}')[0])[0]
+        outname = os.path.join(outdir, basename_co2)
+
+        # If freq was declared, upsample the average GM to that.
+        # Otherwise, set freq to inverse of TR.
+        if freq is None:
+            freq = 1/tr
+            LGR.info(f'No frequency declared, using 1/tr ({freq}Hz)')
+        else:
+            LGR.info(f'Resampling the average fMRI timeseries at {freq}Hz')
+            petco2hrf = signal.resample_signal(petco2hrf, 1/tr, freq)
     else:
         co2_is_phys = io.check_ext('.phys', fname_co2)
         co2_is_1d = io.check_ext(EXT_1D, fname_co2)
@@ -359,7 +382,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         outname = os.path.join(outdir, basename_co2)
 
         # Unless user asks to skip this step, convolve the end tidal signal.
-        if run_conv is None or fname_co2 is None:
+        if run_conv is None:
             petco2hrf = co2
         else:
             petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
@@ -394,9 +417,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         oimg.header['dim'] = newdim
 
         # Compute signal percentage change of functional data
-        m = func.mean(axis=-1)[..., np.newaxis]
-        func = (func - m) / m
-        func[np.isnan(func)] = 0
+        func = signal.spc(func)
 
         # Start computing the polynomial regressor (at least average)
         LGR.info(f'Compute Legendre polynomials up to order {l_degree}')

@@ -47,7 +47,7 @@ def _get_parser():
                                'specified, a folder named "phys2cvr" will be '
                                'created in the folder containing the functional '
                                'file.'),
-                         default='')
+                         default=None)
 
     opt_func = parser.add_argument_group('Optional Arguments for fMRI timeseries')
     opt_func.add_argument('-m', '--input-mask',
@@ -63,7 +63,7 @@ def _get_parser():
                                 'loaded, the program will create a mask using '
                                 'any voxel of the functional file constantly '
                                 'different from zero.'),
-                          default='')
+                          default=None)
     opt_func.add_argument('-r', '--input-roi',
                           dest='fname_roi',
                           type=str,
@@ -80,7 +80,7 @@ def _get_parser():
                                 '(see `--input-mask`) or create a mask using '
                                 'any voxel of the functional file constantly '
                                 'different from zero.'),
-                          default='')
+                          default=None)
     opt_func.add_argument('-tr', '--repetition-time',
                           dest='tr',
                           type=float,
@@ -102,7 +102,7 @@ def _get_parser():
                                 'from peakdet.\n If nothing is specified, the '
                                 'average timeseries of the mask will be used '
                                 'as regressor.'),
-                          default='')
+                          default=None)
     opt_phys.add_argument('-pk', '--input-peaks',
                           dest='fname_pidx',
                           type=str,
@@ -112,7 +112,7 @@ def _get_parser():
                                 'trace file is not a .phys file.\n'
                                 'Use this option to overwrite the peaks specified '
                                 'in the .phys file.'),
-                          default='')
+                          default=None)
     opt_phys.add_argument('-fr', '--frequency',
                           dest='freq',
                           type=float,

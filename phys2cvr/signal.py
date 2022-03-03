@@ -23,20 +23,44 @@ LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
 
 
+def spc(ts):
+    """
+    Compute signal percentage change of ts.
+
+    Those ts that have mean 0 are divided by 1 instead.
+
+    Parameters
+    ----------
+    ts : numpy.ndarray
+        A timeseries or a set of timeseries - it is assumed that the last dimension is time.
+
+    Returns
+    -------
+    numpy.ndarray
+        The SPC version of ts.
+    """
+    m = ts.mean(axis=-1)[..., np.newaxis]
+    md = m
+    md[md == 0] = 1
+    ts = (ts - m) / md
+    ts[np.isnan(ts)] = 0
+
+    return ts
+
+
 def create_hrf(freq=40):
     """
     Create a canonical haemodynamic response function sampled at the given frequency.
-    
+
     Parameters
     ----------
     freq : float
         Sampling frequency of the haemodynamic response function.
-    
+
     Returns
     -------
     hrf : np.ndarray
         Haemodynamic response function.
-    
     """
     # Create HRF
     RT = 1/freq
@@ -67,7 +91,7 @@ def create_hrf(freq=40):
 def filter_signal(data, tr, lowcut='', highcut=''):
     """
     Create a bandpass filter given a lowcut and a highcut, then filter data.
-    
+
     Parameters
     ----------
     data : np.ndarray
@@ -78,12 +102,11 @@ def filter_signal(data, tr, lowcut='', highcut=''):
         Lower frequency in the bandpass
     highcut : float
         Higher frequency in the bandpass
-    
+
     Returns
     -------
     filt_data : np.ndarray
         Input `data`, but filtered.
-    
     """
     if not lowcut:
         lowcut = 0.02
@@ -100,7 +123,7 @@ def filter_signal(data, tr, lowcut='', highcut=''):
 def convolve_petco2(co2, pidx, freq, outname):
     """
     Convolve the CO2 trace into the PetCO2 trace.
-    
+
     Parameters
     ----------
     co2 : np.ndarray
@@ -111,8 +134,7 @@ def convolve_petco2(co2, pidx, freq, outname):
         sample frequency of the CO2 regressor
     outname : str
         prefix of the exported file
-    
-    
+
     Returns
     -------
     co2_conv : np.ndarray
@@ -150,6 +172,36 @@ def convolve_petco2(co2, pidx, freq, outname):
     np.savetxt(f'{outname}_petco2hrf.1D', co2_conv, fmt='%.18f')
 
     return co2_conv
+
+
+def resample_signal(ts, freq1, freq2):
+    """
+    Upsample or downsample a given timeseries.
+
+    This program brings ts at freq1 to a new timeseries at freq2
+
+    Parameters
+    ----------
+    ts : numpy.ndarray
+        The timeseries to resample
+    freq1 : float
+        The frequency of the timeseries to resample
+    freq2 : float
+        The new desired frequency
+
+    Returns
+    -------
+    numpy.ndarray
+        The resampled timeseries
+    """
+    # Upsample functional signal
+    len_tp = ts.shape[-1]
+    len_s = (len_tp - 1) * 1/freq1
+    regr_t = np.linspace(0, len_s, int(len_s*freq2)+1)
+    time_t = np.linspace(0, len_s, len_tp)
+    f = spint.interp1d(time_t, ts, fill_value='extrapolate')
+
+    return f(regr_t)
 
 
 """

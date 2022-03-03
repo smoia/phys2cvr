@@ -13,11 +13,11 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy.interpolate as spint
 import scipy.stats as sct
 
 from phys2cvr import io
 from phys2cvr.io import SET_DPI, FIGSIZE
+from phys2cvr.signal import resample_signal
 
 
 R2MODEL = ['full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept']
@@ -82,7 +82,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
     Parameters
     ----------
     func_avg : np.ndarray
-        Functional timeseries
+        Functional timeseries (1D)
     petco2hrf : np.ndarray
         Regressor of interest
     tr : str, int, or float
@@ -144,18 +144,14 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
         LGR.info('Using all trials for bulk shift estimation.')
 
     # Upsample functional signal
-    func_len = len(func_avg)
-    regr_t = np.arange(0, ((func_len-1) * tr + 1/freq), 1/freq)
-    func_t = np.linspace(0, (func_len - 1) * tr, func_len)
-    f = spint.interp1d(func_t, func_avg, fill_value='extrapolate')
-    func_upsampled = f(regr_t)
-    len_upd = len(func_upsampled)
+    func_upsampled = resample_signal(func_avg, 1/tr, freq)
+    len_upd = func_upsampled.shape[-1]
 
     # Preparing breathhold and CO2 trace for Xcorr
     func_cut = func_upsampled[first_tp:last_tp]
     petco2hrf_cut = petco2hrf[first_tp:]
 
-    nrep = len(petco2hrf_cut) - len(func_cut)
+    nrep = petco2hrf_cut.shape[-1] - func_cut.shape[-1]
 
     _, optshift, xcorr = x_corr(func_cut, petco2hrf, nrep)
     LGR.info(f'First cross correlation estimated bulk shift at {optshift/freq} seconds')
@@ -169,10 +165,10 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
     # preparing for and exporting figures of shift
     time_axis = np.arange(0, nrep/freq, 1/freq)
 
-    if nrep < len(time_axis):
+    if nrep < time_axis.shape[-1]:
         time_axis = time_axis[:nrep]
-    elif nrep > len(time_axis):
-        time_axis = np.pad(time_axis, (0, int(nrep - len(time_axis))), 'linear_ramp')
+    elif nrep > time_axis.shape[-1]:
+        time_axis = np.pad(time_axis, (0, int(nrep - time_axis.shape[-1])), 'linear_ramp')
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.plot(time_axis, xcorr)
@@ -186,7 +182,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
     plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
     plt.close()
 
-    petco2hrf_demean = io.export_regressor(regr_t, petco2hrf_shift, func_t, outname,
+    petco2hrf_demean = io.export_regressor(petco2hrf_shift, freq, tr, outname,
                                            'petco2hrf', ext)
 
     # Initialise the shifts first.
@@ -201,7 +197,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
             posrep = negrep
         else:
             posrep = negrep + 1
-        petco2hrf_shifts = np.empty([func_len, negrep+posrep], dtype='float32')
+        petco2hrf_shifts = np.empty([func_avg.shape[-1], negrep+posrep], dtype='float32')
 
         # Padding regressor for shift, and padding optshift too
         if (optshift - negrep) < 0:
@@ -209,8 +205,8 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
         else:
             lpad = 0
 
-        if (optshift + posrep + len_upd) > len(petco2hrf):
-            rpad = (optshift + posrep + len_upd) - len(petco2hrf)
+        if (optshift + posrep + len_upd) > petco2hrf.shape[-1]:
+            rpad = (optshift + posrep + len_upd) - petco2hrf.shape[-1]
         else:
             rpad = 0
 
@@ -218,8 +214,8 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
 
         for n, i in enumerate(range(-negrep, posrep)):
             petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-            petco2hrf_shifts[:, n] = io.export_regressor(regr_t, petco2hrf_lagged,
-                                                         func_t, outprefix,
+            petco2hrf_shifts[:, n] = io.export_regressor(petco2hrf_lagged, freq, tr,
+                                                         outprefix,
                                                          f'{n:04g}', ext)
 
     elif lagged_regression and lag_max is None:
