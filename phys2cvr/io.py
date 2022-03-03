@@ -20,7 +20,8 @@ import logging
 
 import nibabel as nib
 import numpy as np
-import scipy.interpolate as spint
+
+from phys2cvr.signal import resample_signal
 
 
 SET_DPI = 100
@@ -198,20 +199,18 @@ def load_nifti_get_mask(fname, is_mask=False, mask_dim=3):
     return data, mask, img
 
 
-def export_regressor(regr_t, petco2hrf_shift, func_t, outname, suffix='petco2hrf', ext='.1D'):
+def export_regressor(petco2hrf_shift, freq, tr, outname, suffix='petco2hrf', ext='.1D'):
     """
     Export generated regressors for fMRI analysis.
 
     Parameters
     ----------
-    regr_t : np.ndarray
-        The time range of the fMRI data, with the same sampling of `petco2hrf_shift`
-        Its last element should be equal to the last element of `func_t`
     petco2hrf_shift : np.ndarray
         The regressors that needs to be exported, in its original sample
-    func_t : np.ndarray
-        The time range of the fMRI data, with the fMRI data sampling.
-        Its last element should be equal to the last element of `regr_t`
+    freq : int
+        The frequency of the petco2hrf_shift (hence physiological data)
+    tr : float
+        The tr of the fMRI timeseries at which to export.
     outname : str or path
         Prefix of the output file - can contain a path.
     suffix : str, optional
@@ -224,10 +223,7 @@ def export_regressor(regr_t, petco2hrf_shift, func_t, outname, suffix='petco2hrf
     petco2hrf_demean : np.ndarray
         Interpolated version of `petco2hrf_shift` in the sampling of the fMRI data.
     """
-    if regr_t[-1] != func_t[-1]:
-        raise ValueError('The two given time ranges do not express the same range!')
-    f = spint.interp1d(regr_t, petco2hrf_shift, fill_value='extrapolate')
-    petco2hrf_shift = f(func_t)
+    petco2hrf_shift = resample_signal(petco2hrf_shift, freq, 1/tr)
     petco2hrf_demean = petco2hrf_shift - petco2hrf_shift.mean()
     np.savetxt(f'{outname}_{suffix}{ext}', petco2hrf_demean, fmt='%.6f')
 
