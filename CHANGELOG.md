@@ -1,3 +1,16 @@
+# 0.11.0 (Thu Mar 03 2022)
+
+#### 💥 Breaking Change during development
+
+- Fix workflow to estimate CVR from fMRI only [#42](https://github.com/smoia/phys2cvr/pull/42) (s.moia@bcbl.eu [@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- smoia (s.moia@bcbl.eu)
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.10.0 (Wed Feb 23 2022)
 
 #### 💥 Breaking Change during development
