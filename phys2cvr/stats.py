@@ -17,7 +17,7 @@ import scipy.stats as sct
 
 from phys2cvr import io
 from phys2cvr.io import SET_DPI, FIGSIZE
-from phys2cvr.io import resample_signal
+from phys2cvr.signal import resample_signal
 
 
 R2MODEL = ['full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept']
