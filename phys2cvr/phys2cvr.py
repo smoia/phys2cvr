@@ -37,7 +37,10 @@ def save_bash_call(fname, outdir):
     """
     arg_str = ' '.join(sys.argv[1:])
     call_str = f'phys2cvr {arg_str}'
-    outdir = os.path.abspath(outdir)
+    if outdir:
+        outdir = os.path.abspath(outdir)
+    else:
+        outdir = os.path.join(os.path.split(fname)[0], 'phys2cvr')
     log_path = os.path.join(outdir, 'logs')
     os.makedirs(log_path, exist_ok=True)
     isotime = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
