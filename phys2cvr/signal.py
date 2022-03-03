@@ -23,6 +23,31 @@ LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
 
 
+def spc(ts):
+    """
+    Compute signal percentage change of ts.
+
+    Those ts that have mean 0 are divided by 1 instead.
+
+    Parameters
+    ----------
+    ts : numpy.ndarray
+        A timeseries or a set of timeseries - it is assumed that the last dimension is time.
+
+    Returns
+    -------
+    numpy.ndarray
+        The SPC version of ts.
+    """
+    m = ts.mean(axis=-1)[..., np.newaxis]
+    md = m
+    md[md == 0] = 1
+    ts = (ts - m) / md
+    ts[np.isnan(ts)] = 0
+
+    return ts
+
+
 def create_hrf(freq=40):
     """
     Create a canonical haemodynamic response function sampled at the given frequency.

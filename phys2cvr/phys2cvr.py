@@ -321,9 +321,18 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             if apply_filter is None:
                 LGR.warning('No filter applied to the input average! You know '
                             'what you are doing, right?')
-        # Reassign fname_co2 to fname_func for later use - calling splitext twice cause .gz
 
-        petco2hrf = func_avg
+        if func_is_1d:
+            petco2hrf = signal.spc(func_avg)
+        elif func_is_nifti:
+            # Get the average of the SPC rather than the SPC of the average
+            if apply_filter:
+                func_filt = signal.filter_signal(func, tr, lowcut, highcut)
+                petco2hrf = signal.spc(func_filt[roi]).mean(axis=0)
+            else:
+                petco2hrf = signal.spc(func[roi]).mean(axis=0)
+
+        # Reassign fname_co2 to fname_func for later use - calling splitext twice cause .gz
         basename_co2 = os.path.splitext(os.path.splitext(f'avg_{os.path.basename(fname_func)}')[0])[0]
         outname = os.path.join(outdir, basename_co2)
 
@@ -408,9 +417,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         oimg.header['dim'] = newdim
 
         # Compute signal percentage change of functional data
-        m = func.mean(axis=-1)[..., np.newaxis]
-        func = (func - m) / m
-        func[np.isnan(func)] = 0
+        func = signal.spc(func)
 
         # Start computing the polynomial regressor (at least average)
         LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
