@@ -382,7 +382,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         outname = os.path.join(outdir, basename_co2)
 
         # Unless user asks to skip this step, convolve the end tidal signal.
-        if run_conv is None:
+        if run_conv is False:
             petco2hrf = co2
         else:
             petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
@@ -400,7 +400,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                         'Estimating it.')
             regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq,
                                                outname, lag_max, trial_len,
-                                               n_trials, '.1D', lagged_regression, 
+                                               n_trials, '.1D', lagged_regression,
                                                legacy)
 
     # Run internal regression if required and possible!
