@@ -1,3 +1,15 @@
+# 0.11.1 (Mon Mar 07 2022)
+
+#### 🐛 Bug Fix
+
+- Fix if statement for skipping convolution [#43](https://github.com/smoia/phys2cvr/pull/43) ([@kristinazvolanek](https://github.com/kristinazvolanek))
+
+#### Authors: 1
+
+- Kristina Zvolanek ([@kristinazvolanek](https://github.com/kristinazvolanek))
+
+---
+
 # 0.11.0 (Thu Mar 03 2022)
 
 #### 💥 Breaking Change during development
