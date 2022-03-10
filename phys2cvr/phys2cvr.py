@@ -330,7 +330,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 func_filt = signal.filter_signal(func, tr, lowcut, highcut)
                 petco2hrf = signal.spc(func_filt[roi]).mean(axis=0)
             else:
-                petco2hrf = signal.spc(func[roi]).mean(axis=0)
+                petco2hrf = signal.spc(func[roi].mean(axis=0))
 
         # Reassign fname_co2 to fname_func for later use - calling splitext twice cause .gz
         basename_co2 = os.path.splitext(os.path.splitext(f'avg_{os.path.basename(fname_func)}')[0])[0]
