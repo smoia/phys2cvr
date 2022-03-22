@@ -43,7 +43,7 @@ def spc(ts):
     m = ts.mean(axis=-1)[..., np.newaxis]
     md = deepcopy(m)
     md[md == 0] = 1
-    ts = (ts - m) / md.T
+    ts = (ts - m) / md
     ts[np.isnan(ts)] = 0
 
     return ts
