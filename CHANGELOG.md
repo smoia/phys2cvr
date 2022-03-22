@@ -1,3 +1,15 @@
+# 0.12.0 (Tue Mar 22 2022)
+
+#### 💥 Breaking Change during development
+
+- Change behaviour to create petco2hrf fmri proxy due to the SPC of average signal being more robust than average of SPC [#46](https://github.com/smoia/phys2cvr/pull/46) (s.moia@bcbl.eu)
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.11.2 (Tue Mar 22 2022)
 
 #### 🐛 Bug Fix
