@@ -322,13 +322,9 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 LGR.warning('No filter applied to the input average! You know '
                             'what you are doing, right?')
 
-            petco2hrf = signal.spc(func_avg)
-        elif func_is_nifti:
-            # Get the average of the SPC rather than the SPC of the average
-            if apply_filter:
-                petco2hrf = signal.spc(func_filt[roi]).mean(axis=0)
-            else:
-                petco2hrf = signal.spc(func[roi]).mean(axis=0)
+        # Get the SPC of the average rather than the average of the SPC
+        # The former is more robust to intrinsic data noise than the latter
+        petco2hrf = signal.spc(func_avg)
 
         # Reassign fname_co2 to fname_func for later use - calling splitext twice cause .gz
         basename_co2 = os.path.splitext(os.path.splitext(f'avg_{os.path.basename(fname_func)}')[0])[0]
