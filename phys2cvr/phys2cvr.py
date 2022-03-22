@@ -322,12 +322,10 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 LGR.warning('No filter applied to the input average! You know '
                             'what you are doing, right?')
 
-        if func_is_1d:
             petco2hrf = signal.spc(func_avg)
         elif func_is_nifti:
             # Get the average of the SPC rather than the SPC of the average
             if apply_filter:
-                func_filt = signal.filter_signal(func, tr, lowcut, highcut)
                 petco2hrf = signal.spc(func_filt[roi]).mean(axis=0)
             else:
                 petco2hrf = signal.spc(func[roi]).mean(axis=0)

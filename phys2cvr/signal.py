@@ -9,6 +9,7 @@ LGR :
 """
 
 import logging
+from copy import deepcopy
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -40,9 +41,9 @@ def spc(ts):
         The SPC version of ts.
     """
     m = ts.mean(axis=-1)[..., np.newaxis]
-    md = m
+    md = deepcopy(m)
     md[md == 0] = 1
-    ts = (ts - m) / md
+    ts = (ts - m) / md.T
     ts[np.isnan(ts)] = 0
 
     return ts
