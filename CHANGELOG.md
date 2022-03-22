@@ -1,3 +1,15 @@
+# 0.11.2 (Tue Mar 22 2022)
+
+#### 🐛 Bug Fix
+
+- Fix SPC computation by dividing by the transposed mean (not the matrix itself) [#45](https://github.com/smoia/phys2cvr/pull/45) (s.moia@bcbl.eu)
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.11.1 (Mon Mar 07 2022)
 
 #### 🐛 Bug Fix
