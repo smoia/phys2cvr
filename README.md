@@ -33,12 +33,16 @@ Cite
 If you use `phys2cvr` in your work, please cite either the all-time Zenodo DOI [![general Zenodo DOI](https://zenodo.org/badge/110845855.svg)](https://zenodo.org/badge/latestdoi/110845855) or the Zenodo DOI related to the version you are using.
 Please cite the following paper(s) too:
 >Moia, S., Stickland, R. C., Ayyagari, A., Termenon, M., Caballero-Gaudes, C., & Bright, M. G. (2020). Voxelwise optimization of hemodynamic lags to improve regional CVR estimates in breath-hold fMRI. In 2020 42nd Annual International Conference of the IEEE Engineering in Medicine & Biology Society (EMBC) (pp. 1489–1492). Montreal, QC, Canada: IEEE. https://doi.org/10.1109/EMBC44109.2020.9176225
+
 If you are using the `--brightspin` configuration option:
 >Moia, S., Termenon, M., Uruñuela, E., Chen, G., Stickland, R. C., Bright, M. G., & Caballero-Gaudes, C. (2021). ICA-based denoising strategies in breath-hold induced cerebrovascular reactivity mapping with multi echo BOLD fMRI. NeuroImage, 233, 117914. https://doi.org/10.1016/j.neuroimage.2021.117914
+
 If you are using the `--brightspin-clinical` configuration option:
 >Stickland, R. C., Zvolanek, K. M., Moia, S., Ayyagari, A., & Bright, M. G. (2021). A practical modification to a resting state fMRI protocol for improved characterization of cerebrovascular function. Supplementary Material. Neuroimage.
+
 If you are using the `--baltimore-lag` configuration option:
 >Liu, P., Li, Y., Pinho, M., Park, D. C., Welch, B. G., & Lu, H. (2017). Cerebrovascular reactivity mapping without gas challenges. NeuroImage, 146(November 2016), 320–326. https://doi.org/10.1016/j.neuroimage.2016.11.054
+
 If you are using the `--baltimore` configuration option, please cite only the Zenodo DOI and the last listed paper.
 
 Installation
