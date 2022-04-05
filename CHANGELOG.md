@@ -1,3 +1,20 @@
+# 0.12.1 (Tue Apr 05 2022)
+
+#### 🐛 Bug Fix
+
+- Let signal be resampled over any axis of the input timeseries (default to first dimension) [#47](https://github.com/smoia/phys2cvr/pull/47) ([@smoia](https://github.com/smoia))
+
+#### ⚠️ Pushed to `master`
+
+- docs: fix readme citations ([@smoia](https://github.com/smoia))
+- docs: update README with installation instruction and badges ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.12.0 (Tue Mar 22 2022)
 
 #### 💥 Breaking Change during development
