@@ -1,3 +1,15 @@
+# 0.13.0 (Tue Apr 05 2022)
+
+#### 🚀 Enhancement
+
+- Enhance cross correlation to allow both regressor and reference to be shifted and consider max abs corr [#48](https://github.com/smoia/phys2cvr/pull/48) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.12.1 (Tue Apr 05 2022)
 
 #### 🐛 Bug Fix
