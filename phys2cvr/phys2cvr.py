@@ -51,7 +51,7 @@ def save_bash_call(fname, outdir):
 
 
 def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_mask=None,
-             outdir=None, freq=None, tr=None, trial_len=None, n_trials=None,
+             outdir=None, freq=None, tr=None, trial_len=None, n_trials=None, abs_xcorr=False,
              highcut=None, lowcut=None, apply_filter=False,
              run_regression=False, lagged_regression=True, r2model='full', lag_max=None,
              lag_step=None, legacy=False, l_degree=0, denoise_matrix=[], scale_factor=None,
@@ -104,6 +104,10 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
     n_trials : str or int, optional
         Number of trials in the task.
         Default: None
+    abs_xcorr : bool, optional
+        If True, the cross correlation will consider max(abs(xcorr)).
+        If False, the cross correlation will consider max(xcorr).
+        Default: False
     highcut : str, int, or float, optional
         High frequency limit for filter.
         Required if applying a filter.
@@ -385,7 +389,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
     if regr_dir is None:
         regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq, outname,
                                            lag_max, trial_len, n_trials,
-                                           '.1D', lagged_regression, legacy)
+                                           '.1D', lagged_regression, legacy, abs_xcorr)
     elif run_regression:
         try:
             regr = np.genfromtxt(f'{outname}_petco2hrf.1D')
@@ -395,7 +399,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             regr, regr_shifts = stats.get_regr(func_avg, petco2hrf, tr, freq,
                                                outname, lag_max, trial_len,
                                                n_trials, '.1D', lagged_regression,
-                                               legacy)
+                                               legacy, abs_xcorr)
 
     # Run internal regression if required and possible!
     if func_is_nifti and run_regression:
