@@ -175,21 +175,23 @@ def convolve_petco2(co2, pidx, freq, outname):
     return co2_conv
 
 
-def resample_signal(ts, freq1, freq2):
+def resample_signal(ts, freq1, freq2, axis=0):
     """
-    Upsample or downsample a given timeseries over the first dimension.
+    Upsample or downsample a given timeseries.
 
     This program brings ts at freq1 to a new timeseries at freq2
 
     Parameters
     ----------
     ts : numpy.ndarray
-        The timeseries to resample - if its dimensions are more than one,
-        resample over the first dimension
+        The timeseries to resample.
     freq1 : float
         The frequency of the timeseries to resample
     freq2 : float
         The new desired frequency
+    axis : int
+        The axis over with the interpolation should happen - by default it's
+        0, i.e. the first dimension.
 
     Returns
     -------
@@ -201,7 +203,7 @@ def resample_signal(ts, freq1, freq2):
     len_s = (len_tp - 1) * 1/freq1
     regr_t = np.linspace(0, len_s, int(len_s*freq2)+1)
     time_t = np.linspace(0, len_s, len_tp)
-    f = spint.interp1d(time_t, ts, fill_value='extrapolate', axis=0)
+    f = spint.interp1d(time_t, ts, fill_value='extrapolate', axis=axis)
 
     return f(regr_t)
 
