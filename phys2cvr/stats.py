@@ -176,7 +176,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
 
     # Upsample functional signal
     func_upsampled = resample_signal(func_avg, 1/tr, freq)
-    len_upd = func_upsampled.shape[-1]
+    len_upd = func_upsampled.shape[0]
 
     # Preparing breathhold and CO2 trace for Xcorr
     func_cut = func_upsampled[first_tp:last_tp]
@@ -204,10 +204,10 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
     # preparing for and exporting figures of shift
     time_axis = np.arange(0, nrep/freq, 1/freq)
 
-    if nrep < time_axis.shape[-1]:
+    if nrep < time_axis.shape[0]:
         time_axis = time_axis[:nrep]
-    elif nrep > time_axis.shape[-1]:
-        time_axis = np.pad(time_axis, (0, int(nrep - time_axis.shape[-1])), 'linear_ramp')
+    elif nrep > time_axis.shape[0]:
+        time_axis = np.pad(time_axis, (0, int(nrep - time_axis.shape[0])), 'linear_ramp')
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.plot(time_axis, xcorr)
@@ -250,7 +250,10 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
         else:
             rpad = 0
 
-        petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
+        if func_cut.shape[0] <= petco2hrf.shape[0]:
+            petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
+        elif func_cut.shape[0] > petco2hrf.shape[0]:
+            petco2hrf_padded = np.pad(petco2hrf_shift, (int(lpad), int(rpad)), 'mean')
 
         for n, i in enumerate(range(-negrep, posrep)):
             petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
