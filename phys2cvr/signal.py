@@ -201,7 +201,7 @@ def resample_signal(ts, freq1, freq2):
     len_s = (len_tp - 1) * 1/freq1
     regr_t = np.linspace(0, len_s, int(len_s*freq2)+1)
     time_t = np.linspace(0, len_s, len_tp)
-    f = spint.interp1d(time_t, ts, fill_value='extrapolate')
+    f = spint.interp1d(time_t, ts, fill_value='extrapolate', axis=0)
 
     return f(regr_t)
 
