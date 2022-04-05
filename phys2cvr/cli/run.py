@@ -143,6 +143,14 @@ def _get_parser():
                                  'signal and physiological regressor to improve '
                                  'the detection of the bulk shift.'),
                            default=None)
+    opt_xcorr.add_argument('-absxcorr', '--absolute-cross-corr',
+                           dest='abs_xcorr',
+                           action='store_true',
+                           help=('Allow cross correlation to consider both '
+                                 'positive and negative values as possible '
+                                 'maximum, i.e. to consider the maximum of the '
+                                 'absolute of the cross correlation.'),
+                           default=False)
 
     opt_filt = parser.add_argument_group('Optional Arguments for temporal filter')
     opt_filt.add_argument('-af', '--apply-filter',

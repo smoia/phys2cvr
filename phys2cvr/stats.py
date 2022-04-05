@@ -26,7 +26,7 @@ LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
 
 
-def x_corr(func, co2, lastrep, firstrep=0, offset=0):
+def x_corr(func, co2, lastrep, firstrep=0, offset=0, abs_xcorr=False):
     """
     Cross correlation between `func` and `co2`.
 
@@ -42,6 +42,9 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
         First index totake into account in `func`
     offset : int, optional
         Optional amount of offset desired for `func`
+    abs_xcorr : bool, optional
+        If True, x_corr will find the maximum absolute correlation,
+        i.e. max(|corr(func, co2)|)
 
     Returns
     -------
@@ -58,24 +61,48 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0):
         If `offset` is too high for the functional file
     """
     if len(func) + offset > len(co2):
-        raise ValueError(f'The specified offset of {offset} is too high to '
-                         f'compare func of length {len(func)} with co2 of '
-                         f'length {len(co2)}')
-    if firstrep + offset < 0:
-        firstrep = -offset
-    if lastrep + offset + len(func) > len(co2):
-        lastrep = len(co2) - offset - len(func)
+        if offset != 0:
+            raise ValueError(f'The specified offset of {offset} is too high to '
+                             f'compare func of length {len(func)} with co2 of '
+                             f'length {len(co2)}')
+        else:
+            LGR.warning(f'The timeseries has lenght of {len(func)}, but the co2 '
+                        f'has length of {len(co2)}. Matching co2 to func.')
+        if firstrep + len(co2) > len(func):
+            firstrep = len(func) - len(co2)
+        elif firstrep < 0:
+            firstrep = 0
+        if lastrep + len(co2) > len(func):
+            lastrep = len(func) - len(co2)
+        elif lastrep < firstrep:
+            lastrep = firstrep + 1
 
-    xcorr = np.empty(lastrep+firstrep, dtype='float32')
-    for i in range(firstrep, lastrep):
-        xcorr[i] = np.corrcoef(func, co2[0+i+offset:len(func)+i+offset].T)[1, 0]
+        xcorr = np.empty(lastrep-firstrep, dtype='float32')
+        for i in range(firstrep, lastrep):
+            xcorr[i] = np.corrcoef(co2, func[0+i:len(co2)+i].T)[1, 0]
+    else:
+        if firstrep + offset + len(func) > len(co2):
+            firstrep = len(co2) - offset - len(func)
+        elif firstrep + offset < 0:
+            firstrep = -offset
+        if lastrep + offset + len(func) > len(co2):
+            lastrep = len(co2) - offset - len(func)
+        elif lastrep < firstrep:
+            lastrep = firstrep + 1
+
+        xcorr = np.empty(lastrep-firstrep, dtype='float32')
+        for i in range(firstrep, lastrep):
+            xcorr[i] = np.corrcoef(func, co2[0+i+offset:len(func)+i+offset].T)[1, 0]
+
+    if abs_xcorr:
+        xcorr = np.abs(xcorr)
 
     return xcorr.max(), (xcorr.argmax() + firstrep + offset), xcorr
 
 
 def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
              trial_len=None, n_trials=None, ext='.1D', lagged_regression=True,
-             legacy=False):
+             legacy=False, abs_xcorr=False):
     """
     Create regressor(s) of interest for nifti GLM.
 
@@ -111,6 +138,10 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
     legacy : bool, optional
         If True, exclude the upper lag limit from the regression estimation.
         If True, the maximum number of regressors will be `(freq*lag_max*2)`
+    abs_x_corr : bool, optional
+        If True, the cross correlation will consider the maximum absolute
+        correlation, i.e. if a negative correlation is higher than the highest
+        positive, the negative correlation will be chosen instead.
 
     Returns
     -------
@@ -145,30 +176,38 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
 
     # Upsample functional signal
     func_upsampled = resample_signal(func_avg, 1/tr, freq)
-    len_upd = func_upsampled.shape[-1]
+    len_upd = func_upsampled.shape[0]
 
     # Preparing breathhold and CO2 trace for Xcorr
     func_cut = func_upsampled[first_tp:last_tp]
     petco2hrf_cut = petco2hrf[first_tp:]
 
-    nrep = petco2hrf_cut.shape[-1] - func_cut.shape[-1]
+    nrep = abs(petco2hrf_cut.shape[0] - func_cut.shape[0])
 
-    _, optshift, xcorr = x_corr(func_cut, petco2hrf, nrep)
-    LGR.info(f'First cross correlation estimated bulk shift at {optshift/freq} seconds')
+    _, optshift, xcorr = x_corr(func_cut, petco2hrf, nrep, abs_xcorr=abs_xcorr)
 
+    LGR.info(f'Cross correlation estimated bulk shift at {optshift/freq} seconds')
     # Export estimated optimal shift in seconds
     with open(f'{outname}_optshift.1D', 'w') as f:
         print(f'{(optshift/freq):.4f}', file=f)
 
-    petco2hrf_shift = petco2hrf[optshift:optshift+len_upd]
+    # Check which timeseries was shifted shifted
+    if func_cut.shape[0] <= petco2hrf.shape[0]:
+        petco2hrf_shift = petco2hrf[optshift:optshift+len_upd]
+    elif func_cut.shape[0] > petco2hrf.shape[0]:
+        petco2hrf_shift = np.pad(petco2hrf, (int(optshift),
+                                             int(func_cut.shape[0]
+                                                 - petco2hrf.shape[0]
+                                                 - optshift)), 'mean')
+        optshift = 0
 
     # preparing for and exporting figures of shift
     time_axis = np.arange(0, nrep/freq, 1/freq)
 
-    if nrep < time_axis.shape[-1]:
+    if nrep < time_axis.shape[0]:
         time_axis = time_axis[:nrep]
-    elif nrep > time_axis.shape[-1]:
-        time_axis = np.pad(time_axis, (0, int(nrep - time_axis.shape[-1])), 'linear_ramp')
+    elif nrep > time_axis.shape[0]:
+        time_axis = np.pad(time_axis, (0, int(nrep - time_axis.shape[0])), 'linear_ramp')
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.plot(time_axis, xcorr)
@@ -197,20 +236,24 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
             posrep = negrep
         else:
             posrep = negrep + 1
-        petco2hrf_shifts = np.empty([func_avg.shape[-1], negrep+posrep], dtype='float32')
+        petco2hrf_shifts = np.empty([func_avg.shape[0], negrep+posrep], dtype='float32')
 
         # Padding regressor for shift, and padding optshift too
+
         if (optshift - negrep) < 0:
             lpad = negrep - optshift
         else:
             lpad = 0
 
-        if (optshift + posrep + len_upd) > petco2hrf.shape[-1]:
-            rpad = (optshift + posrep + len_upd) - petco2hrf.shape[-1]
+        if (optshift + posrep + len_upd) > petco2hrf.shape[0]:
+            rpad = (optshift + posrep + len_upd) - petco2hrf.shape[0]
         else:
             rpad = 0
 
-        petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
+        if func_cut.shape[0] <= petco2hrf.shape[0]:
+            petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
+        elif func_cut.shape[0] > petco2hrf.shape[0]:
+            petco2hrf_padded = np.pad(petco2hrf_shift, (int(lpad), int(rpad)), 'mean')
 
         for n, i in enumerate(range(-negrep, posrep)):
             petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
