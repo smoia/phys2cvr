@@ -177,14 +177,15 @@ def convolve_petco2(co2, pidx, freq, outname):
 
 def resample_signal(ts, freq1, freq2):
     """
-    Upsample or downsample a given timeseries.
+    Upsample or downsample a given timeseries over the first dimension.
 
     This program brings ts at freq1 to a new timeseries at freq2
 
     Parameters
     ----------
     ts : numpy.ndarray
-        The timeseries to resample
+        The timeseries to resample - if its dimensions are more than one,
+        resample over the first dimension
     freq1 : float
         The frequency of the timeseries to resample
     freq2 : float
@@ -196,7 +197,7 @@ def resample_signal(ts, freq1, freq2):
         The resampled timeseries
     """
     # Upsample functional signal
-    len_tp = ts.shape[-1]
+    len_tp = ts.shape[0]
     len_s = (len_tp - 1) * 1/freq1
     regr_t = np.linspace(0, len_s, int(len_s*freq2)+1)
     time_t = np.linspace(0, len_s, len_tp)
