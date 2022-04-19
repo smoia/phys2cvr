@@ -1,3 +1,15 @@
+# 0.14.0 (Tue Apr 19 2022)
+
+#### 🚀 Enhancement
+
+- Allow confounding matrix and mask to be optional in `stats.regression` [#49](https://github.com/smoia/phys2cvr/pull/49) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.13.0 (Tue Apr 05 2022)
 
 #### 🚀 Enhancement
