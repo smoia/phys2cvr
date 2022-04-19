@@ -1,3 +1,15 @@
+# 0.14.1 (Tue Apr 19 2022)
+
+#### 🐛 Bug Fix
+
+- fix: Fix nifti import and mask creation ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.14.0 (Tue Apr 19 2022)
 
 #### 🚀 Enhancement
