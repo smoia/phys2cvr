@@ -302,7 +302,7 @@ def get_legendre(degree, length):
     return legendre
 
 
-def regression(data, mask, regr, mat_conf, r2model='full', debug=False, x1D='mat.1D'):
+def regression(data, regr, mat_conf=None, mask=None, r2model='full', debug=False, x1D='mat.1D'):
     """
     Estimate regression parameters.
 
@@ -310,12 +310,12 @@ def regression(data, mask, regr, mat_conf, r2model='full', debug=False, x1D='mat
     ----------
     data : np.ndarray
         Dependent variable of the model (i.e. Y), as a 4D volume.
-    mask : np.ndarray
-        A 3D mask to reduce the number of voxels to run the regression for.
     regr : np.ndarray
         Regressor of interest
-    mat_conf : np.ndarray
+    mat_conf : np.ndarray or None, optional
         Confounding effects (regressors)
+    mask : np.ndarray or None, optional
+        A 3D mask to reduce the number of voxels to run the regression for.
     r2model : 'full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept', optional
         R^2 to report.
         Possible models are:
@@ -352,19 +352,25 @@ def regression(data, mask, regr, mat_conf, r2model='full', debug=False, x1D='mat
         If `mat_conf` and `regr` do not have at least one common dimension.
     """
     # Obtain data in 2d
+    if mask is None:
+        mask = np.ones(data.shape[:-1])
+
     Ymat = data[mask]
     # Check that regr has "two" dimensions
     if len(regr.shape) < 2:
         regr = regr[..., np.newaxis]
-    if regr.shape[0] != mat_conf.shape[0]:
-        regr = regr.T
+    if mat_conf is not None:
         if regr.shape[0] != mat_conf.shape[0]:
-            raise ValueError('The provided confounding matrix does not match '
-                             'the dimensionality of the PetCO2hrf regressor!')
-    # Stack mat and solve least square
-    # Note: Xmat is not currently demeaned within this function, so inputs should
-    # already be demeaned (or within this function, demean all columns except zero order polynomial)
-    Xmat = np.hstack([mat_conf, regr])
+            regr = regr.T
+            if regr.shape[0] != mat_conf.shape[0]:
+                raise ValueError('The provided confounding matrix does not match '
+                                 'the dimensionality of the PetCO2hrf regressor!')
+        # Stack mat and solve least square
+        # Note: Xmat is not currently demeaned within this function, so inputs
+        # should already be demeaned
+        Xmat = np.hstack([mat_conf, regr])
+    else:
+        Xmat = regr
 
     if debug:
         os.makedirs(os.path.dirname(x1D), exist_ok=True)

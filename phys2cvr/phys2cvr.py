@@ -431,7 +431,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
 
         LGR.info('Compute simple CVR estimation (bulk shift only)')
         x1D = os.path.join(outdir, 'mat', 'mat_simple.1D')
-        beta, tstat, r_square = stats.regression(func, mask, regr, mat_conf,
+        beta, tstat, r_square = stats.regression(func, regr, mat_conf, mask,
                                                  r2model, debug, x1D)
 
         LGR.info('Export bulk shift results')
@@ -510,8 +510,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                     x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
                     (beta[lag_idx == i],
                      tstat[lag_idx == i],
-                     _) = stats.regression(func[lag_idx == i], [lag_idx == i],
-                                           regr, mat_conf, r2model, debug,
+                     _) = stats.regression(func[lag_idx == i], regr, mat_conf,
+                                           [lag_idx == i], r2model, debug,
                                            x1D)
 
             else:
@@ -541,9 +541,9 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                     x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
                     (beta_all[:, :, :, n],
                      tstat_all[:, :, :, n],
-                     r_square_all[:, :, :, n]) = stats.regression(func, mask,
-                                                                  regr,
+                     r_square_all[:, :, :, n]) = stats.regression(func, regr,
                                                                   mat_conf,
+                                                                  mask,
                                                                   r2model,
                                                                   debug,
                                                                   x1D)
