@@ -158,7 +158,7 @@ def check_nifti_dim(fname, data, dim=4):
     return np.squeeze(data)
 
 
-def load_nifti_get_mask(fname, is_mask=False, mask_dim=3):
+def load_nifti_get_mask(fname, is_mask=False, dim=3):
     """
     Load a nifti file and returns its data, its image, and a 3d mask.
 
@@ -169,8 +169,8 @@ def load_nifti_get_mask(fname, is_mask=False, mask_dim=3):
     is_mask : bool, optional
         If the file contains a mask.
         Default: False
-    mask_dim : int
-        The number of dimensions expected in the mask
+    dim : int
+        The number of dimensions expected in fname
 
     Returns
     -------
@@ -183,18 +183,17 @@ def load_nifti_get_mask(fname, is_mask=False, mask_dim=3):
         If `is_mask` is True, mask is a boolean representation of data.
     img : nib.img
         Image object from nibabel.
-
     """
+
     img = nib.load(fname)
     LGR.info(f'Loading {fname}')
     data = img.get_fdata()
+    data = check_nifti_dim(fname, data, dim=dim)
 
     if is_mask:
-        data = check_nifti_dim(fname, data, dim=mask_dim)
-        mask = (data < 0) + (data > 0)
+        mask = (data != 0)
     else:
-        data = check_nifti_dim(fname, data)
-        mask = np.squeeze(np.any(data, axis=-1))
+        mask = data.any(axis=-1).squeeze()
 
     return data, mask, img
 
