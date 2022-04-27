@@ -151,6 +151,11 @@ def _get_parser():
                                  'maximum, i.e. to consider the maximum of the '
                                  'absolute of the cross correlation.'),
                            default=False)
+    opt_xcorr.add_argument('-noxcorr', '--skip-cross-corr',
+                           dest='skip_xcorr',
+                           action='store_true',
+                           help=('Skip cross correlation step.'),
+                           default=False)
 
     opt_filt = parser.add_argument_group('Optional Arguments for temporal filter')
     opt_filt.add_argument('-af', '--apply-filter',

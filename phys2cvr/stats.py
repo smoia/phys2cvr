@@ -102,7 +102,7 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0, abs_xcorr=False):
 
 def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
              trial_len=None, n_trials=None, ext='.1D', lagged_regression=True,
-             legacy=False, abs_xcorr=False):
+             legacy=False, abs_xcorr=False, skip_xcorr=False):
     """
     Create regressor(s) of interest for nifti GLM.
 
@@ -138,10 +138,12 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
     legacy : bool, optional
         If True, exclude the upper lag limit from the regression estimation.
         If True, the maximum number of regressors will be `(freq*lag_max*2)`
-    abs_x_corr : bool, optional
+    abs_xcorr : bool, optional
         If True, the cross correlation will consider the maximum absolute
         correlation, i.e. if a negative correlation is higher than the highest
         positive, the negative correlation will be chosen instead.
+    skip_xcorr : bool, optional
+        If True, skip the cross correlation step.
 
     Returns
     -------
@@ -184,12 +186,14 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
 
     nrep = abs(petco2hrf_cut.shape[0] - func_cut.shape[0])
 
-    _, optshift, xcorr = x_corr(func_cut, petco2hrf, nrep, abs_xcorr=abs_xcorr)
-
-    LGR.info(f'Cross correlation estimated bulk shift at {optshift/freq} seconds')
-    # Export estimated optimal shift in seconds
-    with open(f'{outname}_optshift.1D', 'w') as f:
-        print(f'{(optshift/freq):.4f}', file=f)
+    if not skip_xcorr:
+        _, optshift, xcorr = x_corr(func_cut, petco2hrf, nrep, abs_xcorr=abs_xcorr)
+        LGR.info(f'Cross correlation estimated bulk shift at {optshift/freq} seconds')
+        # Export estimated optimal shift in seconds
+        with open(f'{outname}_optshift.1D', 'w') as f:
+            print(f'{(optshift/freq):.4f}', file=f)
+    else:
+        optshift = 0
 
     # Check which timeseries was shifted shifted
     if func_cut.shape[0] <= petco2hrf.shape[0]:
