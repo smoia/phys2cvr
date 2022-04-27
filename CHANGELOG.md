@@ -1,3 +1,15 @@
+# 0.15.0 (Wed Apr 27 2022)
+
+#### 🚀 Enhancement
+
+- Add the possibility to skip the cross correlation step when creating lagged regressors [#50](https://github.com/smoia/phys2cvr/pull/50) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.14.1 (Tue Apr 19 2022)
 
 #### 🐛 Bug Fix
