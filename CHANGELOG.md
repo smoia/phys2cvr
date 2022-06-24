@@ -1,3 +1,15 @@
+# 0.15.1 (Fri Jun 24 2022)
+
+#### 🐛 Bug Fix
+
+- Fix dimensionality check for functional images [#52](https://github.com/smoia/phys2cvr/pull/52) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.15.0 (Wed Apr 27 2022)
 
 #### 🚀 Enhancement
