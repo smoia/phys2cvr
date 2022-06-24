@@ -273,7 +273,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             raise NameError('Provided functional signal, but no TR specified! '
                             'Rerun specifying the TR')
     elif func_is_nifti:
-        func, dmask, img = io.load_nifti_get_mask(fname_func)
+        func, dmask, img = io.load_nifti_get_mask(fname_func, dim=4)
         if len(func.shape) < 4:
             raise ValueError(f'Provided functional file {fname_func} is not a 4D file!')
         # Read TR or declare its overwriting
