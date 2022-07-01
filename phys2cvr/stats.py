@@ -186,16 +186,30 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
 
     nrep = abs(petco2hrf_cut.shape[0] - func_cut.shape[0])
 
+    # Preparing time axis for plots
+    time_axis = np.arange(0, nrep/freq, 1/freq)
+
+    if nrep < time_axis.shape[0]:
+        time_axis = time_axis[:nrep]
+    elif nrep > time_axis.shape[0]:
+        time_axis = np.pad(time_axis, (0, int(nrep - time_axis.shape[0])), 'linear_ramp')
+
     if not skip_xcorr:
         _, optshift, xcorr = x_corr(func_cut, petco2hrf, nrep, abs_xcorr=abs_xcorr)
         LGR.info(f'Cross correlation estimated bulk shift at {optshift/freq} seconds')
         # Export estimated optimal shift in seconds
         with open(f'{outname}_optshift.1D', 'w') as f:
             print(f'{(optshift/freq):.4f}', file=f)
+        # Export xcorr figure
+        plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
+        plt.plot(time_axis, xcorr)
+        plt.title('optshift')
+        plt.savefig(f'{outname}_optshift.png', dpi=SET_DPI)
+        plt.close()
     else:
         optshift = 0
 
-    # Check which timeseries was shifted shifted
+    # Check which timeseries was shifted
     if func_cut.shape[0] <= petco2hrf.shape[0]:
         petco2hrf_shift = petco2hrf[optshift:optshift+len_upd]
     elif func_cut.shape[0] > petco2hrf.shape[0]:
@@ -205,20 +219,7 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
                                                  - optshift)), 'mean')
         optshift = 0
 
-    # preparing for and exporting figures of shift
-    time_axis = np.arange(0, nrep/freq, 1/freq)
-
-    if nrep < time_axis.shape[0]:
-        time_axis = time_axis[:nrep]
-    elif nrep > time_axis.shape[0]:
-        time_axis = np.pad(time_axis, (0, int(nrep - time_axis.shape[0])), 'linear_ramp')
-
-    plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.plot(time_axis, xcorr)
-    plt.title('optshift')
-    plt.savefig(f'{outname}_optshift.png', dpi=SET_DPI)
-    plt.close()
-
+    # Exporting figures of shift
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.plot(sct.zscore(petco2hrf_shift), '-', sct.zscore(func_upsampled), '-')
     plt.title('GM and shift')
