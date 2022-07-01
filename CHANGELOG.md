@@ -1,3 +1,15 @@
+# 0.15.3 (Fri Jul 01 2022)
+
+#### 🐛 Bug Fix
+
+- fix: force mask to be an ndarray of booleans in regression ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.15.2 (Fri Jul 01 2022)
 
 #### 🐛 Bug Fix
