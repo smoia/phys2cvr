@@ -1,3 +1,15 @@
+# 0.15.2 (Fri Jul 01 2022)
+
+#### 🐛 Bug Fix
+
+- fix: Fix plot of xcorr that was called even when skipping xcorr ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.15.1 (Fri Jun 24 2022)
 
 #### 🐛 Bug Fix
