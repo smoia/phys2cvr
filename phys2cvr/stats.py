@@ -360,6 +360,8 @@ def regression(data, regr, mat_conf=None, mask=None, r2model='full', debug=False
     if mask is None:
         mask = np.ones(data.shape[:-1])
 
+    mask = mask.astype('bool')
+
     Ymat = data[mask]
     # Check that regr has "two" dimensions
     if len(regr.shape) < 2:
