@@ -364,7 +364,7 @@ def regression(data, regr, mat_conf=None, mask=None, r2model='full', debug=False
 
     Ymat = data[mask]
     # Check that regr has "two" dimensions
-    if len(regr.shape) < 2:
+    if regr.ndim < 2:
         regr = regr[..., np.newaxis]
     if mat_conf is not None:
         if regr.shape[0] != mat_conf.shape[0]:
@@ -375,7 +375,7 @@ def regression(data, regr, mat_conf=None, mask=None, r2model='full', debug=False
         # Stack mat and solve least square
         # Note: Xmat is not currently demeaned within this function, so inputs
         # should already be demeaned
-        Xmat = np.hstack([mat_conf, regr])
+        Xmat = np.hstack([regr, mat_conf])
     else:
         Xmat = regr
 
@@ -434,7 +434,7 @@ def regression(data, regr, mat_conf=None, mask=None, r2model='full', debug=False
         # We could also compute PARTIAL R square of regr instead (or on top)
         # See for computation: https://sscc.nimh.nih.gov/sscc/gangc/tr.html
         tstats_square = np.power(tstats, 2)
-        r_square = (tstats_square / (tstats_square + df))[-1, :]
+        r_square = (tstats_square / (tstats_square + df))[0, :]
     else:
         r_square = np.ones(Ymat.shape[0], dtype='float32') - (RSS / TSS)
 
@@ -448,12 +448,13 @@ def regression(data, regr, mat_conf=None, mask=None, r2model='full', debug=False
     LGR.info(f'Adopting {r2msg} baseline to compute R^2.')
 
     # Assign betas, Rsquare and tstats to new volume
-    bout = mask * 1.0
-    tout = mask * 1.0
+    bout = np.tile((mask * 1.0)[..., np.newaxis], Xmat.shape[1])
+    tout = np.tile((mask * 1.0)[..., np.newaxis], Xmat.shape[1])
     rout = mask * 1.0
-    bout[mask] = betas[-1, :]
-    tout[mask] = tstats[-1, :]
+    bout[mask] = betas.T
+    tout[mask] = tstats.T
     rout[mask] = r_square
+
     return bout, tout, rout
 
 

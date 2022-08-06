@@ -443,7 +443,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         if scale_factor is None:
             LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
         else:
-            beta = beta / float(scale_factor)
+            beta[..., 0] = beta[..., 0] / float(scale_factor)
         # Scale beta by scale factor while exporting (useful to transform V in mmHg)
         LGR.info('Export CVR and T-stat of simple regression')
         io.export_nifti(beta, oimg, f'{fname_out_func}_cvr_simple')
@@ -453,6 +453,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             LGR.debug('Export R^2 volume of simple regression')
             io.export_nifti(r_square, oimg, f'{fname_out_func}_r_square_simple')
 
+        # Running lag regression
         if lagged_regression and regr_shifts is not None and ((lag_max and lag_step) or lag_map):
             if lag_max:
                 LGR.info(f'Running lagged CVR estimation with max lag = {lag_max}! '
@@ -518,24 +519,36 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                      _) = stats.regression(func[lag_idx == i], regr, mat_conf,
                                            [lag_idx == i], r2model, debug,
                                            x1D)
-
+            # ## Otherwise (most common use): compute lag regression as is.
             else:
                 # Check the number of repetitions first
                 if lag_step:
-                    step = int(lag_step * freq)
+                    step = lag_step * freq
+                    # If step is less than a second, force it to be a second
+                    if step < 1:
+                        step = 1
+                        nrep = nrep - 1
+
                 else:
                     step = 1
-                lag_range = list(range(0, nrep, step))
-                # Prepare empty matrices
-                r_square_all = np.empty(list(func.shape[:3]) + [len(lag_range)],
-                                        dtype='float32')
-                beta_all = np.empty(list(func.shape[:3]) + [len(lag_range)],
-                                    dtype='float32')
-                tstat_all = np.empty(list(func.shape[:3]) + [len(lag_range)],
-                                     dtype='float32')
 
+                lag_range = np.arange(0, nrep, step, dtype=int)
+
+                # Force regressor to have 2 dimensions minimum
+                if regr.ndim < 2:
+                    regr = regr[..., np.newaxis]
+                # Compute number of bricks for stat volumes
+                nbricks = mat_conf.shape[1] + regr.shape[1]
+                # Prepare empty matrices
+                r_square_all = np.empty(list(func.shape[:3]) + [lag_range.size],
+                                        dtype='float32')
+                beta_all = np.empty(list(func.shape[:3]) + [lag_range.size, nbricks],
+                                    dtype='float32')
+                tstat_all = np.empty_like(beta_all, dtype='float32')
+
+                # Run regressions for each lag
                 for n, i in enumerate(lag_range):
-                    LGR.info(f'Perform L-GLM number {n+1} of {len(lag_range)}')
+                    LGR.info(f'Perform L-GLM number {n+1} of {lag_range.size}')
                     try:
                         regr = regr_shifts[:, i]
                         LGR.debug(f'Using shift {i} from matrix in memory: {regr}')
@@ -544,8 +557,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                         LGR.debug(f'Reading shift {i} from file {outprefix}_{i:04g}')
 
                     x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
-                    (beta_all[:, :, :, n],
-                     tstat_all[:, :, :, n],
+                    (beta_all[:, :, :, n, :],
+                     tstat_all[:, :, :, n, :],
                      r_square_all[:, :, :, n]) = stats.regression(func, regr,
                                                                   mat_conf,
                                                                   mask,
@@ -555,10 +568,6 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
 
                 if debug:
                     LGR.debug('Export all betas, tstats, and R^2 volumes.')
-                    newdim_all = deepcopy(img.header['dim'])
-                    newdim_all[0], newdim_all[4] = 4, int(len(lag_range))
-                    oimg_all = deepcopy(img)
-                    oimg_all.header['dim'] = newdim_all
                     io.export_nifti(r_square_all, oimg_all, f'{fname_out_func}_r_square_all')
                     io.export_nifti(tstat_all, oimg_all, f'{fname_out_func}_tstat_all')
                     io.export_nifti(beta_all, oimg_all, f'{fname_out_func}_beta_all')
@@ -571,8 +580,9 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
 
                 # Run through indexes to pick the right value
                 lag_idx_list = np.unique(lag_idx)
-                beta = np.empty_like(lag, dtype='float32')
-                tstat = np.empty_like(lag, dtype='float32')
+                beta = np.empty(list(lag.shape) + [nbricks], dtype='float32')
+                tstat = np.empty_like(beta, dtype='float32')
+
                 for i in lag_idx_list:
                     beta[lag_idx == i] = beta_all[:, :, :, i][lag_idx == i]
                     tstat[lag_idx == i] = tstat_all[:, :, :, i][lag_idx == i]
@@ -581,7 +591,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             if scale_factor is None:
                 LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
             else:
-                beta = beta / float(scale_factor)
+                beta[..., 0] = beta[..., 0] / float(scale_factor)
 
             io.export_nifti(beta, oimg, f'{fname_out_func}_cvr')
             io.export_nifti(tstat, oimg, f'{fname_out_func}_tstat')

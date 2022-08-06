@@ -247,7 +247,7 @@ def export_nifti(data, img, fname):
 
     # If the image header has less dimensions than the data, adapt the header
     if img.header['dim'][0] != data.ndim:
-        LGR.warning('Data shape and header do not match. Overwriting header dim and pixdim')
+        LGR.warning(f'Data shape and header do not match. Overwriting header dim and pixdim in {fname}')
         # Fix pixdim first
         if img.header['dim'][0] > data.ndim:
             img.header['pixdim'][data.ndim:img.header['dim'][0]:-1] = 1
