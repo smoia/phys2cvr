@@ -138,8 +138,8 @@ def check_nifti_dim(fname, data, dim=4):
     Returns
     -------
     np.ndarray
-        If `len(data.shape)` = `dim`, returns data.
-        If `len(data.shape)` > `dim`, returns a version of data without the
+        If `data.ndim` = `dim`, returns data.
+        If `data.ndim` > `dim`, returns a version of data without the
         dimensions above `dim`.
 
     Raises
@@ -147,12 +147,12 @@ def check_nifti_dim(fname, data, dim=4):
     ValueError
         If `data` has less dimensions than `dim`
     """
-    if len(data.shape) < dim:
+    if data.ndim < dim:
         raise ValueError(f'{fname} does not seem to be a {dim}D file. '
                          f'Plase provide a {dim}D nifti file.')
-    if len(data.shape) > dim:
+    if data.ndim > dim:
         LGR.warning(f'{fname} has more than {dim} dimensions. Removing D > {dim}.')
-        for ax in range(dim, len(data.shape)):
+        for ax in range(dim, data.ndim):
             data = np.delete(data, np.s_[1:], axis=ax)
 
     return np.squeeze(data)
@@ -244,6 +244,19 @@ def export_nifti(data, img, fname):
     """
     if fname.endswith('.nii.gz'):
         fname = fname[:-7]
+
+    # If the image header has less dimensions than the data, adapt the header
+    if img.header['dim'][0] != data.ndim:
+        LGR.warning('Data shape and header do not match. Overwriting header dim and pixdim')
+        # Fix pixdim first
+        if img.header['dim'][0] > data.ndim:
+            img.header['pixdim'][data.ndim:img.header['dim'][0]:-1] = 1
+        else:
+            img.header['pixdim'][data.ndim:img.header['dim'][0]] = 0
+
+        img.header['dim'][0] = data.ndim
+        img.header['dim'][1:data.ndim+1] = data.shape
+        img.header['dim'][data.ndim+1:] = 1
 
     out_img = nib.Nifti1Image(data, img.affine, img.header)
     out_img.to_filename(f'{fname}.nii.gz')
