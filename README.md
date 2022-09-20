@@ -5,10 +5,18 @@ phys2cvr
 ========
 
 [![Latest version](https://img.shields.io/pypi/v/phys2cvr?style=flat&logo=pypi)](https://pypi.org/project/phys2cvr/)
+[![Release date](https://img.shields.io/github/release-date/MIPLabCH/nigsp?style=flat&logo=github)](https://github.com/MIPLabCH/nigsp/releases)
+[![Auto Release](https://img.shields.io/badge/release-auto.svg?style=flat&colorA=888888&colorB=9B065A&label=auto&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAACzElEQVR4AYXBW2iVBQAA4O+/nLlLO9NM7JSXasko2ASZMaKyhRKEDH2ohxHVWy6EiIiiLOgiZG9CtdgG0VNQoJEXRogVgZYylI1skiKVITPTTtnv3M7+v8UvnG3M+r7APLIRxStn69qzqeBBrMYyBDiL4SD0VeFmRwtrkrI5IjP0F7rjzrSjvbTqwubiLZffySrhRrSghBJa8EBYY0NyLJt8bDBOtzbEY72TldQ1kRm6otana8JK3/kzN/3V/NBPU6HsNnNlZAz/ukOalb0RBJKeQnykd7LiX5Fp/YXuQlfUuhXbg8Di5GL9jbXFq/tLa86PpxPhAPrwCYaiorS8L/uuPJh1hZFbcR8mewrx0d7JShr3F7pNW4vX0GRakKWVk7taDq7uPvFWw8YkMcPVb+vfvfRZ1i7zqFwjtmFouL72y6C/0L0Ie3GvaQXRyYVB3YZNE32/+A/D9bVLcRB3yw3hkRCdaDUtFl6Ykr20aaLvKoqIXUdbMj6GFzAmdxfWx9iIRrkDr1f27cFONGMUo/gRI/jNbIMYxJOoR1cY0OGaVPb5z9mlKbyJP/EsdmIXvsFmM7Ql42nEblX3xI1BbYbTkXCqRnxUbgzPo4T7sQBNeBG7zbAiDI8nWfZDhQWYCG4PFr+HMBQ6l5VPJybeRyJXwsdYJ/cRnlJV0yB4ZlUYtFQIkMZnst8fRrPcKezHCblz2IInMIkPzbbyb9mW42nWInc2xmE0y61AJ06oGsXL5rcOK1UdCbEXiVwNXsEy/6+EbaiVG8eeEAfxvaoSBnCH61uOD7BS1Ul8ESHBKWxCrdyd6EYNKihgEVrwOAbQruoytuBYIFfAc3gVN6iawhjKyNCEpYhVJXgbOzARyaU4hCtYizq5EI1YgiUoIlT1B7ZjByqmRWYbwtdYjoWoN7+LOIQefIqKawLzK6ID69GGpQgwhhEcwGGUzfEPAiPqsCXadFsAAAAASUVORK5CYII=)](https://github.com/intuit/auto)
+
+<!-- [![See the documentation at: https://nigsp.readthedocs.io](https://img.shields.io/badge/docs-read%20latest-informational?style=flat&logo=readthedocs)](https://nigsp.readthedocs.io/en/latest/?badge=latest) -->
 [![Latest DOI](https://zenodo.org/badge/357980417.svg)](https://zenodo.org/badge/latestdoi/357980417)
 [![Licensed Apache 2.0](https://img.shields.io/github/license/smoia/phys2cvr?style=flat)](https://github.com/smoia/phys2cvr/blob/master/LICENSE)
 
-[![Auto Release](https://img.shields.io/badge/release-auto.svg?colorA=888888&colorB=9B065A&label=auto)](https://github.com/intuit/auto)
+<!-- [![Codecov](https://img.shields.io/codecov/c/gh/MIPlabCH/nigsp?style=flat&label=codecov&logo=codecov)](https://codecov.io/gh/MIPLabCH/nigsp)
+[![Build Status](https://img.shields.io/circleci/build/github/MIPLabCH/nigsp?style=flat&label=circleci&logo=circleci)](https://circleci.com/gh/MIPLabCH/nigsp)
+[![Documentation Status](https://img.shields.io/readthedocs/nigsp?style=flat&label=readthedocs&logo=readthedocs)](https://nigsp.readthedocs.io/en/latest/?badge=latest) -->
+
+[![Latest version](https://img.shields.io/pypi/v/phys2cvr?style=flat&logo=pypi&logoColor=white)](https://pypi.org/project/phys2cvr/)
 [![Supports python version](https://img.shields.io/pypi/pyversions/phys2cvr?style=shield&logo=python)](https://pypi.org/project/phys2cvr/)
 
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
@@ -30,7 +38,7 @@ Full documentation coming soon!
 Cite
 ----
 
-If you use `phys2cvr` in your work, please cite either the all-time Zenodo DOI [![general Zenodo DOI](https://zenodo.org/badge/110845855.svg)](https://zenodo.org/badge/latestdoi/110845855) or the Zenodo DOI related to the version you are using.
+If you use `phys2cvr` in your work, please cite either the all-time Zenodo DOI [![general Zenodo DOI](https://zenodo.org/badge/5559756.svg)](https://doi.org/10.5281/zenodo.5559756) or the Zenodo DOI related to the version you are using.
 Please cite the following paper(s) too:
 >Moia, S., Stickland, R. C., Ayyagari, A., Termenon, M., Caballero-Gaudes, C., & Bright, M. G. (2020). Voxelwise optimization of hemodynamic lags to improve regional CVR estimates in breath-hold fMRI. In 2020 42nd Annual International Conference of the IEEE Engineering in Medicine & Biology Society (EMBC) (pp. 1489–1492). Montreal, QC, Canada: IEEE. https://doi.org/10.1109/EMBC44109.2020.9176225
 
