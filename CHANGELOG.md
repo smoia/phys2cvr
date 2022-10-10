@@ -1,3 +1,19 @@
+# 0.16.0 (Mon Oct 10 2022)
+
+#### 🚀 Enhancement
+
+- Add pre-commit and format all code [#54](https://github.com/smoia/phys2cvr/pull/54) ([@smoia](https://github.com/smoia))
+
+#### ⚠️ Pushed to `master`
+
+- docs: Fix badges and latest DOI ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.15.3 (Fri Jul 01 2022)
 
 #### 🐛 Bug Fix
