@@ -1,3 +1,16 @@
+# 0.17.0 (Fri Nov 18 2022)
+
+#### 🚀 Enhancement
+
+- Add colormaps to plot lag maps (and sneak in contributors updates) [#56](https://github.com/smoia/phys2cvr/pull/56) ([@smoia](https://github.com/smoia) [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.16.0 (Mon Oct 10 2022)
 
 #### 🚀 Enhancement
