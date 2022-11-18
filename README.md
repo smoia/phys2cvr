@@ -20,7 +20,7 @@ phys2cvr
 [![Supports python version](https://img.shields.io/pypi/pyversions/phys2cvr?style=shield&logo=python)](https://pypi.org/project/phys2cvr/)
 
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat)](#contributors)
+[![All Contributors](https://img.shields.io/badge/all_contributors-3-orange.svg?style=flat)](#contributors)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 A python-based tool to generate regressor for and/or estimate CVR maps and their lag.
@@ -108,17 +108,24 @@ p2c.__version__
 Full API coming soon.
 
 
-<!-- ## Contributors ✨
+## Contributors ✨
 
-Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)): -->
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
+<table>
+  <tr>
+    <td align="center"><a href="https://github.com/smoia"><img src="https://avatars3.githubusercontent.com/u/35300580?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Stefano Moia</b></sub></a><br /><a href="https://github.com/smoia/phys2cvr/commits?author=smoia" title="Code">💻</a> <a href="#ideas-smoia" title="Ideas, Planning, & Feedback">🤔</a> <a href="#infra-smoia" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="#projectManagement-smoia" title="Project Management">📆</a></td>
+    <td align="center"><a href="https://github.com/kristinazvolanek"><img src="https://avatars3.githubusercontent.com/u/54590158?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Kristina Zvolanek</b></sub></a><br /><a href="https://github.com/smoia/phys2cvr/commits?author=kristinazvolanek" title="Code">💻</a> <a href="https://github.com/smoia/phys2cvr/issues?q=author%3Akristinazvolanek" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/avigotsky"><img src="https://avatars.githubusercontent.com/u/904218?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Andrew Vigotsky</b></sub></a><br /><a href="https://github.com/smoia/phys2cvr/commits?author=avigotsky" title="Code">💻</a></td>
+  </tr>
+</table>
 
-
-<!-- markdownlint-enable -->
+<!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
+
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 
