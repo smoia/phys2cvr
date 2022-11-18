@@ -7,6 +7,16 @@
             "orcid":"0000-0002-2553-3327",
             "affiliation":"BCBL - Basque Center on Cognition, Brain and Language",
             "name":"Stefano Moia"
+        },  
+        {
+            "orcid":"0000-0003-3166-0688",
+            "affiliation": "Northwestern University", 
+            "name": "Andrew D. Vigotsky"
+        }, 
+        {
+            "orcid":"0000-0003-2239-7902",
+            "affiliation": "Northwestern University", 
+            "name": "Kristina M. Zvolanek"
         }
     ],
     "access_right":"open"
