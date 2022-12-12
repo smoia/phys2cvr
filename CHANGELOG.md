@@ -1,3 +1,15 @@
+# 0.17.1 (Mon Dec 12 2022)
+
+#### 🐛 Bug Fix
+
+- [pre-commit.ci] pre-commit autoupdate [#58](https://github.com/smoia/phys2cvr/pull/58) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 1
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+
+---
+
 # 0.17.0 (Fri Nov 18 2022)
 
 #### 🚀 Enhancement
