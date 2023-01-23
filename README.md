@@ -84,11 +84,27 @@ pip install .
 
 ### Developer installation
 
-To be sure you have everything installed to develop (and test) `phys2cvr`, **fork** `smoia/phys2cvr` to your repository, then clone it locally and move inside the cloned folder. Finally, install with `pip` using the developer mode and the `[all]` label:
+To be sure you have everything installed to develop (and test) `phys2cvr`, **fork** `smoia/phys2cvr` to your repository, then clone it locally and move inside the cloned folder. Finally, run the following commands from within the repository main folder:
 ```bash
-pip install -e .[all]
-```
+# Add upstream remote
+git remote add upstream git@github.com:smoia/phys2cvr.git
 
+# Fetch everything, tags included
+git fetch --all --tags
+
+# Checkout master (the main development branch) and make it track upstream
+git checkout master
+git branch --set-upstream-to=upstream/master
+
+# !!! VERY IMPORTANT !!!
+# Set the deafult push to origin, in order NOT to push by mistake to upstream.
+git config remote.pushDefault origin
+
+# Install package with pip using the developer mode and the `[dev]` label
+# You might need to use pip3 depending on how you set up your system 
+pip install -e .[dev]
+```
+If you make changes that you consider fundamental/interesting for the whole community, feel free to open a PR!
 
 Run/use `phys2cvr`
 ---------------
