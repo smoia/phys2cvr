@@ -101,7 +101,7 @@ git branch --set-upstream-to=upstream/master
 git config remote.pushDefault origin
 
 # Install package with pip using the developer mode and the `[dev]` label
-# You might need to use pip3 depending on how you set up your system 
+# You might need to use pip3 depending on how you set up your system
 pip install -e .[dev]
 ```
 If you make changes that you consider fundamental/interesting for the whole community, feel free to open a PR!
