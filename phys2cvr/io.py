@@ -185,8 +185,8 @@ def load_nifti_get_mask(fname, is_mask=False, dim=3):
     img : nib.img
         Image object from nibabel.
     """
-    img = nib.load(fname)
     LGR.info(f"Loading {fname}")
+    img = nib.load(fname)
     data = img.get_fdata()
     data = check_nifti_dim(fname, data, dim=dim)
 
