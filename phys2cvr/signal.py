@@ -139,11 +139,18 @@ def convolve_petco2(co2, pidx, freq, outname):
     -------
     co2_conv : np.ndarray
         Convolved CO2 trace
+
+    Raises
+    ------
+    NotImplementedError
+        If the provided co2 is not a 1D array.
     """
+    if co2.ndim > 1:
+        raise NotImplementedError('2+ D arrays are not supported.')
+
     # Extract PETco2
     hrf = create_hrf(freq)
-    co2_lenght = len(co2)
-    nx = np.linspace(0, co2_lenght, co2_lenght)
+    nx = np.linspace(0, co2.size, co2.size)
     f = spint.interp1d(pidx, co2[pidx], fill_value="extrapolate")
     petco2 = f(nx)
 
@@ -159,7 +166,7 @@ def convolve_petco2(co2, pidx, freq, outname):
     np.savetxt(f"{outname}_petco2.1D", petco2, fmt="%.18f")
 
     # Convolve, and then rescale to have same amplitude (?)
-    co2_conv = np.convolve(petco2, hrf, mode="same")
+    co2_conv = np.convolve(petco2, hrf)[:petco2.size]
     co2_conv = np.interp(
         co2_conv, (co2_conv.min(), co2_conv.max()), (petco2.min(), petco2.max())
     )
