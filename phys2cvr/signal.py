@@ -159,7 +159,7 @@ def convolve_petco2(co2, pidx, freq, outname):
     np.savetxt(f"{outname}_petco2.1D", petco2, fmt="%.18f")
 
     # Convolve, and then rescale to have same amplitude (?)
-    co2_conv = np.convolve(petco2, hrf)
+    co2_conv = np.convolve(petco2, hrf, mode="same")
     co2_conv = np.interp(
         co2_conv, (co2_conv.min(), co2_conv.max()), (petco2.min(), petco2.max())
     )
