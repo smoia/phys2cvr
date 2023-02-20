@@ -387,9 +387,9 @@ def regression(
         pass
 
     # Assign betas, Rsquare and tstats to new volume
-    bout = np.zeros(mask.shape)
-    tout = np.zeros(mask.shape)
-    rout = np.zeros(mask.shape)
+    bout = np.zeros_like(mask)
+    tout = np.zeros_like(mask)
+    rout = np.zeros_like(mask)
     bout[mask] = betas[-1, :]
     tout[mask] = tstats[-1, :]
     rout[mask] = r_square
