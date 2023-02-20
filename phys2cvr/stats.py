@@ -233,7 +233,7 @@ def get_regr(
 
     # Check which timeseries was shifted
     if func_cut.shape[0] <= petco2hrf.shape[0]:
-        petco2hrf_shift = petco2hrf[optshift : optshift + len_upd]
+        petco2hrf_shift = petco2hrf[optshift:optshift + len_upd]
     elif func_cut.shape[0] > petco2hrf.shape[0]:
         petco2hrf_shift = np.pad(
             petco2hrf,
@@ -627,9 +627,9 @@ def regression(
         pass
 
     # Assign betas, Rsquare and tstats to new volume
-    bout = mask * 1.0
-    tout = mask * 1.0
-    rout = mask * 1.0
+    bout = np.zeros_like(mask)
+    tout = np.zeros_like(mask)
+    rout = np.zeros_like(mask)
     bout[mask] = betas[-1, :]
     tout[mask] = tstats[-1, :]
     rout[mask] = r_square
