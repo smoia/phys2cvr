@@ -395,6 +395,42 @@ def _get_parser():
         default=None,
     )
     opt_regr.add_argument(
+        "-omat",
+        "--orthogonalised-matrix",
+        dest="orthogonalised_matrix",
+        nargs="*",
+        type=str,
+        help=(
+            "Complete path (absolute or relative) and filename "
+            "of denoising matrices to add to the regression model, "
+            "but only after they have been orthogonalised w.r.t. "
+            "denoising matrices and extra matrices (-dmat and -emat "
+            "flags). This option can be specified multiple times to "
+            "add multiple matrices, but multiple "
+            "matrices can be specified one after "
+            "the other, separated by a space."
+        ),
+        default=None,
+    )
+    opt_regr.add_argument(
+        "-emat",
+        "--extra-orthogonal-matrix",
+        dest="extra_matrix",
+        nargs="*",
+        type=str,
+        help=(
+            "Complete path (absolute or relative) and filename "
+            "of matrices to use to orthogonalise other denoising matrices with. "
+            "These matrices will not be added as regressors in the regression, "
+            "but only used for orthogonalisation purposes."
+            "This option can be specified multiple times to "
+            "add multiple matrices, but multiple "
+            "matrices can be specified one after "
+            "the other, separated by a space."
+        ),
+        default=None,
+    )
+    opt_regr.add_argument(
         "-scale",
         "--scale-factor",
         dest="scale_factor",
