@@ -13,6 +13,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view as swv
 from scipy.stats import zscore
 
 from phys2cvr.io import FIGSIZE, SET_DPI, export_regressor
@@ -238,11 +239,11 @@ def get_regr(
     plt.title("Optimally shifted regressor and average Grey Matter signal")
     plt.legend(['Optimally shifted regressor', 'Average Grey Matter signal'])
     plt.tight_layout()
-    plt.savefig(f"{outname}_petco2hrf.png", dpi=SET_DPI)
+    plt.savefig(f"{outname}_petco2hrf_simple.png", dpi=SET_DPI)
     plt.close()
 
-    petco2hrf_demean = export_regressor(
-        petco2hrf_shift, freq, tr, outname, "petco2hrf", ext
+    petco2hrf_demean = io.export_regressor(
+        petco2hrf_shift, freq, tr, outname, "petco2hrf_simple", ext
     )
 
     # Initialise the shifts first.
@@ -254,38 +255,27 @@ def get_regr(
         )
         os.makedirs(os.path.join(os.path.split(outname)[0], "regr"), exist_ok=True)
 
-        # Set num of fine shifts: 9 seconds is a bit more than physiologically feasible
-        negrep = int(lag_max * freq)
-        if legacy:
-            posrep = negrep
-        else:
-            posrep = negrep + 1
-        petco2hrf_shifts = np.empty(
-            [func_avg.shape[0], negrep + posrep], dtype="float32"
-        )
+        # Set num of fine shifts
+        neg_shifts = int(lag_max * freq)
+        pos_shifts = neg_shifts if legacy is True else (neg_shifts + 1)
 
-        # Padding regressor for shift, and padding optshift too
+        # Padding regressor right for shifts if not enough timepoints
+        rpad = len_upd - (
+            petco2hrf.shape[0] - (optshift + pos_shifts)
+        ) if petco2hrf.shape[0] - (optshift + pos_shifts) < len_upd else 0
+        # Padding regressor left for shifts and update optshift if less than neg_shifts. 
+        lpad = neg_shifts - optshift if (optshift - neg_shifts) < 0 else 0
+        optshift = neg_shifts if (optshift - neg_shifts) < 0 else optshift
 
-        if (optshift - negrep) < 0:
-            lpad = negrep - optshift
-        else:
-            lpad = 0
+        petco2hrf = np.pad(petco2hrf, (int(lpad), int(rpad)), "mean")
 
-        if (optshift + posrep + len_upd) > petco2hrf.shape[0]:
-            rpad = (optshift + posrep + len_upd) - petco2hrf.shape[0]
-        else:
-            rpad = 0
+        # Create sliding window view into petco2hrf, then select those
+        negp, posp = optshift - neg_shifts, optshift + pos_shifts
+        petco2hrf_lagged = swv(petco2hrf, len_upd)[negp:posp].copy()
 
-        if func_cut.shape[0] <= petco2hrf.shape[0]:
-            petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), "mean")
-        elif func_cut.shape[0] > petco2hrf.shape[0]:
-            petco2hrf_padded = np.pad(petco2hrf_shift, (int(lpad), int(rpad)), "mean")
-
-        for n, i in enumerate(range(-negrep, posrep)):
-            petco2hrf_lagged = petco2hrf_padded[
-                optshift + lpad - i:optshift + lpad - i + len_upd
-            ]
-            petco2hrf_shifts[:, n] = export_regressor(
+        petco2hrf_shifts = np.empty((petco2hrf.shape[0], len(func_avg)))
+        for n in range(petco2hrf_lagged.shape[0]):
+            petco2hrf_shifts[:, n] = io.export_regressor(
                 petco2hrf_lagged, freq, tr, outprefix, f"{n:04g}", ext
             )
 
