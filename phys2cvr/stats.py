@@ -343,6 +343,141 @@ def get_legendre(degree, length):
     return legendre
 
 
+def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
+    """
+    Implement Ordinary Least Square linear regression.
+    
+    This is the barebone OLS implementation. For the full regression step,
+    see `stats.regression`.
+    
+    
+    Parameters
+    ----------
+    Ymat : np.ndarray
+        Dependent variable, 1D or 2D
+    Xmat : np.ndarray
+        Independent variables, 1D or 2D
+    r2model : {'full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept'}, optional
+        R^2 to report.
+        Possible models are:
+            - 'full' (default)
+                Use every regressor in the model, i.e. compare versus baseline 0
+            - 'partial'
+                Consider only `regr` in the model, i.e. compare versus baseline
+                composed by all other regressors (`mat_conf`)
+            - 'intercept'
+                Use every regressor in the model, but the intercept, i.e. compare
+                versus baseline intercept (Legendre polynomial order 0, a.k.a.
+                average signal)
+            - 'adj_*'
+                Adjusted R^2 version of normal counterpart
+        Under normal conditions, while the R^2 value will be different between options,
+        a lagged regression based on any R^2 model will give the same results.
+        This WILL NOT be the case if orthogonalisations between `regr` and `mat_conf`
+        are introduced: a lagged regression based on `partial` might hold different
+        results.
+        Default: 'full'
+    residuals : bool, optional
+        If True, output only residuals of the model - this is mainly for orthogonalisation
+        If False, output betas, tstats, R^2 (default).
+    demean : bool, optional
+        If True, demean Xmat before running OLS.
+        Default is False.
+    
+    Returns
+    -------
+    TYPE
+        Description
+    
+    Raises
+    ------
+    NotImplementedError
+        Description
+    ValueError
+        Description
+    """
+    if Ymat.ndim > 2:
+        raise NotImplementedError('OLS on data with more than 2 dimensions is not implemented yet.')
+    if Xmat.ndim > 2:
+        raise NotImplementedError('OLS with regressors with more than 2 dimensions is not implemented yet.')
+
+    if demean:
+        Xmat = Xmat-Xmat.mean(axis=0)
+
+    betas, RSS, _, _ = np.linalg.lstsq(Xmat, Ymat.T, rcond=None)
+
+    if residuals:
+        return Ymat - (betas @ Xmat)
+    else:
+        # compute t-values of betas (estimates)
+        # first compute number of degrees of freedom
+        df = Xmat.shape[0] - Xmat.shape[1]
+
+        # compute sigma:
+        # RSS = sum{[mdata - (X * betas)]^2}
+        # sigma = RSS / Degrees_of_Freedom
+        # RSS = np.sum(np.power(Ymat.T - np.dot(Xmat, betas), 2), axis=0)
+        sigma = RSS / df
+        sigma = sigma[..., np.newaxis]
+
+        # Copmute std of betas:
+        # C = (mat^T * mat)_ii^(-1)
+        # std(betas) = sqrt(sigma * C)
+        C = np.diag(np.linalg.pinv(np.dot(Xmat.T, Xmat)))
+        C = C[..., np.newaxis]
+        std_betas = np.sqrt(np.outer(C, sigma))
+        tstats = betas / std_betas
+
+        # Compute R^2 coefficient of multiple determination!
+        r2model_support = False
+        for model in R2MODEL:
+            if r2model == model:
+                r2model_support = True
+        if not r2model_support:
+            raise ValueError(
+                f"{r2model} R^2 not supported. Supported R^2 models are {R2MODEL}"
+            )
+
+        r2msg = ""
+        # R^2 = 1 - RSS/TSS, (TSS = total sum of square)
+        if "full" in r2model:
+            # Baseline model is 0 - this is what we're using ATM
+            TSS = np.sum(np.power(Ymat, 2), axis=1)
+        elif "intercept" in r2model:
+            # Baseline model is intercept: TSS is variance*samples
+            TSS = Ymat.var(axis=1) * Ymat.shape[1]
+        elif "poly" in r2model:
+            # Baseline model is legendre polynomials - or others: TSS is RSS of partial matrix
+            # Could improve efficiency by moving this fitting step outside the regression loop
+            # polynomials = Xmat[:, 0:4]
+            # TSS = np.linalg.lstsq(polynomials, Ymat.T, rcond=None)[1]
+            raise NotImplementedError("'poly' R^2 not implemented yet")
+            r2msg = "polynomial"
+        elif "partial" in r2model:
+            pass
+
+        if "partial" in r2model:
+            # We could also compute PARTIAL R square of regr instead (or on top)
+            # See for computation: https://sscc.nimh.nih.gov/sscc/gangc/tr.html
+            tstats_square = np.power(tstats, 2)
+            r_square = (tstats_square / (tstats_square + df))[-1, :]
+        else:
+            r_square = np.ones(Ymat.shape[0], dtype="float32") - (RSS / TSS)
+
+        if r2msg == "":
+            r2msg = r2model
+        if "adj_" in r2model:
+            # We could compute ADJUSTED R^2 instead
+            r_square = 1 - (
+                (1 - r_square) * (Xmat.shape[0] - 1) / (Xmat.shape[0] - Xmat.shape[1])
+            )
+            r2msg = f"adjusted {r2msg}"
+
+        LGR.info(f"Adopting {r2msg} baseline to compute R^2.")
+
+        return betas, tstats, r_square
+
+
 def regression(
     data, regr, mat_conf=None, mask=None, r2model="full", debug=False, x1D="mat.1D"
 ):
@@ -359,7 +494,7 @@ def regression(
         Confounding effects (regressors)
     mask : np.ndarray or None, optional
         A 3D mask to reduce the number of voxels to run the regression for.
-    r2model : 'full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept', optional
+    r2model : {'full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept'}, optional
         R^2 to report.
         Possible models are:
             - 'full' (default)
@@ -422,74 +557,10 @@ def regression(
     if debug:
         os.makedirs(os.path.dirname(x1D), exist_ok=True)
         np.savetxt(x1D, Xmat, fmt="%.6f")
-    # Xmat = mat-mat.mean(axis=0)
-    betas, RSS, _, _ = np.linalg.lstsq(Xmat, Ymat.T, rcond=None)
 
-    # compute t-values of betas (estimates)
-    # first compute number of degrees of freedom
-    df = Xmat.shape[0] - Xmat.shape[1]
-
-    # compute sigma:
-    # RSS = sum{[mdata - (X * betas)]^2}
-    # sigma = RSS / Degrees_of_Freedom
-    # RSS = np.sum(np.power(Ymat.T - np.dot(Xmat, betas), 2), axis=0)
-    sigma = RSS / df
-    sigma = sigma[..., np.newaxis]
-
-    # Copmute std of betas:
-    # C = (mat^T * mat)_ii^(-1)
-    # std(betas) = sqrt(sigma * C)
-    C = np.diag(np.linalg.pinv(np.dot(Xmat.T, Xmat)))
-    C = C[..., np.newaxis]
-    std_betas = np.sqrt(np.outer(C, sigma))
-    tstats = betas / std_betas
-
-    # Compute R^2 coefficient of multiple determination!
-    r2model_support = False
-    for model in R2MODEL:
-        if r2model == model:
-            r2model_support = True
-    if not r2model_support:
-        raise ValueError(
-            f"{r2model} R^2 not supported. Supported R^2 models are {R2MODEL}"
-        )
-
-    r2msg = ""
-    # R^2 = 1 - RSS/TSS, (TSS = total sum of square)
-    if "full" in r2model:
-        # Baseline model is 0 - this is what we're using ATM
-        TSS = np.sum(np.power(Ymat, 2), axis=1)
-    elif "intercept" in r2model:
-        # Baseline model is intercept: TSS is variance*samples
-        TSS = Ymat.var(axis=1) * Ymat.shape[1]
-    elif "poly" in r2model:
-        # Baseline model is legendre polynomials - or others: TSS is RSS of partial matrix
-        # Could improve efficiency by moving this fitting step outside the regression loop
-        # polynomials = Xmat[:, 0:4]
-        # TSS = np.linalg.lstsq(polynomials, Ymat.T, rcond=None)[1]
-        raise NotImplementedError("'poly' R^2 not implemented yet")
-        r2msg = "polynomial"
-    elif "partial" in r2model:
-        pass
-
-    if "partial" in r2model:
-        # We could also compute PARTIAL R square of regr instead (or on top)
-        # See for computation: https://sscc.nimh.nih.gov/sscc/gangc/tr.html
-        tstats_square = np.power(tstats, 2)
-        r_square = (tstats_square / (tstats_square + df))[-1, :]
-    else:
-        r_square = np.ones(Ymat.shape[0], dtype="float32") - (RSS / TSS)
-
-    if r2msg == "":
-        r2msg = r2model
-    if "adj_" in r2model:
-        # We could compute ADJUSTED R^2 instead
-        r_square = 1 - (
-            (1 - r_square) * (Xmat.shape[0] - 1) / (Xmat.shape[0] - Xmat.shape[1])
-        )
-        r2msg = f"adjusted {r2msg}"
-
-    LGR.info(f"Adopting {r2msg} baseline to compute R^2.")
+    betas, tstats, r_square = ols(
+        Ymat, Xmat, r2model="full", residuals=False, demean=False
+    )
 
     # Assign betas, Rsquare and tstats to new volume
     bout = mask * 1.0
