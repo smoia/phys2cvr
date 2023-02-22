@@ -120,9 +120,9 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     return filt_data
 
 
-def convolve_petco2(co2, pidx, freq, outname):
+def convolve_petco2(co2, pidx, freq, outname, mode='full'):
     """
-    Convolve the CO2 trace into the PetCO2 trace.
+    Create PetCO2 trace from CO2 trace, then convolve to get PetCO2hrf.
 
     Parameters
     ----------
@@ -134,10 +134,12 @@ def convolve_petco2(co2, pidx, freq, outname):
         sample frequency of the CO2 regressor
     outname : str
         prefix of the exported file
+    mode : {'full', 'valid', 'same'} str, optional
+        convolution mode, see numpy.convolve.
 
     Returns
     -------
-    co2_conv : np.ndarray
+    petco2hrf : np.ndarray
         Convolved CO2 trace
 
     Raises
@@ -158,6 +160,8 @@ def convolve_petco2(co2, pidx, freq, outname):
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.title("CO2 and PetCO2")
     plt.plot(co2, "-", petco2, "-")
+    plt.legend(['CO2', 'PetCO2'])
+    plt.tight_layout()
     plt.savefig(f"{outname}_petco2.png", dpi=SET_DPI)
     plt.close()
 
@@ -166,20 +170,21 @@ def convolve_petco2(co2, pidx, freq, outname):
     np.savetxt(f"{outname}_petco2.1D", petco2, fmt="%.18f")
 
     # Convolve, and then rescale to have same amplitude (?)
-    co2_conv = np.convolve(petco2, hrf)[:petco2.size]
-    co2_conv = np.interp(
-        co2_conv, (co2_conv.min(), co2_conv.max()), (petco2.min(), petco2.max())
+    petco2hrf = np.convolve(petco2, hrf, mode=mode)
+    petco2hrf = np.interp(
+        petco2hrf, (petco2hrf.min(), petco2hrf.max()), (petco2.min(), petco2.max())
     )
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.title("PetCO2 and convolved regressor (PetCO2hrf)")
-    plt.plot(co2_conv, "-", petco2, "-")
+    plt.title("PetCO2 and convolved PetCO2 (PetCO2hrf)")
+    plt.plot(petco2hrf, "-", petco2, "-")
+    plt.tight_layout()
     plt.savefig(f"{outname}_petco2hrf.png", dpi=SET_DPI)
     plt.close()
 
-    np.savetxt(f"{outname}_petco2hrf.1D", co2_conv, fmt="%.18f")
+    np.savetxt(f"{outname}_petco2hrf.1D", petco2hrf, fmt="%.18f")
 
-    return co2_conv
+    return petco2hrf
 
 
 def resample_signal(ts, freq1, freq2, axis=0):
