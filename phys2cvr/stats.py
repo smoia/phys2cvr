@@ -223,6 +223,13 @@ def get_regr(
     else:
         optshift = 0
 
+    # This shouldn't happen, but still check
+    if optshift + len_upd > len(petco2hrf):
+        raise Exception(
+            f"The found optimal shift {optshift/freq} removes too many samples to "
+            "continue. This error should not be possible."
+        )
+
     petco2hrf_shift = petco2hrf[optshift:optshift + len_upd]
 
     # Exporting figures of shift
@@ -240,6 +247,7 @@ def get_regr(
 
     # Initialise the shifts first.
     petco2hrf_shifts = None
+    
     if lagged_regression and lag_max:
         outprefix = os.path.join(
             os.path.split(outname)[0], "regr", os.path.split(outname)[1]
