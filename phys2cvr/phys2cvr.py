@@ -514,6 +514,7 @@ def phys2cvr(
                 lagged_regression,
                 legacy,
                 abs_xcorr,
+                skip_xcorr,
             )
 
     # Run internal regression if required and possible!
