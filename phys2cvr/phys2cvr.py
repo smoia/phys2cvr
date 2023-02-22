@@ -492,7 +492,7 @@ def phys2cvr(
             regr = np.genfromtxt(f"{outname}_petco2hrf.1D")
         except IOError:
             LGR.warning(
-                f"Regressor {outname}_petco2hrf.1D not found. " "Estimating it."
+                f"Regressor {outname}_petco2hrf.1D not found. Estimating it."
             )
             regr, regr_shifts = stats.get_regr(
                 func_avg,
@@ -507,6 +507,7 @@ def phys2cvr(
                 lagged_regression,
                 legacy,
                 abs_xcorr,
+                skip_xcorr,
             )
 
     # Run internal regression if required and possible!
