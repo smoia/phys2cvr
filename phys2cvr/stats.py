@@ -13,7 +13,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.stats as sct
+from scipy.stats import zscore
 
 from phys2cvr.io import FIGSIZE, SET_DPI, export_regressor
 from phys2cvr.signal import resample_signal
@@ -24,7 +24,7 @@ LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
 
 
-def x_corr(func, co2, lastrep, firstrep=0, offset=0, abs_xcorr=False):
+def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
     """
     Cross correlation between `func` and `co2`.
 
@@ -34,15 +34,16 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0, abs_xcorr=False):
         Timeseries, must be SHORTER (or of equal length) than `co2`
     co2 : np.ndarray
         Second timeseries, can be LONGER than `func`
-    lastrep : int
-        Last index to take into account in `func`
-    firstrep : int, optional
-        First index totake into account in `func`
+    n_shifts : int or None, optional
+        Number of shifts to consider when cross-correlating func and co2.
+        When None (default), consider all possible shifts.
+        Each shift consists of one sample.
     offset : int, optional
-        Optional amount of offset desired for `func`
+        Optional amount of offset desired for `func`, i.e. the amount of samples
+        of `co2` to exclude from the cross correlation. 
     abs_xcorr : bool, optional
         If True, x_corr will find the maximum absolute correlation,
-        i.e. max(|corr(func, co2)|)
+        i.e. max(|corr(func, co2)|), rather than the maximum positive correlation.
 
     Returns
     -------
@@ -56,7 +57,9 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0, abs_xcorr=False):
     Raises
     ------
     ValueError
-        If `offset` is too high for the functional file
+        If `offset` is higher than the difference between the length of `co2` and `func`.
+    NotImplementedError
+        If `co2` length is smaller than `func` length.
     """
     if len(func) + offset > len(co2):
         if offset != 0:
@@ -66,42 +69,34 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0, abs_xcorr=False):
                 f"length {len(co2)}"
             )
         else:
-            LGR.warning(
-                f"The timeseries has length of {len(func)}, but the co2 "
-                f"has length of {len(co2)}. Matching co2 to func."
+            raise NotImplementedError(
+                f"The timeseries has length of {len(func)}, more than the"
+                f"length of the given regressor ({len(co2)}). This case "
+                "is not supported."
             )
-        if firstrep + len(co2) > len(func):
-            firstrep = len(func) - len(co2)
-        elif firstrep < 0:
-            firstrep = 0
-        if lastrep + len(co2) > len(func):
-            lastrep = len(func) - len(co2)
-        elif lastrep < firstrep:
-            lastrep = firstrep + 1
 
-        xcorr = np.empty(lastrep - firstrep, dtype="float32")
-        for i in range(firstrep, lastrep):
-            xcorr[i] = np.corrcoef(co2, func[0 + i : len(co2) + i].T)[1, 0]
+    if n_shifts is None:
+        n_shifts = len(co2) - (len(func) + offset) + 1
+        LGR.info(
+            f"Considering all possible shifts of regressor for Xcorr, i.e. {n_shifts}"
+        )
     else:
-        if firstrep + offset + len(func) > len(co2):
-            firstrep = len(co2) - offset - len(func)
-        elif firstrep + offset < 0:
-            firstrep = -offset
-        if lastrep + offset + len(func) > len(co2):
-            lastrep = len(co2) - offset - len(func)
-        elif lastrep < firstrep:
-            lastrep = firstrep + 1
+        if n_shifts + offset + len(func) > len(co2):
+            LGR.warning(
+                f"The specified amount of shifts ({n_shifts}) is too high for the "
+                f"length of the regressor ({len(co2)})."
+            )
+            n_shifts = len(co2) - (len(func) + offset) + 1
+            LGR.warning(f"Considering {n_shifts} shifts instead.")
 
-        xcorr = np.empty(lastrep - firstrep, dtype="float32")
-        for i in range(firstrep, lastrep):
-            xcorr[i] = np.corrcoef(
-                func, co2[0 + i + offset : len(func) + i + offset].T
-            )[1, 0]
+    xcorr = np.empty(n_shifts, dtype="float32")
+    for n, i in enumerate(range(offset, n_shifts + offset)):
+        xcorr[n] = (zscore(func) @ zscore(co2[0 + i:len(func) + i])) / len(func)
 
     if abs_xcorr:
-        xcorr = np.abs(xcorr)
-
-    return xcorr.max(), (xcorr.argmax() + firstrep + offset), xcorr
+        return np.abs(xcorr).max(), np.abs(xcorr).argmax() + offset, xcorr
+    else:
+        return xcorr.max(), xcorr.argmax() + offset, xcorr
 
 
 def get_regr(
@@ -202,50 +197,40 @@ def get_regr(
 
     # Preparing breathhold and CO2 trace for Xcorr
     func_cut = func_upsampled[first_tp:last_tp]
-    petco2hrf_cut = petco2hrf[first_tp:]
-
-    nrep = abs(petco2hrf_cut.shape[0] - func_cut.shape[0])
-
-    # Preparing time axis for plots
-    time_axis = np.arange(0, nrep / freq, 1 / freq)
-
-    if nrep < time_axis.shape[0]:
-        time_axis = time_axis[:nrep]
-    elif nrep > time_axis.shape[0]:
-        time_axis = np.pad(
-            time_axis, (0, int(nrep - time_axis.shape[0])), "linear_ramp"
-        )
+    petco2hrf_cut = petco2hrf[:last_tp]
 
     if not skip_xcorr:
-        _, optshift, xcorr = x_corr(func_cut, petco2hrf, nrep, abs_xcorr=abs_xcorr)
-        LGR.info(f"Cross correlation estimated bulk shift at {optshift / freq} seconds")
+        _, optshift, xcorr = x_corr(
+            func_cut, petco2hrf_cut, n_shifts=None, offset=first_tp, abs_xcorr=abs_xcorr
+        )
+        LGR.info(f"Cross correlation estimated bulk shift at {optshift/freq} seconds")
         # Export estimated optimal shift in seconds
         with open(f"{outname}_optshift.1D", "w") as f:
-            print(f"{(optshift / freq):.4f}", file=f)
+            print(f"{(optshift/freq):.4f}", file=f)
+
+        # Preparing time axis for plots
+        time_axis = np.linspace(0, (len(xcorr) - 1) / freq, len(xcorr))
+
         # Export xcorr figure
         plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
         plt.plot(time_axis, xcorr)
-        plt.title("optshift")
+        plt.plot(time_axis[optshift], xcorr[optshift], 'x')
+        plt.legend(['Cross correlation value', 'Optimal detected shift'])
+        plt.title("Cross correlation and optimal shift")
+        plt.tight_layout()
         plt.savefig(f"{outname}_optshift.png", dpi=SET_DPI)
         plt.close()
     else:
         optshift = 0
 
-    # Check which timeseries was shifted
-    if func_cut.shape[0] <= petco2hrf.shape[0]:
-        petco2hrf_shift = petco2hrf[optshift:optshift + len_upd]
-    elif func_cut.shape[0] > petco2hrf.shape[0]:
-        petco2hrf_shift = np.pad(
-            petco2hrf,
-            (int(optshift), int(func_cut.shape[0] - petco2hrf.shape[0] - optshift)),
-            "mean",
-        )
-        optshift = 0
+    petco2hrf_shift = petco2hrf[optshift:optshift + len_upd]
 
     # Exporting figures of shift
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.plot(sct.zscore(petco2hrf_shift), "-", sct.zscore(func_upsampled), "-")
-    plt.title("GM and shift")
+    plt.plot(zscore(petco2hrf_shift), "-", zscore(func_upsampled), "-")
+    plt.title("Optimally shifted regressor and average Grey Matter signal")
+    plt.legend(['Optimally shifted regressor', 'Average Grey Matter signal'])
+    plt.tight_layout()
     plt.savefig(f"{outname}_petco2hrf.png", dpi=SET_DPI)
     plt.close()
 
@@ -290,7 +275,7 @@ def get_regr(
 
         for n, i in enumerate(range(-negrep, posrep)):
             petco2hrf_lagged = petco2hrf_padded[
-                optshift + lpad - i : optshift + lpad - i + len_upd
+                optshift + lpad - i:optshift + lpad - i + len_upd
             ]
             petco2hrf_shifts[:, n] = export_regressor(
                 petco2hrf_lagged, freq, tr, outprefix, f"{n:04g}", ext
