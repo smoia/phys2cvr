@@ -381,7 +381,7 @@ def _get_parser():
     opt_regr.add_argument(
         "-dmat",
         "--denoise-matrix",
-        dest="denoise_matrix",
+        dest="denoise_matrix_file",
         nargs="*",
         type=str,
         help=(
@@ -397,7 +397,7 @@ def _get_parser():
     opt_regr.add_argument(
         "-omat",
         "--orthogonalised-matrix",
-        dest="orthogonalised_matrix",
+        dest="orthogonalised_matrix_file",
         nargs="*",
         type=str,
         help=(
@@ -415,7 +415,7 @@ def _get_parser():
     opt_regr.add_argument(
         "-emat",
         "--extra-orthogonal-matrix",
-        dest="extra_matrix",
+        dest="extra_matrix_file",
         nargs="*",
         type=str,
         help=(

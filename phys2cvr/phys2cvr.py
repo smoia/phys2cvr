@@ -72,7 +72,9 @@ def phys2cvr(
     lag_step=None,
     legacy=False,
     l_degree=0,
-    denoise_matrix=[],
+    denoise_matrix_file=[],
+    orthogonalised_matrix_file=[],
+    extra_matrix_file=[],
     scale_factor=None,
     lag_map=None,
     regr_dir=None,
@@ -82,7 +84,7 @@ def phys2cvr(
 ):
     """
     Run main workflow of phys2cvr.
-
+    
     Parameters
     ----------
     fname_func : str or path
@@ -179,8 +181,17 @@ def phys2cvr(
         phys2cvr will add all polynomials up to the specified order
         (e.g. if user specifies 3, orders 0, 1, 2, and 3 will be added).
         Default is 0, which will model only the mean of the timeseries.
-    denoise_matrix : list of str(s) or path(s), optional
+    denoise_matrix_file : list of str(s) or path(s), optional
         Add one or multiple denoising matrices to the regression model.
+        Ignored if not performing the regression step.
+    orthogonalised_matrix_file : list of str(s) or path(s), optional
+        Add one or multiple denoising matrices to the regression model,
+        AFTER orthogonalising them w.r.t. the task, the denoise matrix,
+        and the extra matrix.
+        Ignored if not performing the regression step.
+    extra_matrix_file : list of str(s) or path(s), optional
+        Add one or multiple extra matrices to use in the orthogonalisation step.
+        These matrices will not be added to the final regression model.
         Ignored if not performing the regression step.
     scale_factor : str, int, or float, optional
         A scale factor to apply to the CVR map before exporting it.
@@ -206,21 +217,27 @@ def phys2cvr(
     debug : bool, optional
         Return to screen more output.
         Default: False
-
+    
     Raises
     ------
-    Exception
-        - If functional timeseries is lacking TR and the latter was not specified.
+    ValueError
+        - If the order of Legendre Polynomials is < 0.
+        - If a wrong R^2 model was specified.
         - If functional nifti file is not at least 4D.
         - If mask was specified but it has different dimensions than the
             functional nifti file.
-        - If a file type is not supported yet.
-        - If physiological file is a txt file and no peaks were provided.
-        - If physiological file is lacking frequency and the latter was not specified.
+        - If ROI was specified but it has different dimensions than the
+            functional nifti file.
         - If a lag map was specified but it has different dimensions than the
             functional nifti file.
         - If a lag map was specified, lag_step was not, and the lag map seems
             to have different lag_steps inside.
+    NotImplementedError
+        - If a file type is not supported yet.
+    NameError
+        - If functional timeseries is lacking TR and the latter was not specified.
+        - If physiological file is a txt file and no peaks were provided.
+        - If physiological file is lacking frequency and the latter was not specified.
     """
     # If lagged regression is selected, make sure run_regression is true.
     if lagged_regression:
@@ -504,24 +521,48 @@ def phys2cvr(
         # Compute signal percentage change of functional data
         func = signal.spc(func)
 
-        # Start computing the polynomial regressor (at least average)
+        # Generate polynomial regressors (at least average) and assign them to denoise_matrix
         LGR.info(f"Compute Legendre polynomials up to order {l_degree}")
-        mat_conf = stats.get_legendre(l_degree, regr.size)
+        denoise_matrix = stats.get_legendre(l_degree, regr.size)
 
         # Read in eventual denoising factors
-        if denoise_matrix:
-            denoise_matrix = io.if_declared_force_type(
-                denoise_matrix, "list", "denoise_matrix"
+        if denoise_matrix_file:
+            denoise_matrix_file = io.if_declared_force_type(
+                denoise_matrix_file, "list", "denoise_matrix_file"
             )
-            for matrix in denoise_matrix:
+            for matrix in denoise_matrix_file:
                 LGR.info(f"Read confounding factor from {matrix}")
                 conf = np.genfromtxt(matrix)
-                mat_conf = np.hstack([mat_conf, conf])
+                denoise_matrix = np.hstack([denoise_matrix, conf])
+        # Read in eventual extra factors
+        if extra_matrix_file:
+            extra_matrix_file = io.if_declared_force_type(
+                extra_matrix_file, "list", "extra_matrix_file"
+            )
+            matlist = []
+            for matrix in extra_matrix_file:
+                LGR.info(f"Read extra factor for orthogonalisation from {matrix}")
+                matlist += [np.genfromtxt(matrix)]
+            extra_matrix = np.hstack(matlist)
+        else:
+            extra_matrix = None
+        # Read in eventual orthogonalisable factors
+        if orthogonalised_matrix_file:
+            orthogonalised_matrix_file = io.if_declared_force_type(
+                orthogonalised_matrix_file, "list", "orthogonalised_matrix_file"
+            )
+            matlist = []
+            for matrix in orthogonalised_matrix_file:
+                LGR.info(f"Read confounding factor from {matrix}")
+                matlist += [np.genfromtxt(matrix)]
+            orthogonalised_matrix = np.hstack(matlist)
+        else:
+            orthogonalised_matrix = None
 
         LGR.info("Compute simple CVR estimation (bulk shift only)")
         x1D = os.path.join(outdir, "mat", "mat_simple.1D")
         beta, tstat, r_square = stats.regression(
-            func, regr, mat_conf, mask, r2model, debug, x1D
+            func, regr, denoise_matrix, orthogonalised_matrix, extra_matrix, mask, r2model, debug, x1D
         )
 
         LGR.info("Export bulk shift results")
@@ -617,7 +658,9 @@ def phys2cvr(
                     (beta[lag_idx == i], tstat[lag_idx == i], _) = stats.regression(
                         func[lag_idx == i],
                         regr,
-                        mat_conf,
+                        denoise_matrix,
+                        orthogonalised_matrix,
+                        extra_matrix, 
                         [lag_idx == i],
                         r2model,
                         debug,
@@ -657,7 +700,7 @@ def phys2cvr(
                         tstat_all[:, :, :, n],
                         r_square_all[:, :, :, n],
                     ) = stats.regression(
-                        func, regr, mat_conf, mask, r2model, debug, x1D
+                        func, regr, denoise_matrix, orthogonalised_matrix, extra_matrix, mask, r2model, debug, x1D
                     )
 
                 if debug:
