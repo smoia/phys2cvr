@@ -485,7 +485,7 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
 
 
 def regression(
-    data, regr, mat_conf=None, mask=None, r2model="full", debug=False, x1D="mat.1D"
+    data, regr, denoise_mat=None, ortho_mat=None, extra_mat=None, mask=None, r2model="full", debug=False, x1D="mat.1D"
 ):
     """
     Estimate regression parameters.
@@ -496,8 +496,13 @@ def regression(
         Dependent variable of the model (i.e. Y), as a 4D volume.
     regr : np.ndarray
         Regressor of interest
-    mat_conf : np.ndarray or None, optional
+    denoise_mat : np.ndarray or None, optional
         Confounding effects (regressors)
+    ortho_mat : np.ndarray or None, optional
+        Confounding effects (regressors) that will be orthogonalised w.r.t. `regr`, `denoise_mat`, and
+        `extra_mat`
+    extra_mat : np.ndarray or None, optional
+        Extra factors (regressors) that will be used to orthogonalise `ortho_mat`
     mask : np.ndarray or None, optional
         A 3D mask to reduce the number of voxels to run the regression for.
     r2model : {'full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept'}, optional
@@ -507,7 +512,7 @@ def regression(
                 Use every regressor in the model, i.e. compare versus baseline 0
             - 'partial'
                 Consider only `regr` in the model, i.e. compare versus baseline
-                composed by all other regressors (`mat_conf`)
+                composed by all other regressors (`denoise_mat`)
             - 'intercept'
                 Use every regressor in the model, but the intercept, i.e. compare
                 versus baseline intercept (Legendre polynomial order 0, a.k.a.
@@ -516,7 +521,7 @@ def regression(
                 Adjusted R^2 version of normal counterpart
         Under normal conditions, while the R^2 value will be different between options,
         a lagged regression based on any R^2 model will give the same results.
-        This WILL NOT be the case if orthogonalisations between `regr` and `mat_conf`
+        This WILL NOT be the case if orthogonalisations between `regr` and `denoise_mat`
         are introduced: a lagged regression based on `partial` might hold different
         results.
         Default: 'full'
@@ -532,8 +537,8 @@ def regression(
 
     Raises
     ------
-    Exception
-        If `mat_conf` and `regr` do not have at least one common dimension.
+    ValueError
+        If `denoise_mat` and `regr` do not have at least one common dimension.
     """
     # Obtain data in 2d
     if mask is None:
@@ -545,18 +550,41 @@ def regression(
     # Check that regr has "two" dimensions
     if len(regr.shape) < 2:
         regr = regr[..., np.newaxis]
-    if mat_conf is not None:
-        if regr.shape[0] != mat_conf.shape[0]:
-            regr = regr.T
-            if regr.shape[0] != mat_conf.shape[0]:
+
+    if denoise_mat is not None:
+        if regr.shape[0] != denoise_mat.shape[0]:
+            denoise_mat = denoise_mat.T
+            if regr.shape[0] != denoise_mat.shape[0]:
                 raise ValueError(
                     "The provided confounding matrix does not match "
                     "the dimensionality of the PetCO2hrf regressor!"
                 )
-        # Stack mat and solve least square
+        # Stack mat
         # Note: Xmat is not currently demeaned within this function, so inputs
         # should already be demeaned
-        Xmat = np.hstack([mat_conf, regr])
+        Xmat = np.hstack([denoise_mat, regr])
+        if ortho_mat is not None:
+            if ortho_mat.shape[0] != denoise_mat.shape[0]:
+                ortho_mat = ortho_mat.T
+                if ortho_mat.shape[0] != denoise_mat.shape[0]:
+                    raise ValueError(
+                        "The provided orthogonalised matrix does not match "
+                        "the dimensionality of the PetCO2hrf regressor!"
+                    )
+
+            orthogonalising_mat = Xmat.copy()
+            if extra_mat is not None:
+                if extra_mat.shape[0] != denoise_mat.shape[0]:
+                    extra_mat = extra_mat.T
+                    if extra_mat.shape[0] != denoise_mat.shape[0]:
+                        raise ValueError(
+                            "The provided extra matrix does not match "
+                            "the dimensionality of the PetCO2hrf regressor!"
+                        )
+                orthogonalising_mat = np.hstack([orthogonalising_mat, extra_mat])
+
+            ortho_mat = ols(ortho_mat, orthogonalising_mat, residuals=True)
+            Xmat = np.hstack([ortho_mat, Xmat])
     else:
         Xmat = regr
 
