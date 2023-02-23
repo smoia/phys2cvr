@@ -356,26 +356,26 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
     Ymat : np.ndarray
         Dependent variable, 1D or 2D
     Xmat : np.ndarray
-        Independent variables, 1D or 2D
+        Independent variables, 1D or 2D. The regressor of interest MUST be the last one.
     r2model : {'full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept'}, optional
         R^2 to report.
         Possible models are:
             - 'full' (default)
                 Use every regressor in the model, i.e. compare versus baseline 0
             - 'partial'
-                Consider only `regr` in the model, i.e. compare versus baseline
-                composed by all other regressors (`mat_conf`)
+                Consider only the first vector of Xmat in the model, i.e. compare
+                versus baseline composed by all vectors of Xmat beside the first.
             - 'intercept'
                 Use every regressor in the model, but the intercept, i.e. compare
                 versus baseline intercept (Legendre polynomial order 0, a.k.a.
                 average signal)
             - 'adj_*'
-                Adjusted R^2 version of normal counterpart
+                Adjusted R^2 version of simple counterpart
         Under normal conditions, while the R^2 value will be different between options,
         a lagged regression based on any R^2 model will give the same results.
-        This WILL NOT be the case if orthogonalisations between `regr` and `mat_conf`
-        are introduced: a lagged regression based on `partial` might hold different
-        results.
+        This WILL NOT be the case if orthogonalisations between the first vector of Xmat
+        and the others are introduced: a lagged regression based on `partial` might hold
+        different results from .
         Default: 'full'
     residuals : bool, optional
         If True, output only residuals of the model - this is mainly for orthogonalisation
@@ -383,18 +383,24 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
     demean : bool, optional
         If True, demean Xmat before running OLS.
         Default is False.
-    
+
     Returns
     -------
-    TYPE
-        Description
+    betas : np.ndarray
+        Beta values
+    t_stats : np.ndarray
+        T-stats values
+    r_square : np.ndarray
+        R^2 values
     
     Raises
     ------
     NotImplementedError
-        Description
+        If Ymat has more than 2 dimensions
+        If Xmat has more than 2 dimensions
+        At the moment, if "poly" R^2 is declared, as it's not implemented yet.
     ValueError
-        Description
+        If a non-valid R^2 value is declared
     """
     if Ymat.ndim > 2:
         raise NotImplementedError('OLS on data with more than 2 dimensions is not implemented yet.')
@@ -402,7 +408,7 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
         raise NotImplementedError('OLS with regressors with more than 2 dimensions is not implemented yet.')
 
     if demean:
-        Xmat = Xmat-Xmat.mean(axis=0)
+        Xmat = Xmat - Xmat.mean(axis=0)
 
     betas, RSS, _, _ = np.linalg.lstsq(Xmat, Ymat.T, rcond=None)
 
