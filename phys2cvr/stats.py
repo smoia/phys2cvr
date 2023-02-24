@@ -611,7 +611,7 @@ def regression(
         np.savetxt(x1D, Xmat, fmt="%.6f")
 
     betas, tstats, r_square = ols(
-        Ymat, Xmat, r2model="full", residuals=False, demean=False
+        Ymat.T, Xmat, r2model="full", residuals=False, demean=False
     )
 
     # Assign betas, Rsquare and tstats to new volume
