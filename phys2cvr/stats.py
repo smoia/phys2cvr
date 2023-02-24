@@ -347,16 +347,18 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
     """
     Implement Ordinary Least Square linear regression.
     
+    Both Ymat and Xmat must encode the time axis in axis 0.
     This is the barebone OLS implementation. For the full regression step,
     see `stats.regression`.
-    
-    
+
     Parameters
     ----------
     Ymat : np.ndarray
-        Dependent variable, 1D or 2D
+        Dependent variable, 1D or 2D.
+        The time axis must be in columns, i.e. time axis must be axis 0.
     Xmat : np.ndarray
         Independent variables, 1D or 2D. The regressor of interest MUST be the last one.
+        Regressors must be in columns, i.e. time axis must be axis 0.
     r2model : {'full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept'}, optional
         R^2 to report.
         Possible models are:
@@ -404,16 +406,30 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
     """
     if Ymat.ndim > 2:
         raise NotImplementedError('OLS on data with more than 2 dimensions is not implemented yet.')
+    elif Ymat.ndim < 2:
+        Ymat = Ymat[..., np.newaxis]
     if Xmat.ndim > 2:
         raise NotImplementedError('OLS with regressors with more than 2 dimensions is not implemented yet.')
+    elif Xmat.ndim < 2:
+        Xmat = Xmat[..., np.newaxis]
 
     if demean:
+        LGR.info("Demean regressors")
         Xmat = Xmat - Xmat.mean(axis=0)
 
-    betas, RSS, _, _ = np.linalg.lstsq(Xmat, Ymat.T, rcond=None)
+    try:
+        betas, RSS, _, _ = np.linalg.lstsq(Xmat, Ymat, rcond=None)
+        if not RSS.any():
+            RSS = np.zeros(betas.shape[1])
+
+    except np.linalg.LinAlgError:
+        raise ValueError(
+            'The given matrices might not be oriented correctly. Try to transpose the '
+            'regressor matrix.'
+        )
 
     if residuals:
-        return Ymat - (betas @ Xmat)
+        return Ymat - (Xmat @ betas)
     else:
         # compute t-values of betas (estimates)
         # first compute number of degrees of freedom
@@ -433,6 +449,8 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
         C = C[..., np.newaxis]
         std_betas = np.sqrt(np.outer(C, sigma))
         tstats = betas / std_betas
+        tstats[np.isneginf(tstats)] = -9999
+        tstats[np.isposinf(tstats)] = 9999
 
         # Compute R^2 coefficient of multiple determination!
         r2model_support = False
@@ -448,10 +466,10 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
         # R^2 = 1 - RSS/TSS, (TSS = total sum of square)
         if "full" in r2model:
             # Baseline model is 0 - this is what we're using ATM
-            TSS = np.sum(np.power(Ymat, 2), axis=1)
+            TSS = np.sum(np.power(Ymat, 2), axis=0)
         elif "intercept" in r2model:
             # Baseline model is intercept: TSS is variance*samples
-            TSS = Ymat.var(axis=1) * Ymat.shape[1]
+            TSS = Ymat.var(axis=0) * Ymat.shape[0]
         elif "poly" in r2model:
             # Baseline model is legendre polynomials - or others: TSS is RSS of partial matrix
             # Could improve efficiency by moving this fitting step outside the regression loop
@@ -468,14 +486,14 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
             tstats_square = np.power(tstats, 2)
             r_square = (tstats_square / (tstats_square + df))[-1, :]
         else:
-            r_square = np.ones(Ymat.shape[0], dtype="float32") - (RSS / TSS)
+            r_square = np.ones(Ymat.shape[1], dtype="float32") - (RSS / TSS)
 
         if r2msg == "":
             r2msg = r2model
         if "adj_" in r2model:
             # We could compute ADJUSTED R^2 instead
             r_square = 1 - (
-                (1 - r_square) * (Xmat.shape[0] - 1) / (Xmat.shape[0] - Xmat.shape[1])
+                (1 - r_square) * (Xmat.shape[0] - 1) / (df - 1)
             )
             r2msg = f"adjusted {r2msg}"
 
@@ -548,7 +566,7 @@ def regression(
 
     Ymat = data[mask]
     # Check that regr has "two" dimensions
-    if len(regr.shape) < 2:
+    if regr.ndim < 2:
         regr = regr[..., np.newaxis]
 
     if denoise_mat is not None:
