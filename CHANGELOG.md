@@ -1,3 +1,27 @@
+# 0.17.2 (Sat Feb 25 2023)
+
+#### 🐛 Bug Fix
+
+- [pre-commit.ci] pre-commit autoupdate [#64](https://github.com/smoia/phys2cvr/pull/64) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### ⚠️ Pushed to `master`
+
+- docs: Update developer installation ([@smoia](https://github.com/smoia))
+
+#### 🏠 Internal
+
+- [pre-commit.ci] pre-commit autoupdate [#63](https://github.com/smoia/phys2cvr/pull/63) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+- [pre-commit.ci] pre-commit autoupdate [#62](https://github.com/smoia/phys2cvr/pull/62) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+- [pre-commit.ci] pre-commit autoupdate [#61](https://github.com/smoia/phys2cvr/pull/61) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+- [pre-commit.ci] pre-commit autoupdate [#59](https://github.com/smoia/phys2cvr/pull/59) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.17.1 (Mon Dec 12 2022)
 
 #### 🐛 Bug Fix
