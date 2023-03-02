@@ -601,8 +601,7 @@ def regression(
                         )
                 orthogonalising_mat = np.hstack([orthogonalising_mat, extra_mat])
 
-            ortho_mat = ortho_mat - ortho_mat.mean(axis=0)
-            ortho_mat = ols(ortho_mat, orthogonalising_mat, residuals=True, demean=True)
+            ortho_mat = ols(ortho_mat, orthogonalising_mat, residuals=True)
             Xmat = np.hstack([ortho_mat, Xmat])
     else:
         Xmat = regr
@@ -612,7 +611,7 @@ def regression(
         np.savetxt(x1D, Xmat, fmt="%.6f")
 
     betas, tstats, r_square = ols(
-        Ymat.T, Xmat, r2model="full", residuals=False, demean=True
+        Ymat.T, Xmat, r2model="full", residuals=False, demean=False
     )
 
     # Assign betas, Rsquare and tstats to new volume
