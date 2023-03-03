@@ -590,7 +590,7 @@ def regression(
                         "the dimensionality of the PetCO2hrf regressor!"
                     )
 
-            orthogonalising_mat = Xmat.copy()
+            nuisance_mat = Xmat.copy()
             if extra_mat is not None:
                 if extra_mat.shape[0] != denoise_mat.shape[0]:
                     extra_mat = extra_mat.T
@@ -599,9 +599,9 @@ def regression(
                             "The provided extra matrix does not match "
                             "the dimensionality of the PetCO2hrf regressor!"
                         )
-                orthogonalising_mat = np.hstack([orthogonalising_mat, extra_mat])
+                nuisance_mat = np.hstack([nuisance_mat, extra_mat])
 
-            ortho_mat = ols(ortho_mat, orthogonalising_mat, residuals=True)
+            ortho_mat = ols(ortho_mat, nuisance_mat, residuals=True)
             Xmat = np.hstack([ortho_mat, Xmat])
     else:
         Xmat = regr
@@ -613,6 +613,9 @@ def regression(
     betas, tstats, r_square = ols(
         Ymat.T, Xmat, r2model="full", residuals=False, demean=False
     )
+    if debug:
+        # debug should eport betas, tstats, r_square
+        pass
 
     # Assign betas, Rsquare and tstats to new volume
     bout = mask * 1.0
