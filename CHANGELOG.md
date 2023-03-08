@@ -1,3 +1,24 @@
+# 0.18.0 (Wed Mar 08 2023)
+
+#### 💥 Breaking Change during development
+
+- Add option to add orthogonalised regressors in phys2cvr [#84](https://github.com/smoia/phys2cvr/pull/84) ([@smoia](https://github.com/smoia) [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### 🐛 Bug Fix
+
+- Improve `auto` settings to include all labels and plugins [#72](https://github.com/smoia/phys2cvr/pull/72) ([@smoia](https://github.com/smoia))
+
+#### ⚠️ Pushed to `master`
+
+- int: Fix issue templates ([@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.17.2 (Sat Feb 25 2023)
 
 #### 🐛 Bug Fix
