@@ -84,7 +84,7 @@ def phys2cvr(
 ):
     """
     Run main workflow of phys2cvr.
-    
+
     Parameters
     ----------
     fname_func : str or path
@@ -217,7 +217,7 @@ def phys2cvr(
     debug : bool, optional
         Return to screen more output.
         Default: False
-    
+
     Raises
     ------
     ValueError
@@ -562,7 +562,15 @@ def phys2cvr(
         LGR.info("Compute simple CVR estimation (bulk shift only)")
         x1D = os.path.join(outdir, "mat", "mat_simple.1D")
         beta, tstat, r_square = stats.regression(
-            func, regr, denoise_matrix, orthogonalised_matrix, extra_matrix, mask, r2model, debug, x1D
+            func,
+            regr,
+            denoise_matrix,
+            orthogonalised_matrix,
+            extra_matrix,
+            mask,
+            r2model,
+            debug,
+            x1D,
         )
 
         LGR.info("Export bulk shift results")
@@ -660,7 +668,7 @@ def phys2cvr(
                         regr,
                         denoise_matrix,
                         orthogonalised_matrix,
-                        extra_matrix, 
+                        extra_matrix,
                         [lag_idx == i],
                         r2model,
                         debug,
@@ -700,7 +708,15 @@ def phys2cvr(
                         tstat_all[:, :, :, n],
                         r_square_all[:, :, :, n],
                     ) = stats.regression(
-                        func, regr, denoise_matrix, orthogonalised_matrix, extra_matrix, mask, r2model, debug, x1D
+                        func,
+                        regr,
+                        denoise_matrix,
+                        orthogonalised_matrix,
+                        extra_matrix,
+                        mask,
+                        r2model,
+                        debug,
+                        x1D,
                     )
 
                 if debug:

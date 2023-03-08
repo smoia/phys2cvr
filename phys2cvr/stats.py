@@ -346,7 +346,7 @@ def get_legendre(degree, length):
 def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
     """
     Implement Ordinary Least Square linear regression.
-    
+
     Both Ymat and Xmat must encode the time axis in axis 0.
     This is the barebone OLS implementation. For the full regression step,
     see `stats.regression`.
@@ -394,7 +394,7 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
         T-stats values
     r_square : np.ndarray
         R^2 values
-    
+
     Raises
     ------
     NotImplementedError
@@ -405,11 +405,15 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
         If a non-valid R^2 value is declared
     """
     if Ymat.ndim > 2:
-        raise NotImplementedError('OLS on data with more than 2 dimensions is not implemented yet.')
+        raise NotImplementedError(
+            "OLS on data with more than 2 dimensions is not implemented yet."
+        )
     elif Ymat.ndim < 2:
         Ymat = Ymat[..., np.newaxis]
     if Xmat.ndim > 2:
-        raise NotImplementedError('OLS with regressors with more than 2 dimensions is not implemented yet.')
+        raise NotImplementedError(
+            "OLS with regressors with more than 2 dimensions is not implemented yet."
+        )
     elif Xmat.ndim < 2:
         Xmat = Xmat[..., np.newaxis]
 
@@ -424,8 +428,8 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
 
     except np.linalg.LinAlgError:
         raise ValueError(
-            'The given matrices might not be oriented correctly. Try to transpose the '
-            'regressor matrix.'
+            "The given matrices might not be oriented correctly. Try to transpose the "
+            "regressor matrix."
         )
 
     if residuals:
@@ -492,9 +496,7 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
             r2msg = r2model
         if "adj_" in r2model:
             # We could compute ADJUSTED R^2 instead
-            r_square = 1 - (
-                (1 - r_square) * (Xmat.shape[0] - 1) / (df - 1)
-            )
+            r_square = 1 - ((1 - r_square) * (Xmat.shape[0] - 1) / (df - 1))
             r2msg = f"adjusted {r2msg}"
 
         LGR.info(f"Adopting {r2msg} baseline to compute R^2.")
@@ -503,7 +505,15 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
 
 
 def regression(
-    data, regr, denoise_mat=None, ortho_mat=None, extra_mat=None, mask=None, r2model="full", debug=False, x1D="mat.1D"
+    data,
+    regr,
+    denoise_mat=None,
+    ortho_mat=None,
+    extra_mat=None,
+    mask=None,
+    r2model="full",
+    debug=False,
+    x1D="mat.1D",
 ):
     """
     Estimate regression parameters.
