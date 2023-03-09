@@ -491,9 +491,7 @@ def phys2cvr(
         try:
             regr = np.genfromtxt(f"{outname}_petco2hrf.1D")
         except IOError:
-            LGR.warning(
-                f"Regressor {outname}_petco2hrf.1D not found. Estimating it."
-            )
+            LGR.warning(f"Regressor {outname}_petco2hrf.1D not found. Estimating it.")
             regr, regr_shifts = stats.get_regr(
                 func_avg,
                 petco2hrf,
