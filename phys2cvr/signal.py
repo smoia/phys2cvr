@@ -120,7 +120,7 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     return filt_data
 
 
-def convolve_petco2(co2, pidx, freq, outname, mode='full'):
+def convolve_petco2(co2, pidx, freq, outname, mode="full"):
     """
     Create PetCO2 trace from CO2 trace, then convolve to get PetCO2hrf.
 
@@ -148,7 +148,7 @@ def convolve_petco2(co2, pidx, freq, outname, mode='full'):
         If the provided co2 is not a 1D array.
     """
     if co2.ndim > 1:
-        raise NotImplementedError('2+ D arrays are not supported.')
+        raise NotImplementedError("2+ D arrays are not supported.")
 
     # Extract PETco2
     hrf = create_hrf(freq)
@@ -160,7 +160,7 @@ def convolve_petco2(co2, pidx, freq, outname, mode='full'):
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.title("CO2 and PetCO2")
     plt.plot(co2, "-", petco2, "-")
-    plt.legend(['CO2', 'PetCO2'])
+    plt.legend(["CO2", "PetCO2"])
     plt.tight_layout()
     plt.savefig(f"{outname}_petco2.png", dpi=SET_DPI)
     plt.close()

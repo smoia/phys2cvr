@@ -41,7 +41,7 @@ def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
         Each shift consists of one sample.
     offset : int, optional
         Optional amount of offset desired for `func`, i.e. the amount of samples
-        of `co2` to exclude from the cross correlation. 
+        of `co2` to exclude from the cross correlation.
     abs_xcorr : bool, optional
         If True, x_corr will find the maximum absolute correlation,
         i.e. max(|corr(func, co2)|), rather than the maximum positive correlation.
@@ -92,7 +92,7 @@ def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
 
     xcorr = np.empty(n_shifts, dtype="float32")
     for n, i in enumerate(range(offset, n_shifts + offset)):
-        xcorr[n] = (zscore(func) @ zscore(co2[0 + i:len(func) + i])) / len(func)
+        xcorr[n] = (zscore(func) @ zscore(co2[0 + i : len(func) + i])) / len(func)
 
     if abs_xcorr:
         return np.abs(xcorr).max(), np.abs(xcorr).argmax() + offset, xcorr
@@ -215,8 +215,8 @@ def get_regr(
         # Export xcorr figure
         plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
         plt.plot(time_axis, xcorr)
-        plt.plot(time_axis[optshift], xcorr[optshift], 'x')
-        plt.legend(['Cross correlation value', 'Optimal detected shift'])
+        plt.plot(time_axis[optshift], xcorr[optshift], "x")
+        plt.legend(["Cross correlation value", "Optimal detected shift"])
         plt.title("Cross correlation and optimal shift")
         plt.tight_layout()
         plt.savefig(f"{outname}_optshift.png", dpi=SET_DPI)
@@ -231,13 +231,13 @@ def get_regr(
             "continue. This error should not be possible."
         )
 
-    petco2hrf_shift = petco2hrf[optshift:optshift + len_upd]
+    petco2hrf_shift = petco2hrf[optshift : optshift + len_upd]
 
     # Exporting figures of shift
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.plot(zscore(petco2hrf_shift), "-", zscore(func_upsampled), "-")
     plt.title("Optimally shifted regressor and average Grey Matter signal")
-    plt.legend(['Optimally shifted regressor', 'Average Grey Matter signal'])
+    plt.legend(["Optimally shifted regressor", "Average Grey Matter signal"])
     plt.tight_layout()
     plt.savefig(f"{outname}_petco2hrf_simple.png", dpi=SET_DPI)
     plt.close()
@@ -248,7 +248,7 @@ def get_regr(
 
     # Initialise the shifts first.
     petco2hrf_shifts = None
-    
+
     if lagged_regression and lag_max:
         outprefix = os.path.join(
             os.path.split(outname)[0], "regr", os.path.split(outname)[1]
@@ -260,10 +260,12 @@ def get_regr(
         pos_shifts = neg_shifts if legacy is True else (neg_shifts + 1)
 
         # Padding regressor right for shifts if not enough timepoints
-        rpad = len_upd - (
-            petco2hrf.shape[0] - (optshift + pos_shifts)
-        ) if petco2hrf.shape[0] - (optshift + pos_shifts) < len_upd else 0
-        # Padding regressor left for shifts and update optshift if less than neg_shifts. 
+        rpad = (
+            len_upd - (petco2hrf.shape[0] - (optshift + pos_shifts))
+            if petco2hrf.shape[0] - (optshift + pos_shifts) < len_upd
+            else 0
+        )
+        # Padding regressor left for shifts and update optshift if less than neg_shifts.
         lpad = neg_shifts - optshift if (optshift - neg_shifts) < 0 else 0
         optshift = neg_shifts if (optshift - neg_shifts) < 0 else optshift
 
