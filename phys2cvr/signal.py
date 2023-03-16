@@ -212,7 +212,7 @@ def resample_signal_freqs(ts, freq1, freq2, axis=-1):
     """
     # Upsample functional signal
     len_tp = ts.shape[axis]
-    len_newtp = int(np.around(ts.shape[axis]*(freq2/freq1)))
+    len_newtp = int(np.around(ts.shape[axis] * (freq2 / freq1)))
     len_s = len_tp / freq1
     orig_t = np.linspace(0, len_s, len_tp)
     interp_t = np.linspace(0, len_s, len_newtp)
