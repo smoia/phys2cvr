@@ -198,7 +198,7 @@ def load_nifti_get_mask(fname, is_mask=False, dim=3):
     return data, mask, img
 
 
-def export_regressor(petco2hrf_shift, freq, tr, outname, suffix="petco2hrf", ext=".1D"):
+def export_regressor(petco2hrf_shift, ntp, outname, suffix="petco2hrf", ext=".1D"):
     """
     Export generated regressors for fMRI analysis.
 
@@ -206,10 +206,8 @@ def export_regressor(petco2hrf_shift, freq, tr, outname, suffix="petco2hrf", ext
     ----------
     petco2hrf_shift : np.ndarray
         The regressors that needs to be exported, in its original sample
-    freq : int
-        The frequency of the petco2hrf_shift (hence physiological data)
-    tr : float
-        The tr of the fMRI timeseries at which to export.
+    ntp : int
+        The number of fMRI timepoints
     outname : str or path
         Prefix of the output file - can contain a path.
     suffix : str, optional
@@ -222,7 +220,7 @@ def export_regressor(petco2hrf_shift, freq, tr, outname, suffix="petco2hrf", ext
     petco2hrf_demean : np.ndarray
         Interpolated version of `petco2hrf_shift` in the sampling of the fMRI data.
     """
-    petco2hrf_shift = signal.resample_signal_freqs(petco2hrf_shift, freq, 1 / tr)
+    petco2hrf_shift = signal.resample_signal_samples(petco2hrf_shift, ntp)
     petco2hrf_demean = petco2hrf_shift - petco2hrf_shift.mean(axis=-1)
     if petco2hrf_demean.ndim > 1:
         for i in range(petco2hrf_demean.shape[-1]):

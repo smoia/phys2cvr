@@ -418,7 +418,8 @@ def phys2cvr(
             LGR.info(f"No frequency declared, using 1/tr ({freq}Hz)")
         else:
             LGR.info(f"Resampling the average fMRI timeseries at {freq}Hz")
-            petco2hrf = signal.resample_signal_freqs(petco2hrf, 1 / tr, freq)
+            upsamp_tps = int(np.round(petco2hrf.shape[-1] * tr * freq))
+            petco2hrf = signal.resample_signal_samples(petco2hrf, upsamp_tps)
     else:
         co2_is_phys = io.check_ext(".phys", fname_co2)
         co2_is_1d = io.check_ext(EXT_1D, fname_co2)
@@ -475,7 +476,6 @@ def phys2cvr(
         regr, regr_shifts = stats.get_regr(
             func_avg,
             petco2hrf,
-            tr,
             freq,
             outname,
             lag_max,
@@ -495,7 +495,6 @@ def phys2cvr(
             regr, regr_shifts = stats.get_regr(
                 func_avg,
                 petco2hrf,
-                tr,
                 freq,
                 outname,
                 lag_max,
