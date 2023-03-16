@@ -18,7 +18,7 @@ from scipy.stats import zscore
 
 from phys2cvr import io
 from phys2cvr.io import FIGSIZE, SET_DPI
-from phys2cvr.signal import resample_signal_samples
+from phys2cvr.signal import resample_signal
 
 R2MODEL = ["full", "partial", "intercept", "adj_full", "adj_partial", "adj_intercept"]
 
@@ -195,7 +195,7 @@ def get_regr(
 
     # Upsample functional signal
     upsamp_tps = int(np.round(func_avg.shape[-1] * tr * freq))
-    func_upsampled = resample_signal_samples(func_avg, upsamp_tps)
+    func_upsampled = resample_signal(func_avg, upsamp_tps)
     len_upd = func_upsampled.shape[0]
 
     # Preparing breathhold and CO2 trace for Xcorr

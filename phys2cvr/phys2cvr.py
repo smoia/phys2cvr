@@ -419,7 +419,7 @@ def phys2cvr(
         else:
             LGR.info(f"Resampling the average fMRI timeseries at {freq}Hz")
             upsamp_tps = int(np.round(petco2hrf.shape[-1] * tr * freq))
-            petco2hrf = signal.resample_signal_samples(petco2hrf, upsamp_tps)
+            petco2hrf = signal.resample_signal(petco2hrf, upsamp_tps)
     else:
         co2_is_phys = io.check_ext(".phys", fname_co2)
         co2_is_1d = io.check_ext(EXT_1D, fname_co2)

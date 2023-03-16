@@ -187,6 +187,36 @@ def compute_petco2hrf(co2, pidx, freq, outname, mode="full"):
     return petco2hrf
 
 
+def resample_signal(ts, samples, axis=-1):
+    """
+    Upsample or downsample a given timeseries based on samples.
+
+    This program brings ts at freq1 to a new timeseries at freq2
+
+    Parameters
+    ----------
+    ts : numpy.ndarray
+        The timeseries to resample.
+    samples : int
+        The new desired amount od samples
+    axis : int
+        The axis over with the interpolation should happen - by default it's
+        -1, i.e. the last dimension.
+
+    Returns
+    -------
+    numpy.ndarray
+        The resampled timeseries
+    """
+    # Upsample functional signal
+    len_tp = ts.shape[axis]
+    orig_t = np.linspace(0, len_tp, len_tp)
+    interp_t = np.linspace(0, len_tp, samples)
+    f = spint.interp1d(orig_t, ts, fill_value="extrapolate", axis=axis)
+
+    return f(interp_t)
+
+
 def resample_signal_freqs(ts, freq1, freq2, axis=-1):
     """
     Upsample or downsample a given timeseries based on frequencies.
@@ -216,36 +246,6 @@ def resample_signal_freqs(ts, freq1, freq2, axis=-1):
     len_s = len_tp / freq1
     orig_t = np.linspace(0, len_s, len_tp)
     interp_t = np.linspace(0, len_s, len_newtp)
-    f = spint.interp1d(orig_t, ts, fill_value="extrapolate", axis=axis)
-
-    return f(interp_t)
-
-
-def resample_signal_samples(ts, samples, axis=-1):
-    """
-    Upsample or downsample a given timeseries based on samples.
-
-    This program brings ts at freq1 to a new timeseries at freq2
-
-    Parameters
-    ----------
-    ts : numpy.ndarray
-        The timeseries to resample.
-    samples : int
-        The new desired amount od samples
-    axis : int
-        The axis over with the interpolation should happen - by default it's
-        -1, i.e. the last dimension.
-
-    Returns
-    -------
-    numpy.ndarray
-        The resampled timeseries
-    """
-    # Upsample functional signal
-    len_tp = ts.shape[axis]
-    orig_t = np.linspace(0, len_tp, len_tp)
-    interp_t = np.linspace(0, len_tp, samples)
     f = spint.interp1d(orig_t, ts, fill_value="extrapolate", axis=axis)
 
     return f(interp_t)
