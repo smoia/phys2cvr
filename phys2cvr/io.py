@@ -482,7 +482,7 @@ def export_regressor(petco2hrf_shift, freq, tr, outname, suffix='petco2hrf', ext
         Interpolated version of `petco2hrf_shift` in the sampling of the fMRI data.
     """
     petco2hrf_shift = signal.resample_signal(petco2hrf_shift, ntp)
-    petco2hrf_demean = petco2hrf_shift - petco2hrf_shift.mean(axis=-1)
+    petco2hrf_demean = petco2hrf_shift - petco2hrf_shift.mean(axis=-1)[..., np.newaxis]
     if petco2hrf_demean.ndim > 1:
         for i in range(petco2hrf_demean.shape[-1]):
             np.savetxt(
