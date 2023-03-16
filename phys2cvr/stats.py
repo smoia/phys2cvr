@@ -275,6 +275,8 @@ def get_regr(
         negp, posp = optshift - neg_shifts, optshift + pos_shifts
         petco2hrf_lagged = swv(petco2hrf, len_upd)[negp:posp].copy()
 
+        breakpoint()
+
         petco2hrf_shifts = np.empty((petco2hrf.shape[0], len(func_avg)))
         for n in range(petco2hrf_lagged.shape[0]):
             petco2hrf_shifts[:, n] = io.export_regressor(
