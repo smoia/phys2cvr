@@ -61,39 +61,43 @@ def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
     ValueError
         If `offset` is higher than the difference between the length of `co2` and `func`.
     NotImplementedError
+        If `offset` < 0
         If `co2` length is smaller than `func` length.
     """
-    if len(func) + offset > len(co2):
-        if offset != 0:
+    if offset < 0:
+        raise NotImplementedError("Negative offsets are not supported yet.")
+
+    if func.shape[0] + offset > co2.shape[0]:
+        if offset > 0:
             raise ValueError(
                 f"The specified offset of {offset} is too high to "
-                f"compare func of length {len(func)} with co2 of "
-                f"length {len(co2)}"
+                f"compare func of length {func.shape[0]} with co2 of "
+                f"length {co2.shape[0]}"
             )
         else:
             raise NotImplementedError(
-                f"The timeseries has length of {len(func)}, more than the"
-                f"length of the given regressor ({len(co2)}). This case "
+                f"The timeseries has length of {func.shape[0]}, more than the"
+                f"length of the given regressor ({co2.shape[0]}). This case "
                 "is not supported."
             )
 
     if n_shifts is None:
-        n_shifts = len(co2) - (len(func) + offset) + 1
+        n_shifts = co2.shape[0] - (func.shape[0] + offset) + 1
         LGR.info(
             f"Considering all possible shifts of regressor for Xcorr, i.e. {n_shifts}"
         )
     else:
-        if n_shifts + offset + len(func) > len(co2):
+        if n_shifts + offset + func.shape[0] > co2.shape[0]:
             LGR.warning(
                 f"The specified amount of shifts ({n_shifts}) is too high for the "
-                f"length of the regressor ({len(co2)})."
+                f"length of the regressor ({co2.shape[0]})."
             )
-            n_shifts = len(co2) - (len(func) + offset) + 1
+            n_shifts = co2.shape[0] - (func.shape[0] + offset) + 1
             LGR.warning(f"Considering {n_shifts} shifts instead.")
 
-    xcorr = np.empty(n_shifts, dtype="float32")
-    for n, i in enumerate(range(offset, n_shifts + offset)):
-        xcorr[n] = (zscore(func) @ zscore(co2[0 + i : len(func) + i])) / len(func)
+    sco2 = swv(co2, func.shape[0], axis=-1)[offset : n_shifts + offset]
+
+    xcorr = np.dot(zscore(sco2, axis=-1), zscore(func)) / func.shape[0]
 
     if abs_xcorr:
         return np.abs(xcorr).max(), np.abs(xcorr).argmax() + offset, xcorr
