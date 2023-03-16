@@ -223,9 +223,9 @@ def export_regressor(petco2hrf_shift, ntp, outname, suffix="petco2hrf", ext=".1D
     petco2hrf_shift = signal.resample_signal(petco2hrf_shift, ntp)
     petco2hrf_demean = petco2hrf_shift - petco2hrf_shift.mean(axis=-1)[..., np.newaxis]
     if petco2hrf_demean.ndim > 1:
-        for i in range(petco2hrf_demean.shape[-1]):
+        for i in range(petco2hrf_demean.shape[0]):
             np.savetxt(
-                f"{outname}_{suffix}{i:04g}{ext}", petco2hrf_demean[:, i], fmt="%.6f"
+                f"{outname}_{suffix}{i:04g}{ext}", petco2hrf_demean[i, :], fmt="%.6f"
             )
     else:
         np.savetxt(f"{outname}_{suffix}{ext}", petco2hrf_demean, fmt="%.6f")
