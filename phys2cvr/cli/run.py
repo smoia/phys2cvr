@@ -299,9 +299,9 @@ def _get_parser():
         default=True,
     )
     opt_flow.add_argument(
-        "-skip_conv",
-        "--skip-convolution",
-        dest="run_conv",
+        "-spco2",
+        "--skip-petco2hrf",
+        dest="run_petco2hrf",
         action="store_false",
         help=(
             "Skip convolution of physiological trace. "
@@ -637,7 +637,7 @@ def _check_opt_conf(parser):
             parser.lag_max = 9
             parser.lag_step = 0.3
             parser.lagged_regression = True
-            parser.run_conv = True
+            parser.run_petco2hrf = True
             parser.apply_filter = False
             parser.legacy = True
             parser.r2model = "full"
@@ -645,18 +645,18 @@ def _check_opt_conf(parser):
             parser.lag_max = 20
             parser.lag_step = 0.3
             parser.lagged_regression = True
-            parser.run_conv = True
+            parser.run_petco2hrf = True
             parser.apply_filter = False
             parser.r2model = "full"
         elif parser.workflow_config == "baltimore":
-            parser.run_conv = False
+            parser.run_petco2hrf = False
             parser.apply_filter = True
             parser.lowcut = 0.02
             parser.highcut = 0.04
             parser.fname_co2 = None
             parser.lagged_regression = False
         elif parser.workflow_config == "baltimore-lag":
-            parser.run_conv = False
+            parser.run_petco2hrf = False
             parser.apply_filter = True
             parser.lowcut = 0.02
             parser.highcut = 0.04
