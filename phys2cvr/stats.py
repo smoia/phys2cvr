@@ -16,8 +16,9 @@ import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view as swv
 from scipy.stats import zscore
 
-from phys2cvr.io import FIGSIZE, SET_DPI, export_regressor
-from phys2cvr.signal import resample_signal
+from phys2cvr import io
+from phys2cvr.io import FIGSIZE, SET_DPI
+from phys2cvr.signal import resample_signal_freqs
 
 R2MODEL = ["full", "partial", "intercept", "adj_full", "adj_partial", "adj_intercept"]
 
@@ -193,7 +194,7 @@ def get_regr(
         LGR.info("Using all trials for bulk shift estimation.")
 
     # Upsample functional signal
-    func_upsampled = resample_signal(func_avg, 1 / tr, freq)
+    func_upsampled = resample_signal_freqs(func_avg, 1 / tr, freq)
     len_upd = func_upsampled.shape[0]
 
     # Preparing breathhold and CO2 trace for Xcorr

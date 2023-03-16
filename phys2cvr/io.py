@@ -222,7 +222,7 @@ def export_regressor(petco2hrf_shift, freq, tr, outname, suffix="petco2hrf", ext
     petco2hrf_demean : np.ndarray
         Interpolated version of `petco2hrf_shift` in the sampling of the fMRI data.
     """
-    petco2hrf_shift = signal.resample_signal(petco2hrf_shift, freq, 1 / tr)
+    petco2hrf_shift = signal.resample_signal_freqs(petco2hrf_shift, freq, 1 / tr)
     petco2hrf_demean = petco2hrf_shift - petco2hrf_shift.mean()
     np.savetxt(f"{outname}_{suffix}{ext}", petco2hrf_demean, fmt="%.6f")
 
