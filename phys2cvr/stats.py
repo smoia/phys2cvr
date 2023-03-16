@@ -162,7 +162,7 @@ def get_regr(
     -------
     petco2hrf_demean : np.ndarray
         The central, demeaned petco2hrf regressor.
-    petco2hrf_shifts : np.ndarray
+    petco2hrf_lagged : np.ndarray
         The other shifted versions of the regressor.
     """
     # Setting up some variables
@@ -248,7 +248,7 @@ def get_regr(
     )
 
     # Initialise the shifts first.
-    petco2hrf_shifts = None
+    petco2hrf_lagged = None
 
     if lagged_regression and lag_max:
         outprefix = os.path.join(
@@ -276,13 +276,9 @@ def get_regr(
         negp, posp = optshift - neg_shifts, optshift + pos_shifts
         petco2hrf_lagged = swv(petco2hrf, len_upd)[negp:posp].copy()
 
-        breakpoint()
-
-        petco2hrf_shifts = np.empty((petco2hrf.shape[0], len(func_avg)))
-        for n in range(petco2hrf_lagged.shape[0]):
-            petco2hrf_shifts[:, n] = io.export_regressor(
-                petco2hrf_lagged, freq, tr, outprefix, f"{n:04g}", ext
-            )
+        petco2hrf_lagged = io.export_regressor(
+            petco2hrf_lagged, freq, tr, outprefix, "", ext
+        )
 
     elif lagged_regression and lag_max is None:
         LGR.warning(
@@ -293,7 +289,7 @@ def get_regr(
     else:
         LGR.info("Skipping lag regressors generation.")
 
-    return petco2hrf_demean, petco2hrf_shifts
+    return petco2hrf_demean, petco2hrf_lagged
 
 
 def get_legendre(degree, length):
