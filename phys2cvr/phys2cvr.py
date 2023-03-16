@@ -482,6 +482,7 @@ def phys2cvr(
         regr, regr_shifts = create_physio_regressor(
             func_avg,
             petco2hrf,
+            tr,
             freq,
             outname,
             lag_max,
@@ -501,6 +502,7 @@ def phys2cvr(
             regr, regr_shifts = create_physio_regressor(
                 func_avg,
                 petco2hrf,
+                tr,
                 freq,
                 outname,
                 lag_max,
