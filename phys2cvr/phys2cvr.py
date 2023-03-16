@@ -468,7 +468,7 @@ def phys2cvr(
         if run_conv is False:
             petco2hrf = co2
         else:
-            petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
+            petco2hrf = signal.compute_petco2hrf(co2, pidx, freq, outname)
 
     # If a regressor directory is not specified, compute the regressors.
     if regr_dir is None:
