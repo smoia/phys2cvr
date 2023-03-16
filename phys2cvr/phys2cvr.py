@@ -713,8 +713,8 @@ def phys2cvr(
                 for n, i in enumerate(lag_range):
                     LGR.info(f'Perform L-GLM number {n + 1} of {len(lag_range)}')
                     try:
-                        regr = regr_shifts[:, i]
-                        LGR.debug(f'Using shift {i} from matrix in memory: {regr}')
+                        regr = regr_shifts[i, :]
+                        LGR.debug(f"Using shift {i} from matrix in memory: {regr}")
                     except NameError:
                         regr = np.genfromtxt(f'{outprefix}_{i:04g}')
                         LGR.debug(f'Reading shift {i} from file {outprefix}_{i:04g}')
