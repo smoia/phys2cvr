@@ -120,7 +120,7 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     return filt_data
 
 
-def convolve_petco2(co2, pidx, freq, outname, mode="full"):
+def compute_petco2hrf(co2, pidx, freq, outname, mode="full"):
     """
     Create PetCO2 trace from CO2 trace, then convolve to get PetCO2hrf.
 
