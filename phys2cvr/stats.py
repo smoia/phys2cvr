@@ -242,10 +242,10 @@ def get_regr(
     # Exporting figures of shift
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.plot(zscore(petco2hrf_shift), "-", zscore(func_upsampled), "-")
-    plt.title("Optimally shifted regressor and average Grey Matter signal")
-    plt.legend(["Optimally shifted regressor", "Average Grey Matter signal"])
+    plt.title("Optimally shifted regressor and average ROI signal")
+    plt.legend(["Optimally shifted regressor", "Average ROI signal"])
     plt.tight_layout()
-    plt.savefig(f"{outname}_petco2hrf_simple.png", dpi=SET_DPI)
+    plt.savefig(f"{outname}_petco2hrf_vs_avgroi.png", dpi=SET_DPI)
     plt.close()
 
     petco2hrf_demean = io.export_regressor(
