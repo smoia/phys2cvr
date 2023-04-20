@@ -473,7 +473,7 @@ def phys2cvr(
 
     # If a regressor directory is not specified, compute the regressors.
     if regr_dir is None:
-        regr, regr_shifts = stats.get_regr(
+        regr, regr_shifts = stats.create_physio_regressor(
             func_avg,
             petco2hrf,
             tr,
@@ -493,7 +493,7 @@ def phys2cvr(
             regr = np.genfromtxt(f"{outname}_petco2hrf.1D")
         except IOError:
             LGR.warning(f"Regressor {outname}_petco2hrf.1D not found. Estimating it.")
-            regr, regr_shifts = stats.get_regr(
+            regr, regr_shifts = stats.create_physio_regressor(
                 func_avg,
                 petco2hrf,
                 tr,
