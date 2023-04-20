@@ -20,6 +20,7 @@ from peakdet.io import load_physio
 from phys2cvr import _version, io, signal, stats
 from phys2cvr.cli.run import _check_opt_conf, _get_parser
 from phys2cvr.io import EXT_1D, EXT_NIFTI
+from phys2cvr.regressors import create_legendre, create_physio_regressor
 
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
@@ -473,7 +474,7 @@ def phys2cvr(
 
     # If a regressor directory is not specified, compute the regressors.
     if regr_dir is None:
-        regr, regr_shifts = stats.create_physio_regressor(
+        regr, regr_shifts = create_physio_regressor(
             func_avg,
             petco2hrf,
             tr,
@@ -493,7 +494,7 @@ def phys2cvr(
             regr = np.genfromtxt(f"{outname}_petco2hrf.1D")
         except IOError:
             LGR.warning(f"Regressor {outname}_petco2hrf.1D not found. Estimating it.")
-            regr, regr_shifts = stats.create_physio_regressor(
+            regr, regr_shifts = create_physio_regressor(
                 func_avg,
                 petco2hrf,
                 tr,
@@ -529,7 +530,7 @@ def phys2cvr(
 
         # Generate polynomial regressors (at least average) and assign them to denoise_matrix
         LGR.info(f"Compute Legendre polynomials up to order {l_degree}")
-        denoise_matrix = stats.get_legendre(l_degree, regr.size)
+        denoise_matrix = create_legendre(l_degree, regr.size)
 
         # Read in eventual denoising factors
         if denoise_matrix_file:
