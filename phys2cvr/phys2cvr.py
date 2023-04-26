@@ -248,9 +248,7 @@ def phys2cvr(
     if lagged_regression:
         run_regression = True
     # Add logger and suff
-    if outdir:
-        outdir = os.path.abspath(outdir)
-    else:
+    if outdir is None:
         outdir = os.path.join(os.path.split(fname_func)[0], "phys2cvr")
     outdir = os.path.abspath(outdir)
     petco2log_path = os.path.join(outdir, "logs")
