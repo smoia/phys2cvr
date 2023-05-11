@@ -1,3 +1,24 @@
+# 0.18.1 (Thu May 11 2023)
+
+#### ⚠️ Pushed to `master`
+
+- Start adding a bunch of tests ([@smoia](https://github.com/smoia))
+- Wrong library ;) ([@smoia](https://github.com/smoia))
+- int: Add codespell ([@smoia](https://github.com/smoia))
+- int: update auto-release environment ([@smoia](https://github.com/smoia))
+- int: update python-publish environment ([@smoia](https://github.com/smoia))
+
+#### 🏠 Internal
+
+- [pre-commit.ci] pre-commit autoupdate [#87](https://github.com/smoia/phys2cvr/pull/87) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.18.0 (Wed Mar 08 2023)
 
 #### 💥 Breaking Change during development
