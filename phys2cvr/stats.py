@@ -15,8 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as sct
 
-from phys2cvr import io
-from phys2cvr.io import FIGSIZE, SET_DPI
+from phys2cvr.io import FIGSIZE, SET_DPI, export_regressor
 from phys2cvr.signal import resample_signal
 
 R2MODEL = ["full", "partial", "intercept", "adj_full", "adj_partial", "adj_intercept"]
@@ -68,7 +67,7 @@ def x_corr(func, co2, lastrep, firstrep=0, offset=0, abs_xcorr=False):
             )
         else:
             LGR.warning(
-                f"The timeseries has lenght of {len(func)}, but the co2 "
+                f"The timeseries has length of {len(func)}, but the co2 "
                 f"has length of {len(co2)}. Matching co2 to func."
             )
         if firstrep + len(co2) > len(func):
@@ -250,7 +249,7 @@ def get_regr(
     plt.savefig(f"{outname}_petco2hrf.png", dpi=SET_DPI)
     plt.close()
 
-    petco2hrf_demean = io.export_regressor(
+    petco2hrf_demean = export_regressor(
         petco2hrf_shift, freq, tr, outname, "petco2hrf", ext
     )
 
@@ -293,7 +292,7 @@ def get_regr(
             petco2hrf_lagged = petco2hrf_padded[
                 optshift + lpad - i : optshift + lpad - i + len_upd
             ]
-            petco2hrf_shifts[:, n] = io.export_regressor(
+            petco2hrf_shifts[:, n] = export_regressor(
                 petco2hrf_lagged, freq, tr, outprefix, f"{n:04g}", ext
             )
 
