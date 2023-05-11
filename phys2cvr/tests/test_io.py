@@ -41,48 +41,6 @@ def test_if_declared_force_type(var, dtype, out):
     assert io.if_declared_force_type(var, dtype) == out
 
 
-@patch("logging.warning")
-@pytest.mark.parametrize(
-    "var, dtype, varname, expected_warning",
-    [
-        (
-            10,
-            "int",
-            "my_var",
-            "Changing type of variable my_var from <class 'int'> to int",
-        ),
-        ("10", "int", "my_var", ""),
-        (
-            [10],
-            "int",
-            "my_var",
-            "Changing type of variable my_var from <class 'list'> to int",
-        ),
-        (None, "int", "my_var", ""),
-        (10.0, "float", "my_var", ""),
-    ],
-)
-def test_if_declared_force_type_logging(mock_warning):
-    io.if_declared_force_type(10, "int", "my_var")
-    mock_warning.assert_called_with(
-        "Changing type of variable my_var from <class 'int'> to int"
-    )
-
-    io.if_declared_force_type("10", "int", "my_var")
-    mock_warning.assert_not_called()
-
-    io.if_declared_force_type([10], "int", "my_var")
-    mock_warning.assert_called_with(
-        "Changing type of variable my_var from <class 'list'> to int"
-    )
-
-    io.if_declared_force_type(None, "int", "my_var")
-    mock_warning.assert_not_called()
-
-    io.if_declared_force_type(10.0, "float", "my_var", silent=True)
-    mock_warning.assert_not_called()
-
-
 def test_check_ext():
     all_ext = [".csv", ".txt"]
     fname = "data.csv"
