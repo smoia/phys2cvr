@@ -108,7 +108,7 @@ def check_ext(all_ext, fname, remove=False):
     has_ext = False
     all_ext = if_declared_force_type(all_ext, "list", silent=True)
     for ext in all_ext:
-        if fname.lower().endswith(ext):
+        if fname.lower().endswith(ext.lower()):
             has_ext = True
             break
 

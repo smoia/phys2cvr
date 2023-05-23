@@ -39,7 +39,7 @@ def spc(ts):
     numpy.ndarray
         The SPC version of ts.
     """
-    m = ts.mean(axis=-1)[..., np.newaxis]
+    m = np.nanmean(ts, axis=-1)[..., np.newaxis]
     md = deepcopy(m)
     md[md == 0] = 1
     ts = (ts - m) / md
