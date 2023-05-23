@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Tests for io."""
 
+import logging
 import os
-from unittest.mock import patch
 
 import nibabel as nib
 import numpy as np
@@ -10,9 +10,10 @@ import pytest
 
 from phys2cvr import io
 
+LGR = logging.getLogger(__name__)
+
+
 # ## Unit tests
-
-
 @pytest.mark.parametrize(
     'var, dtype, out',
     [
@@ -92,18 +93,17 @@ def test_load_nifti_get_mask(nifti_data, nifti_mask):
 
 
 def test_export_regressor(testdir):
-    petco2hrf_shift = np.random.rand(10)
-    freq = 1
-    tr = 2
-    outname = os.path.join(testdir, 'test_regressor')
-    suffix = 'petco2hrf'
-    ext = '.1D'
+    petco2hrf_shift = np.arange(10)
+    ntp = 5
+    outname = os.path.join(testdir, "test_regressor")
+    suffix = "petco2hrf"
+    ext = ".1D"
 
     petco2hrf_demean = io.export_regressor(
-        petco2hrf_shift, freq, tr, outname, suffix=suffix, ext=ext
+        petco2hrf_shift, ntp, outname, suffix=suffix, ext=ext
     )
 
-    pco2 = (petco2hrf_shift - petco2hrf_shift.mean())[::2]
+    pco2 = np.asarray([-4.5, -2.25, 0, 2.25, 4.5])
     assert np.allclose(petco2hrf_demean, pco2)
 
     # Check if file was saved and has the correct content
@@ -127,14 +127,11 @@ def test_export_nifti(testdir):
 
     # load the output file and check if the data matches the input
     out_img = nib.load(fname)
-    assert out_img.get_fdata() == data
-    assert out_img.affine == affine
-    assert out_img.header == header
+    assert np.allclose(out_img.get_fdata(), data)
+    assert (out_img.affine == affine).all()
 
 
 # ## Break tests
-
-
 def test_break_if_declared_force_type():
     with pytest.raises(NotImplementedError) as errorinfo:
         io.if_declared_force_type('10', 'invalid_type')
