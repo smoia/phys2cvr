@@ -3,8 +3,6 @@ codecov:
   strict_yaml_branch: master
   require_ci_to_pass: yes
   bot: "codecov-io"
-  ci:
-    - "travis.org"
   max_report_age: 48
   disable_default_path_fixes: no
 
@@ -23,15 +21,22 @@ parsers:
 
 ignore:
   - "docs"
-  - "phys2bids/_version.py"
+  - "tests"
+  - "_version.py"
+  - "__init__.py"
   - "**/__init__.py"
-  - "**/**/__init__.py"
-  - "phys2bids/tests"
-  - "phys2bids/heuristics"
-  - "phys2bids/due.py"
+  - "due.py"
   - ".*rc"
-  - ".github"
-
+  - "versioneer.py"
+  - "setup.py"
+  - "phys2cvr/tests"
+  - "phys2cvr/_version.py"
+  - "phys2cvr/__init__.py"
+  - "phys2cvr/**/__init__.py"
+  - "phys2cvr/due.py"
+  - "phys2cvr/.*rc"
+  - "phys2cvr/versioneer.py"
+  - "phys2cvr/setup.py"
 comment:
   layout: "reach,diff,flags,tree"
   behavior: default
