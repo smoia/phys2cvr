@@ -96,7 +96,7 @@ def check_ext(all_ext, fname, remove=False):
     fname : str
         The filename to check
     remove : bool, optional
-        Remove the extention from fname if it has one
+        Remove the extension from fname if it has one
 
     Returns
     -------
@@ -149,7 +149,7 @@ def check_nifti_dim(fname, data, dim=4):
     if len(data.shape) < dim:
         raise ValueError(
             f"{fname} does not seem to be a {dim}D file. "
-            f"Plase provide a {dim}D nifti file."
+            f"Please provide a {dim}D nifti file."
         )
     if len(data.shape) > dim:
         LGR.warning(f"{fname} has more than {dim} dimensions. Removing D > {dim}.")

@@ -97,7 +97,7 @@ git checkout master
 git branch --set-upstream-to=upstream/master
 
 # !!! VERY IMPORTANT !!!
-# Set the deafult push to origin, in order NOT to push by mistake to upstream.
+# Set the default push to origin, in order NOT to push by mistake to upstream.
 git config remote.pushDefault origin
 
 # Install package with pip using the developer mode and the `[dev]` label

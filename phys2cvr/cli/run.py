@@ -25,7 +25,7 @@ def _get_parser():
             "to estimate CVR maps."
             "It can also be used to generate "
             "regressors to run the estimation "
-            "with other softwares.\n"
+            "with other software.\n"
             f"Version {__version__}"
         ),
         add_help=False,
@@ -305,7 +305,7 @@ def _get_parser():
     )
 
     title_opt_r2model = parser.add_argument_group(
-        "Optional Arguments to select R^2 model " "for regresion step"
+        "Optional Arguments to select R^2 model for regression step"
     )
 
     opt_r2model = title_opt_r2model.add_mutually_exclusive_group()
