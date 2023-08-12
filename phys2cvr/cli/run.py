@@ -260,6 +260,14 @@ def _get_parser():
         ),
         default=None,
     )
+    opt_filt.add_argument(
+        "-bo",
+        "--butter-order",
+        dest="butter_order",
+        type=int,
+        help=("Order of Butterworth filter. Default is 9."),
+        default=None,
+    )
 
     opt_flow = parser.add_argument_group("Optional Arguments to modify the workflow")
     opt_flow.add_argument(
