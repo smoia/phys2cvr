@@ -1,3 +1,30 @@
+# 0.18.1 (Sun Aug 13 2023)
+
+#### 🐛 Bug Fix
+
+- Fix bandpass Butterworth filter order to get a better filter, add option to change order in CLI [#90](https://github.com/smoia/phys2cvr/pull/90) ([@smoia](https://github.com/smoia))
+- [pre-commit.ci] pre-commit autoupdate [#88](https://github.com/smoia/phys2cvr/pull/88) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]) [@smoia](https://github.com/smoia))
+
+#### ⚠️ Pushed to `master`
+
+- int: codespell happy ([@smoia](https://github.com/smoia))
+- Start adding a bunch of tests ([@smoia](https://github.com/smoia))
+- Wrong library ;) ([@smoia](https://github.com/smoia))
+- int: Add codespell ([@smoia](https://github.com/smoia))
+- int: update auto-release environment ([@smoia](https://github.com/smoia))
+- int: update python-publish environment ([@smoia](https://github.com/smoia))
+
+#### 🏠 Internal
+
+- [pre-commit.ci] pre-commit autoupdate [#87](https://github.com/smoia/phys2cvr/pull/87) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.18.1 (Thu May 11 2023)
 
 #### ⚠️ Pushed to `master`
