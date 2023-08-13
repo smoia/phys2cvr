@@ -65,7 +65,7 @@ def if_declared_force_type(var, dtype, varname="an input variable", silent=False
         elif dtype == "str":
             tmpvar = str(var)
         elif dtype == "list":
-            if type(var) == list:
+            if type(var) is list:
                 tmpvar = var
             else:
                 tmpvar = [var]
@@ -73,7 +73,7 @@ def if_declared_force_type(var, dtype, varname="an input variable", silent=False
             raise NotImplementedError(f"Type {dtype} not supported")
 
         if not silent:
-            if type(tmpvar) != type(var):
+            if type(tmpvar) is not type(var):
                 if varname != "an input variable":
                     varname = f"variable {varname}"
 
