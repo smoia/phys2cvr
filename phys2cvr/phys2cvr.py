@@ -62,8 +62,9 @@ def phys2cvr(
     n_trials=None,
     abs_xcorr=False,
     skip_xcorr=False,
-    highcut=None,
-    lowcut=None,
+    highcut=0.04,
+    lowcut=0.02,
+    butter_order=9,
     apply_filter=False,
     run_regression=False,
     lagged_regression=True,
@@ -140,11 +141,14 @@ def phys2cvr(
     highcut : str, int, or float, optional
         High frequency limit for filter.
         Required if applying a filter.
-        Default: empty
+        Default: 0.02
     lowcut : str, int, or float, optional
         Low frequency limit for filter.
         Required if applying a filter.
-        Default: empty
+        Default: 0.04
+    butter_order : int, optional
+        Butterworth filter order.
+        Default: 9
     apply_filter : bool, optional
         Apply a Butterworth filter to the functional input.
         Default: False
@@ -322,7 +326,9 @@ def phys2cvr(
             LGR.info(f"Loading {fname_func}")
             if apply_filter:
                 LGR.info("Applying butterworth filter to {fname_func}")
-                func_avg = signal.filter_signal(func_avg, tr, lowcut, highcut)
+                func_avg = signal.filter_signal(
+                    func_avg, tr, lowcut, highcut, butter_order
+                )
         else:
             raise NameError(
                 "Provided functional signal, but no TR specified! "
@@ -372,7 +378,7 @@ def phys2cvr(
 
         if apply_filter:
             LGR.info(f"Obtaining filtered average signal in {roiref}")
-            func_filt = signal.filter_signal(func, tr, lowcut, highcut)
+            func_filt = signal.filter_signal(func, tr, lowcut, highcut, butter_order)
             func_avg = func_filt[roi].mean(axis=0)
         else:
             LGR.info(f"Obtaining average signal in {roiref}")

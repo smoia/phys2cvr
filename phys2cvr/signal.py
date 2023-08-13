@@ -90,7 +90,7 @@ def create_hrf(freq=40):
     return hrf
 
 
-def filter_signal(data, tr, lowcut="", highcut=""):
+def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     """
     Create a bandpass filter given a lowcut and a highcut, then filter data.
 
@@ -104,20 +104,18 @@ def filter_signal(data, tr, lowcut="", highcut=""):
         Lower frequency in the bandpass
     highcut : float
         Higher frequency in the bandpass
+    order : int
+        The order of the butterworth filter
 
     Returns
     -------
     filt_data : np.ndarray
         Input `data`, but filtered.
     """
-    if not lowcut:
-        lowcut = 0.02
-    if not highcut:
-        highcut = 0.04
     nyq = (1 / tr) / 2
     low = lowcut / nyq
     high = highcut / nyq
-    a, b = butter(1, [low, high], btype="band")
+    a, b = butter(order, [low, high], btype="band")
     filt_data = filtfilt(a, b, data, axis=-1)
     return filt_data
 
