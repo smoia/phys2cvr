@@ -32,7 +32,13 @@ jobs:
     # CircleCI will report the results back to your VCS provider.
     steps:
       - checkout
-      # Install Pillow first to avoid jpsg and zlib issues
+      # Install wxPython first to avoid issues
+      - run:
+          name: Install wxpython first
+          command: |
+            pip install -U \
+            -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-20.04 \
+            wxPython==4.2.0
       - python/install-packages:
           path-args: .[test]
           pypi-cache: false
@@ -65,6 +71,12 @@ jobs:
     resource_class: medium
     steps:
       - checkout
+      - run:
+          name: Install wxpython first
+          command: |
+            pip install -U \
+            -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-20.04 \
+            wxPython==4.2.0
       - python/install-packages:
           path-args: .[test]
           pypi-cache: false
@@ -90,6 +102,12 @@ jobs:
     resource_class: small
     steps:
       - checkout
+      - run:
+          name: Install wxpython first
+          command: |
+            pip install -U \
+            -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-20.04 \
+            wxPython==4.2.0
       - python/install-packages:
           path-args: .[style]
           pypi-cache: false
