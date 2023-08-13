@@ -101,6 +101,7 @@ jobs:
             isort --check .
             black --check phys2cvr
             flake8 ./phys2cvr
+            codespell .
 
   merge_coverage:
     working_directory: /tmp/src/phys2cvr
