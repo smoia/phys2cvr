@@ -1,3 +1,19 @@
+# 0.18.2 (Mon Aug 28 2023)
+
+#### 🐛 Bug Fix
+
+- fix: Do not crawl tests folder when importing modules (s.moia@bcbl.eu)
+
+#### ⚠️ Pushed to `master`
+
+- int: Update actions version (s.moia@bcbl.eu)
+
+#### Authors: 1
+
+- Stefano Moia (s.moia@bcbl.eu)
+
+---
+
 # 0.18.1 (Sun Aug 13 2023)
 
 #### 🐛 Bug Fix
