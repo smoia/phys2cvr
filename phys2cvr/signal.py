@@ -115,7 +115,7 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     nyq = (1 / tr) / 2
     low = lowcut / nyq
     high = highcut / nyq
-    a, b = butter(order, [low, high], btype="band")
+    a, b = butter(int(order), [low, high], btype="band")
     filt_data = filtfilt(a, b, data, axis=-1)
     return filt_data
 

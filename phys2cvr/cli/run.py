@@ -266,7 +266,7 @@ def _get_parser():
         dest="butter_order",
         type=int,
         help=("Order of Butterworth filter. Default is 9."),
-        default=None,
+        default=9,
     )
 
     opt_flow = parser.add_argument_group("Optional Arguments to modify the workflow")
