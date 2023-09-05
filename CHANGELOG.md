@@ -1,3 +1,15 @@
+# 0.18.3 (Tue Sep 05 2023)
+
+#### 🐛 Bug Fix
+
+- fix: Make sure butterworth order is given ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.18.2 (Mon Aug 28 2023)
 
 #### 🐛 Bug Fix
