@@ -759,6 +759,7 @@ def phys2cvr(
         )
 
     LGR.info("phys2cvr finished! Enjoy your outputs!")
+    LGR.warning("Due to float rounding, you might need to mask your output.")
 
 
 def _main(argv=None):
