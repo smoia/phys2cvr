@@ -174,7 +174,7 @@ def fine_shift(
 
     # Create sliding window view into petco2hrf, then select those
     negp, posp = optshift - neg_shifts, optshift + pos_shifts
-    petco2hrf_lagged = swv(petco2hrf, func_upsamp_size)[negp:posp].copy()
+    petco2hrf_lagged = swv(petco2hrf, int(func_upsamp_size))[negp:posp].copy()
 
     petco2hrf_lagged = io.export_regressor(
         petco2hrf_lagged, func_size, outprefix, "", ext
