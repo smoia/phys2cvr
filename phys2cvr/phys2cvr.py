@@ -532,35 +532,25 @@ def phys2cvr(
 
         # Read in eventual denoising factors
         if denoise_matrix_file:
-            denoise_matrix_file = io.if_declared_force_type(
-                denoise_matrix_file, "list", "denoise_matrix_file"
+            denoise_matrix = io.load_regressor_matrices(
+                denoise_matrix_file,
+                additional_matrix=denoise_matrix,
+                ntp=func.shape[-1],
             )
-            for matrix in denoise_matrix_file:
-                LGR.info(f"Read confounding factor from {matrix}")
-                conf = np.genfromtxt(matrix)
-                denoise_matrix = np.hstack([denoise_matrix, conf])
         # Read in eventual extra factors
         if extra_matrix_file:
-            extra_matrix_file = io.if_declared_force_type(
-                extra_matrix_file, "list", "extra_matrix_file"
+            denoise_matrix = io.load_regressor_matrices(
+                denoise_matrix_file,
+                ntp=func.shape[-1],
+                regtype="extra orthogonalisation",
             )
-            matlist = []
-            for matrix in extra_matrix_file:
-                LGR.info(f"Read extra factor for orthogonalisation from {matrix}")
-                matlist += [np.genfromtxt(matrix)]
-            extra_matrix = np.hstack(matlist)
         else:
             extra_matrix = None
         # Read in eventual orthogonalisable factors
         if orthogonalised_matrix_file:
-            orthogonalised_matrix_file = io.if_declared_force_type(
-                orthogonalised_matrix_file, "list", "orthogonalised_matrix_file"
+            denoise_matrix = io.load_regressor_matrices(
+                denoise_matrix_file, ntp=func.shape[-1], regtype="confounding"
             )
-            matlist = []
-            for matrix in orthogonalised_matrix_file:
-                LGR.info(f"Read confounding factor from {matrix}")
-                matlist += [np.genfromtxt(matrix)]
-            orthogonalised_matrix = np.hstack(matlist)
         else:
             orthogonalised_matrix = None
 
