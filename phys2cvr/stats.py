@@ -15,6 +15,8 @@ import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view as swv
 from scipy.stats import zscore
 
+from phys2cvr import io
+
 R2MODEL = ["full", "partial", "intercept", "adj_full", "adj_partial", "adj_intercept"]
 
 LGR = logging.getLogger(__name__)
@@ -333,17 +335,17 @@ def regression(
 
     Ymat = data[mask]
     # Check that regr has "two" dimensions
-    if regr.ndim < 2:
-        regr = regr[..., np.newaxis]
+    regr = io.array_is_2d(regr)
 
     if denoise_mat is not None:
         if regr.shape[0] != denoise_mat.shape[0]:
-            denoise_mat = denoise_mat.T
-            if regr.shape[0] != denoise_mat.shape[0]:
+            if regr.shape[0] != denoise_mat.shape[1]:
                 raise ValueError(
                     "The provided confounding matrix does not match "
                     "the dimensionality of the PetCO2hrf regressor!"
                 )
+            else:
+                denoise_mat = denoise_mat.T
         # Stack mat
         # Note: Xmat is not currently demeaned within this function, so inputs
         # should already be demeaned
@@ -380,14 +382,15 @@ def regression(
     betas, tstats, r_square = ols(
         Ymat.T, Xmat, r2model="full", residuals=False, demean=False
     )
+
     if debug:
-        # debug should eport betas, tstats, r_square
+        # debug should export betas, tstats, r_square
         pass
 
     # Assign betas, Rsquare and tstats to new volume
-    bout = np.zeros_like(mask)
-    tout = np.zeros_like(mask)
-    rout = np.zeros_like(mask)
+    bout = np.zeros_like(mask, dtype=np.float64)
+    tout = np.zeros_like(mask, dtype=np.float64)
+    rout = np.zeros_like(mask, dtype=np.float64)
     bout[mask] = betas[-1, :]
     tout[mask] = tstats[-1, :]
     rout[mask] = r_square
