@@ -22,7 +22,7 @@ jobs:
     # The executor is the environment in which the steps below will be executed - below will use a python 3.6.14 container
     # Change the version below to your required version of python
     docker:
-      - image: cimg/python:3.7
+      - image: wxpython4/build:ubuntu-20.04
     working_directory: /tmp/src/phys2cvr
     resource_class: medium
     # Checkout the code as the first step. This is a dedicated CircleCI step.
@@ -89,7 +89,7 @@ jobs:
 
   style_check:
     docker:
-      - image: cimg/python:3.7
+      - image: wxpython4/build:ubuntu-20.04
     working_directory: /tmp/src/phys2cvr
     resource_class: small
     steps:
