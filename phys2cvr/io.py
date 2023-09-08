@@ -253,6 +253,107 @@ def export_nifti(data, img, fname):
     out_img.to_filename(f"{fname}.nii.gz")
 
 
+def array_is_2d(array):
+    """
+    Check that given array is 2D.
+
+    Parameters
+    ----------
+    array : numpy.ndarray like
+        A numpy array
+
+    Returns
+    -------
+    np.ndarray
+        A 2d np.ndarray with trailing empty dims (transposed compared to atleast_2d)
+
+    Raises
+    ------
+    ValueError
+        If array dimension is less than 1 or more than 2
+    """
+    if array.ndim > 2 or array.ndim < 1:
+        raise ValueError(f"Files with {array.ndim} dimensions are not supported yet")
+    elif array.ndim == 1:
+        array = array[..., np.newaxis]
+
+    return array
+
+
+def load_regressor_matrices(
+    regressor_matrix_file, additional_matrix=None, ntp=None, regtype="confounding"
+):
+    """
+    Load regressors from files.
+
+    Parameters
+    ----------
+    regressor_matrix_file : string, path, or list
+        One or more paths to files containing regressors
+    additional_matrix : numpy.ndarray or None, optional
+        An additional matrix of loaded regressors to stack to the loaded one
+    ntp : int or None, optional
+        Number of expected timepoints contained in the regressors.
+    regtype : str, optional
+        Type of factor that is read - for logging purposes only.
+
+    Returns
+    -------
+    numpy.ndarray
+        Complete regressor matrix - time is in dimension 0.
+
+    Raises
+    ------
+    ValueError
+        If ntp is declared and doesn't match any axis or regressors.
+        If additional_matrix is declared and its shape doesn't match the regressors one.
+    """
+    regressor_matrix_file = if_declared_force_type(
+        regressor_matrix_file, "list", "regressor_matrix_file"
+    )
+    matlist = []
+    regtype = "" if regtype is None else regtype
+
+    for matrix in regressor_matrix_file:
+        LGR.info(f"Read {regtype} factor from {matrix}")
+        regr = np.genfromtxt(matrix)
+        regr = array_is_2d(regr)
+
+        if ntp is not None:
+            if ntp not in regr.shape:
+                raise ValueError(
+                    f"One shape of the regressor matrix should be {ntp}, but loaded "
+                    f"file has shape {regr.shape}"
+                )
+            if regr.shape[0] != ntp:
+                regr = regr.T
+        else:
+            if regr.shape[1] > regr.shape[0]:
+                LGR.warning(
+                    f"The number of regressors {regr.shape[1]} seems higher than the "
+                    f"number of timepoints {regr.shape[0]}. Assuming regressor matrix "
+                    "needs to be transposed"
+                )
+                regr = regr.T
+        matlist += [regr]
+    regressor_matrix = np.hstack(matlist)
+
+    if additional_matrix is not None:
+        additional_matrix = array_is_2d(additional_matrix)
+        if additional_matrix.shape[0] != regressor_matrix.shape[0]:
+            if additional_matrix.shape[1] != regressor_matrix.shape[0]:
+                raise ValueError(
+                    f"Loaded matrix has shape {regressor_matrix.shape}, but additional "
+                    f"matrix has shape {additional_matrix.shape}"
+                )
+            else:
+                additional_matrix = additional_matrix.T
+
+        regressor_matrix = np.hstack([additional_matrix, regressor_matrix])
+
+    return regressor_matrix
+
+
 """
 Copyright 2021, Stefano Moia.
 
