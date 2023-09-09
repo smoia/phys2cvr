@@ -90,10 +90,6 @@ jobs:
     resource_class: small
     steps:
       - checkout
-      - run:
-          name: Install peakdet first without dependencies
-          command: |
-            pip install -U --no-deps peakdet
       - python/install-packages:
           path-args: .[style]
           pypi-cache: false
