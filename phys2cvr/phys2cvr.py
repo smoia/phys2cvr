@@ -440,10 +440,6 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 conf = np.genfromtxt(matrix)
                 mat_conf = np.hstack([mat_conf, conf])
         io.export_nifti(func, oimg, f'func')
-        fname='regr.1D'
-        np.savetxt(fname,regr)
-        fname = 'mat_conf.1D'
-        np.savetxt(fname,mat_conf)
         LGR.info('Compute simple CVR estimation (bulk shift only)')
         x1D = os.path.join(outdir, 'mat', 'mat_simple.1D')
         

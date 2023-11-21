@@ -27,8 +27,6 @@ LGR.setLevel(logging.INFO)
 
 
 def x_corr(func, co2, lastrep, firstrep=0, offset=0, abs_xcorr=False):
-    print(f'lastrep={lastrep}')
-    print(f'firstrep={firstrep}')
     """
     Cross correlation between `func` and `co2`.
 
@@ -195,9 +193,6 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
         time_axis = time_axis[:nrep]
     elif nrep > time_axis.shape[0]:
         time_axis = np.pad(time_axis, (0, int(nrep - time_axis.shape[0])), 'linear_ramp')
-    np.savetxt('func_cut.txt',func_cut)
-    np.savetxt('co2_cut.txt',petco2hrf_cut)
-    print(f'nrep={nrep}')
     if not skip_xcorr:
         _, optshift, xcorr = x_corr(func_cut, petco2hrf_cut, nrep, abs_xcorr=abs_xcorr)
         LGR.info(f'Cross correlation estimated bulk shift at {optshift/freq} seconds')
