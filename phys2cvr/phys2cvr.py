@@ -382,12 +382,17 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
         # Set output file & path - calling splitext twice cause .gz
         basename_co2 = os.path.splitext(os.path.splitext(os.path.basename(fname_co2))[0])[0]
         outname = os.path.join(outdir, basename_co2)
-
+        if co2.ndim == 2:
+            n_reg=co2.shape[1]
+        else:
+            n_reg=1
         # Unless user asks to skip this step, convolve the end tidal signal.
         if run_conv is False:
             petco2hrf = co2
         else:
-            petco2hrf = signal.convolve_petco2(co2, pidx, freq, outname)
+            petco2hrf = np.zeros((np.shape(co2)))
+            for n in range(n_reg):
+                petco2hrf[:,n] = signal.convolve_petco2(co2[:,n], pidx, freq, outname)
 
     # If a regressor directory is not specified, compute the regressors.
     if regr_dir is None:
@@ -424,7 +429,8 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
 
         # Start computing the polynomial regressor (at least average)
         LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
-        mat_conf = stats.get_legendre(l_degree, regr.size)
+        #change: get_legendre uses rows of regr, now that its not 1D
+        mat_conf = stats.get_legendre(l_degree, regr.shape[0])
 
         # Read in eventual denoising factors
         if denoise_matrix:
@@ -433,9 +439,14 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                 LGR.info(f'Read confounding factor from {matrix}')
                 conf = np.genfromtxt(matrix)
                 mat_conf = np.hstack([mat_conf, conf])
-
+        io.export_nifti(func, oimg, f'func')
+        fname='regr.1D'
+        np.savetxt(fname,regr)
+        fname = 'mat_conf.1D'
+        np.savetxt(fname,mat_conf)
         LGR.info('Compute simple CVR estimation (bulk shift only)')
         x1D = os.path.join(outdir, 'mat', 'mat_simple.1D')
+        
         beta, tstat, r_square = stats.regression(func, regr, mat_conf, mask,
                                                  r2model, debug, x1D)
 
@@ -464,7 +475,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             if legacy:
                 nrep = int(lag_max * freq * 2)
             else:
-                nrep = int(lag_max * freq * 2) + 1
+                nrep = int((lag_max * freq * 2) + 1)
 
             if regr_dir:
                 outprefix = os.path.join(regr_dir, os.path.split(outname)[1])
@@ -523,7 +534,7 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             else:
                 # Check the number of repetitions first
                 if lag_step:
-                    step = lag_step * freq
+                    step = lag_step * freq 
                     # If step is less than a second, force it to be a second
                     if step < 1:
                         step = 1
@@ -533,7 +544,6 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                     step = 1
 
                 lag_range = np.arange(0, nrep, step, dtype=int)
-
                 # Force regressor to have 2 dimensions minimum
                 if regr.ndim < 2:
                     regr = regr[..., np.newaxis]
@@ -546,31 +556,37 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
                                     dtype='float32')
                 tstat_all = np.empty_like(beta_all, dtype='float32')
 
+
                 # Run regressions for each lag
-                for n, i in enumerate(lag_range):
+
+                for n, i in enumerate(lag_range):                    
                     LGR.info(f'Perform L-GLM number {n+1} of {lag_range.size}')
                     try:
-                        regr = regr_shifts[:, i]
+                        #Change: from regr=regr_shifts[:,i] to accomodate for n-column regressor
+                        regr=regr_shifts[:,i*n_reg:i*n_reg+n_reg]
                         LGR.debug(f'Using shift {i} from matrix in memory: {regr}')
                     except NameError:
                         regr = np.genfromtxt(f'{outprefix}_{i:04g}')
                         LGR.debug(f'Reading shift {i} from file {outprefix}_{i:04g}')
 
-                    x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
+                    x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')         
                     (beta_all[:, :, :, n, :],
-                     tstat_all[:, :, :, n, :],
-                     r_square_all[:, :, :, n]) = stats.regression(func, regr,
-                                                                  mat_conf,
-                                                                  mask,
-                                                                  r2model,
-                                                                  debug,
-                                                                  x1D)
-
+                        tstat_all[:, :, :, n, :],
+                        r_square_all[:, :, :, n]) = stats.regression(func, regr,
+                                                                    mat_conf,
+                                                                    mask,
+                                                                    r2model='full', debug=False, x1D='mat.1D')                                          
                 if debug:
                     LGR.debug('Export all betas, tstats, and R^2 volumes.')
+                    newdim_all = deepcopy(img.header["dim"])
+                    newdim_all[0], newdim_all[4] = 4, int(len(lag_range))
+                    oimg_all = deepcopy(img)
+                    oimg_all.header["dim"] = newdim_all
                     io.export_nifti(r_square_all, oimg_all, f'{fname_out_func}_r_square_all')
-                    io.export_nifti(tstat_all, oimg_all, f'{fname_out_func}_tstat_all')
-                    io.export_nifti(beta_all, oimg_all, f'{fname_out_func}_beta_all')
+                    for n in range(n_reg):
+                        regressor_num = n+1
+                        io.export_nifti(tstat_all[:, :, :, :, n], oimg_all, f'{fname_out_func}_tstat_all_regressor{regressor_num}')
+                        io.export_nifti(beta_all[:, :, :, :, n], oimg_all, f'{fname_out_func}_beta_all_regressor{regressor_num}')
 
                 # Find the right lag for CVR estimation
                 lag_idx = np.argmax(r_square_all, axis=-1)
@@ -591,10 +607,11 @@ def phys2cvr(fname_func, fname_co2=None, fname_pidx=None, fname_roi=None, fname_
             if scale_factor is None:
                 LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
             else:
-                beta[..., 0] = beta[..., 0] / float(scale_factor)
+                for n in range(n_reg):
+                    beta[..., n] = beta[..., n] / float(scale_factor)
 
-            io.export_nifti(beta, oimg, f'{fname_out_func}_cvr')
-            io.export_nifti(tstat, oimg, f'{fname_out_func}_tstat')
+            io.export_nifti(beta[:,:,:,0:n_reg], oimg, f'{fname_out_func}_cvr')
+            io.export_nifti(tstat[:,:,:,0:n_reg], oimg, f'{fname_out_func}_tstat')
             if not lag_map:
                 io.export_nifti(lag, oimg, f'{fname_out_func}_lag')
                 io.export_nifti(lag_rel, oimg, f'{fname_out_func}_lag_mkrel')

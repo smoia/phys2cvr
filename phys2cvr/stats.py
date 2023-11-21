@@ -27,6 +27,8 @@ LGR.setLevel(logging.INFO)
 
 
 def x_corr(func, co2, lastrep, firstrep=0, offset=0, abs_xcorr=False):
+    print(f'lastrep={lastrep}')
+    print(f'firstrep={firstrep}')
     """
     Cross correlation between `func` and `co2`.
 
@@ -193,9 +195,11 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
         time_axis = time_axis[:nrep]
     elif nrep > time_axis.shape[0]:
         time_axis = np.pad(time_axis, (0, int(nrep - time_axis.shape[0])), 'linear_ramp')
-
+    np.savetxt('func_cut.txt',func_cut)
+    np.savetxt('co2_cut.txt',petco2hrf_cut)
+    print(f'nrep={nrep}')
     if not skip_xcorr:
-        _, optshift, xcorr = x_corr(func_cut, petco2hrf, nrep, abs_xcorr=abs_xcorr)
+        _, optshift, xcorr = x_corr(func_cut, petco2hrf_cut, nrep, abs_xcorr=abs_xcorr)
         LGR.info(f'Cross correlation estimated bulk shift at {optshift/freq} seconds')
         # Export estimated optimal shift in seconds
         with open(f'{outname}_optshift.1D', 'w') as f:
@@ -255,16 +259,40 @@ def get_regr(func_avg, petco2hrf, tr, freq, outname, lag_max=None,
         else:
             rpad = 0
 
+        if petco2hrf.ndim == 2:
+            n_reg=petco2hrf.shape[1]
+        else:
+            n_reg=1
         if func_cut.shape[0] <= petco2hrf.shape[0]:
-            petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
-        elif func_cut.shape[0] > petco2hrf.shape[0]:
-            petco2hrf_padded = np.pad(petco2hrf_shift, (int(lpad), int(rpad)), 'mean')
+            petco2hrf_padded = np.empty((petco2hrf.shape[0] + rpad + lpad,n_reg))
+            if n_reg > 1:
+                for i in range(n_reg):
+                    petco2hrf_padded[:,i] = np.pad(petco2hrf[:,i], (int(lpad), int(rpad)), 'mean')
+            else:
+                petco2hrf_padded = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
 
-        for n, i in enumerate(range(-negrep, posrep)):
+        elif func_cut.shape[0] > petco2hrf.shape[0]:
+            petco2hrf_padded = np.empty((func_cut.shape[0] + rpad +1,n_reg))
+            if n_reg > 1:
+                for i in range(n_reg):
+                    petco2hrf_padded[:,i] = np.pad(petco2hrf_shift[:,i], (int(lpad), int(rpad)), 'mean')
+            else:
+                petco2hrf_padded = np.pad(petco2hrf_shift, (int(lpad), int(rpad)), 'mean')
+        petco2hrf_shifts = np.empty([func_avg.shape[0], (negrep+posrep)*n_reg], dtype='float32')
+        n=0
+        for i in range(-negrep, posrep):
             petco2hrf_lagged = petco2hrf_padded[optshift+lpad-i:optshift+lpad-i+len_upd]
-            petco2hrf_shifts[:, n] = io.export_regressor(petco2hrf_lagged, freq, tr,
+            if n_reg > 1:
+                petco2hrf_shifts[:, n:n+n_reg] = io.export_regressor(petco2hrf_lagged, freq, tr,
+                                                         outprefix,
+                                                         f'{n:04g}', '.1D')
+                n=n+n_reg
+            else:
+                petco2hrf_shifts[:, n] = io.export_regressor(petco2hrf_lagged, freq, tr,
                                                          outprefix,
                                                          f'{n:04g}', ext)
+                n = n+1
+                
 
     elif lagged_regression and lag_max is None:
         LGR.warning('The generation of lagged regressors was requested, '
