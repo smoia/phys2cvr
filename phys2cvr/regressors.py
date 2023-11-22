@@ -29,7 +29,7 @@ LGR.setLevel(logging.INFO)
 
 def create_legendre(degree, length):
     """
-    Produces Legendre polynomials of order `degree`.
+    Produce Legendre polynomials of order `degree`.
 
     Parameters
     ----------
