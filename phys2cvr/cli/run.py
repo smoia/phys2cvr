@@ -118,7 +118,7 @@ def _get_parser():
     )
 
     opt_phys = parser.add_argument_group(
-        "Optional Arguments for physiological " "timeseries (regressor of interest)"
+        "Optional Arguments for physiological timeseries (regressor of interest)"
     )
     opt_phys.add_argument(
         "-co2",
@@ -166,7 +166,7 @@ def _get_parser():
     )
 
     opt_xcorr = parser.add_argument_group(
-        "Optional Arguments for the cross correlation " "(bulk shift estimation step)"
+        "Optional Arguments for the cross correlation (bulk shift estimation step)"
     )
     opt_xcorr.add_argument(
         "-tlen",
@@ -304,12 +304,62 @@ def _get_parser():
         dest="run_petco2hrf",
         action="store_false",
         help=(
-            "Skip convolution of physiological trace. "
-            "By default %(prog)s convolves the physiological "
+            "Skip the creation of the PetCO2hrf trace. "
+            "By default %(prog)s convolves a physiological "
             "trace with a standard HRF. Skip it when using "
-            "fMRI signal only."
+            "fMRI signal only or a pre-computed regressor."
         ),
         default=True,
+    )
+
+    title_opt_response_function = parser.add_argument_group(
+        "Optional Arguments to select a response function to convolve the signal of interest (e.g. PetCO2 trace)"
+    )
+    opt_response_function = title_opt_response_function.add_mutually_exclusive_group()
+
+    opt_response_function.add_argument(
+        "-hrf",
+        "--hrf",
+        dest="response_function",
+        action="store_const",
+        const="hrf",
+        help=(
+            "Use an HRF to convolve the PetCO2 trace. This is the default behaviour."
+        ),
+        default="hrf",
+    )
+    opt_response_function.add_argument(
+        "-rrf",
+        "--rrf",
+        dest="response_function",
+        action="store_const",
+        const="rrf",
+        help=(
+            "Use a RRF (Respiratory Response Function) to convolve the signal of interest. "
+            "Requires phys2denoise to be installed."
+        ),
+        default="hrf",
+    )
+    opt_response_function.add_argument(
+        "-crf",
+        "--crf",
+        dest="response_function",
+        action="store_const",
+        const="crf",
+        help=(
+            "Use a CRF (Cardiac Response Function) to convolve the signal of interest. "
+            "Requires phys2denoise to be installed."
+        ),
+        default="hrf",
+    )
+    opt_response_function.add_argument(
+        "-norf",
+        "--no-response-function",
+        dest="response_function",
+        action="store_const",
+        const=None,
+        help=("Do NOT convolve the signal of interest with a response function."),
+        default="hrf",
     )
 
     title_opt_r2model = parser.add_argument_group(

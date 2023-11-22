@@ -81,6 +81,7 @@ def phys2cvr(
     lag_map=None,
     regr_dir=None,
     run_petco2hrf=True,
+    response_function="hrf",
     quiet=False,
     debug=False,
 ):
@@ -467,7 +468,14 @@ def phys2cvr(
         if run_petco2hrf is False:
             petco2hrf = co2
         else:
-            petco2hrf = signal.compute_petco2hrf(co2, pidx, freq, outname)
+            if response_function not in ["hrf", "rrf", "crf"]:
+                try:
+                    response_function = np.genfromtxt(response_function)
+                except IOError:
+                    pass
+                petco2hrf = signal.compute_petco2hrf(
+                    co2, pidx, freq, outname, response_function
+                )
 
     # If a regressor directory is not specified, compute the regressors.
     if regr_dir is None:
