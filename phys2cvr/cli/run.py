@@ -524,7 +524,7 @@ def _get_parser():
     )
 
     title_opt_conf = parser.add_argument_group(
-        "Optional Arguments to set up specific " "workflows"
+        "Optional Arguments to set up specific workflows"
     )
 
     opt_conf = title_opt_conf.add_mutually_exclusive_group()
