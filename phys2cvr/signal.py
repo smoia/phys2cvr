@@ -120,7 +120,7 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     return filt_data
 
 
-def compute_petco2hrf(co2, pidx, freq, outname, mode="full"):
+def compute_petco2hrf(co2, pidx, freq, outname, response_function="hfr", mode="full"):
     """
     Create PetCO2 trace from CO2 trace, then convolve to get PetCO2hrf.
 
@@ -134,13 +134,15 @@ def compute_petco2hrf(co2, pidx, freq, outname, mode="full"):
         sample frequency of the CO2 regressor
     outname : str
         prefix of the exported file
+    response_function : "hrf", "rrf", "crf", np.ndarray, or None, optional
+        the response function to use to convolve the signal of interest
     mode : {'full', 'valid', 'same'} str, optional
         convolution mode, see numpy.convolve.
 
     Returns
     -------
     petco2hrf : np.ndarray
-        Convolved CO2 trace
+        Convolved CO2 trace.
 
     Raises
     ------
@@ -151,7 +153,33 @@ def compute_petco2hrf(co2, pidx, freq, outname, mode="full"):
         raise NotImplementedError("2+ D arrays are not supported.")
 
     # Extract PETco2
-    hrf = create_hrf(freq)
+    if type(response_function) is np.ndarray:
+        hrf = response_function
+    elif response_function is None:
+        pass
+    elif response_function == "hrf":
+        hrf = create_hrf(freq)
+    elif response_function == "rrf":
+        try:
+            from phys2denoise.metrics.responses import rrf
+        except ImportError:
+            raise ImportError(
+                "phys2denoise is required to use RRF response functions. "
+                "Please see install instructions."
+            )
+        hrf = rrf
+    elif response_function == "crf":
+        try:
+            from phys2denoise.metrics.responses import crf
+        except ImportError:
+            raise ImportError(
+                "phys2denoise is required to use CRF response functions. "
+                "Please see install instructions."
+            )
+        hrf = crf
+    else:
+        raise ValueError(f"Response function {response_function} is not supported yet")
+
     nx = np.linspace(0, co2.size, co2.size)
     f = spint.interp1d(pidx, co2[pidx], fill_value="extrapolate")
     petco2 = f(nx)
@@ -170,7 +198,10 @@ def compute_petco2hrf(co2, pidx, freq, outname, mode="full"):
     np.savetxt(f"{outname}_petco2.1D", petco2, fmt="%.18f")
 
     # Convolve, and then rescale to have same amplitude (?)
-    petco2hrf = np.convolve(petco2, hrf, mode=mode)
+    if response_function is None:
+        petco2hrf = petco2
+    else:
+        petco2hrf = np.convolve(petco2, hrf, mode=mode)
     petco2hrf = np.interp(
         petco2hrf, (petco2hrf.min(), petco2hrf.max()), (petco2.min(), petco2.max())
     )
