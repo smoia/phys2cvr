@@ -208,7 +208,7 @@ def create_physio_regressor(
     petco2hrf : np.ndarray
         Regressor of interest (e.g., CO2 regressor)
     tr : str, int, or float
-        Repitition time (TR) of timeseries
+        Repetition time (TR) of timeseries
     freq : str, int, or float
         Sample frequency of petco2hrf
     outname : list or path
@@ -230,7 +230,7 @@ def create_physio_regressor(
     lagged_regression : bool, optional
         Estimate regressors for each possible lag of `petco2hrf`.
     legacy : bool, optional
-        If True, exclude the upper (positive) lag limit from the regression estimation, 
+        If True, exclude the upper (positive) lag limit from the regression estimation,
         i.e., the maximum number of regressors will be `(freq*lag_max*2)`
         If False, the maximum number of regressors will be `(freq*lag_max*2)+1`
     abs_xcorr : bool, optional
