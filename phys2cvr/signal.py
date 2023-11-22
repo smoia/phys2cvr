@@ -25,19 +25,20 @@ LGR.setLevel(logging.INFO)
 
 def spc(ts):
     """
-    Compute signal percentage change of ts.
+    Compute signal percentage change over time series (ts).
 
-    Those ts that have mean 0 are divided by 1 instead.
+    Timeseries are divided by the mean. 
+    Timeseries that have a mean of 0 are divided by 1 instead.
 
     Parameters
     ----------
     ts : numpy.ndarray
-        A timeseries or a set of timeseries - it is assumed that the last dimension is time.
+        A timeseries or a set of timeseries - it is assumed that the array's last dimension is time.
 
     Returns
     -------
     numpy.ndarray
-        The SPC version of ts.
+        The signal percentage change version of the original ts.
     """
     m = np.nanmean(ts, axis=-1)[..., np.newaxis]
     md = deepcopy(m)
@@ -50,12 +51,12 @@ def spc(ts):
 
 def create_hrf(freq=40):
     """
-    Create a canonical haemodynamic response function sampled at the given frequency.
+    Create a canonical haemodynamic response function which is sampled at the given frequency.
 
     Parameters
     ----------
     freq : float
-        Sampling frequency of the haemodynamic response function.
+        Sampling frequency used to resample the haemodynamic response function.
 
     Returns
     -------
@@ -92,18 +93,18 @@ def create_hrf(freq=40):
 
 def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     """
-    Create a bandpass filter given a lowcut and a highcut, then filter data.
+    Create a bandpass filter with a lowcut (lower threshold) and a highcut (upper theshold), then filter data accordingly.
 
     Parameters
     ----------
     data : np.ndarray
-        Data to filter (along last axis)
+        Data to filter (over the last dimension)
     tr : float
-        TR of functional files
+        Repitition time (TR) of functional files
     lowcut : float
-        Lower frequency in the bandpass
+        Low frequency threshold in the bandpass
     highcut : float
-        Higher frequency in the bandpass
+        High frequency threshold in the bandpass
     order : int
         The order of the butterworth filter
 
