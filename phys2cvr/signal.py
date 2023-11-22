@@ -106,12 +106,12 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     highcut : float
         High frequency threshold in the bandpass
     order : int
-        The order of the butterworth filter
+        The order to be used for the butterworth filter
 
     Returns
     -------
     filt_data : np.ndarray
-        Input `data`, but filtered.
+        Bandpass-filtered input `data`.
     """
     nyq = (1 / tr) / 2
     low = lowcut / nyq
@@ -123,7 +123,7 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
 
 def compute_petco2hrf(co2, pidx, freq, outname, mode="full"):
     """
-    Create PetCO2 trace from CO2 trace, then convolve to get PetCO2hrf.
+    Create the PetCO2 trace from CO2 trace, then convolve this to obtain the PetCO2hrf.
 
     Parameters
     ----------
