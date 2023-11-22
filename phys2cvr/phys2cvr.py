@@ -390,13 +390,12 @@ def phys2cvr(
                 f'No ROI specified, using any voxel different from 0 in {roiref}'
             )
 
+        LGR.info(f"Obtaining average signal in {roiref}")
+        func_avg = func[roi].mean(axis=0)
+
         if apply_filter:
-            LGR.info(f'Obtaining filtered average signal in {roiref}')
-            func_filt = signal.filter_signal(func, tr, lowcut, highcut, butter_order)
-            func_avg = func_filt[roi].mean(axis=0)
-        else:
-            LGR.info(f'Obtaining average signal in {roiref}')
-            func_avg = func[roi].mean(axis=0)
+            LGR.info(f"Obtaining filtered average signal in {roiref}")
+            func_avg = signal.filter_signal(func_avg, tr, lowcut, highcut, butter_order)
 
     if fname_co2 is None:
         LGR.info(f'Computing "CVR" (approximation) maps using {fname_func} only')
