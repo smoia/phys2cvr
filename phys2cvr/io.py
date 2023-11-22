@@ -305,8 +305,8 @@ def load_regressor_matrices(
     Raises
     ------
     ValueError
-        If ntp is declared and doesn't match any axis or regressors.
-        If additional_matrix is declared and its shape doesn't match the regressors one.
+        If ntp is declared and does not match any axis or regressors.
+        If additional_matrix is declared and its shape does not match the regressors one.
     """
     regressor_matrix_file = if_declared_force_type(
         regressor_matrix_file, "list", "regressor_matrix_file"
