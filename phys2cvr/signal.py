@@ -176,7 +176,7 @@ def compute_petco2hrf(co2, pidx, freq, outname, response_function="hfr", mode="f
             from phys2denoise.metrics.responses import crf
         except ImportError:
             raise ImportError(
-                "phys2denoise required for the use of CRF response functions. "
+                "phys2denoise is required for the use of CRF response functions. "
                 "Please see install instructions."
             )
         hrf = crf
