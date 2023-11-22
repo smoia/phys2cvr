@@ -27,7 +27,7 @@ def spc(ts):
     """
     Compute signal percentage change over time series (ts).
 
-    Timeseries are divided by the mean. 
+    Timeseries are divided by the mean.
     Timeseries that have a mean of 0 are divided by 1 instead.
 
     Parameters
@@ -93,14 +93,14 @@ def create_hrf(freq=40):
 
 def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     """
-    Create a bandpass filter with a lowcut (lower threshold) and a highcut (upper theshold), then filter data accordingly.
+    Create a bandpass filter with a lowcut (lower threshold) and a highcut (upper threshold), then filter data accordingly.
 
     Parameters
     ----------
     data : np.ndarray
         Data to filter (over the last dimension)
     tr : float
-        Repitition time (TR) of functional files
+        Repetition time (TR) of functional files
     lowcut : float
         Low frequency threshold in the bandpass
     highcut : float
