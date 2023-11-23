@@ -317,7 +317,7 @@ def regression(
     bout : np.ndarray
         Beta map
     tout : np.ndarray
-        T-statics map
+        T-statistics map
     rout : np.ndarray
         R^2 map
 
