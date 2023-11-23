@@ -123,35 +123,35 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
 
 def compute_petco2hrf(co2, pidx, freq, outname, response_function="hfr", mode="full"):
     """
-    Create the PetCO2 trace from CO2 trace, then convolve this to obtain the PetCO2hrf.
+    Create the PetCO2 trace from CO2 trace, then convolve it to obtain the PetCO2hrf.
 
     Parameters
     ----------
     co2 : np.ndarray
         CO2 (or physiological) regressor
     pidx : np.ndarray
-        index of peaks
+        indices of peaks
     freq : str, int, or float
         sample frequency of the CO2 regressor
     outname : str
-        prefix of the exported file
+        desired prefix of the output file
     response_function : "hrf", "rrf", "crf", np.ndarray, or None, optional
-        the response function to use to convolve the signal of interest
+        the response function to be used to convolve the signal of interest
     mode : {'full', 'valid', 'same'} str, optional
-        convolution mode, see numpy.convolve.
+        desired convolution mode, see numpy.convolve.
 
     Returns
     -------
     petco2hrf : np.ndarray
-        Convolved CO2 trace.
+        Convolved PetCO2 trace.
 
     Raises
     ------
     NotImplementedError
-        If the provided co2 is not a 1D array.
+        If the provided CO2 trace is not a 1D array.
     """
     if co2.ndim > 1:
-        raise NotImplementedError("2+ D arrays are not supported.")
+        raise NotImplementedError("Arrays with more than 2 dimensions are not supported.")
 
     # Extract PETco2
     if type(response_function) is np.ndarray:
@@ -165,7 +165,7 @@ def compute_petco2hrf(co2, pidx, freq, outname, response_function="hfr", mode="f
             from phys2denoise.metrics.responses import rrf
         except ImportError:
             raise ImportError(
-                "phys2denoise is required to use RRF response functions. "
+                "phys2denoise requires the use of RRF response functions. "
                 "Please see install instructions."
             )
         hrf = rrf
@@ -174,7 +174,7 @@ def compute_petco2hrf(co2, pidx, freq, outname, response_function="hfr", mode="f
             from phys2denoise.metrics.responses import crf
         except ImportError:
             raise ImportError(
-                "phys2denoise is required to use CRF response functions. "
+                "phys2denoise requires the use of CRF response functions. "
                 "Please see install instructions."
             )
         hrf = crf
@@ -221,19 +221,19 @@ def compute_petco2hrf(co2, pidx, freq, outname, response_function="hfr", mode="f
 
 def resample_signal(ts, samples, axis=-1):
     """
-    Upsample or downsample a given timeseries based on samples.
+    Upsample or downsample a given timeseries based on number of samples.
 
-    This program brings ts at freq1 to a new timeseries at freq2
+    This program resamples ts with the original frequency (freq1) to a timeseries at new frequency (freq2)
 
     Parameters
     ----------
     ts : numpy.ndarray
-        The timeseries to resample.
+        The timeseries to be resampled
     samples : int
-        The new desired amount od samples
+        The new desired number of samples in ts
     axis : int
-        The axis over with the interpolation should happen - by default it's
-        -1, i.e. the last dimension.
+        The axis (dimension) over which the interpolation should be applied - by default it's
+        -1, i.e., the last dimension.
 
     Returns
     -------
@@ -251,21 +251,24 @@ def resample_signal(ts, samples, axis=-1):
 
 def resample_signal_freqs(ts, freq1, freq2, axis=-1):
     """
-    Upsample or downsample a given timeseries based on frequencies.
+    Upsample or downsample a given timeseries based on the current and desired frequency.
 
-    This program brings ts at freq1 to a new timeseries at freq2
+    This program resamples ts with the original frequency (freq1) to a timeseries at new frequency (freq2)
 
     Parameters
     ----------
     ts : numpy.ndarray
-        The timeseries to resample.
+        The timeseries to be resampled
     freq1 : float
-        The frequency of the timeseries to resample
+        The current frequency of the timeseries to be resampled
     freq2 : float
-        The new desired frequency
+        The new desired frequency for the timeseries
     axis : int
-        The axis over with the interpolation should happen - by default it's
+        The axis (dimension) over which the interpolation should happen - by default it's
         -1, i.e. the last dimension.
+
+
+        
 
     Returns
     -------

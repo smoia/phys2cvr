@@ -25,33 +25,33 @@ LGR.setLevel(logging.INFO)
 
 def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
     """
-    Cross correlation between `func` and `co2`.
+    Calculates the cross correlation between `func` and `co2`.
 
     Parameters
     ----------
     func : np.ndarray
-        Timeseries, must be SHORTER (or of equal length) than `co2`
+        Timeseries of functional data, must be SHORTER than `co2` (or of equal length)
     co2 : np.ndarray
-        Second timeseries, can be LONGER than `func`
+        Timeseries of CO2 (or physiological) data, can be LONGER than `func`
     n_shifts : int or None, optional
-        Number of shifts to consider when cross-correlating func and co2.
+        Number of maximal timepoints to shift when cross-correlating func and co2.
         When None (default), consider all possible shifts.
-        Each shift consists of one sample.
+        Each shift consists of one shifted timepoint (one step). 
     offset : int, optional
-        Optional amount of offset desired for `func`, i.e. the amount of samples
-        of `co2` to exclude from the cross correlation.
+        This is optional. The desired timepoint at which `func` offsets, i.e., the number of timepoints of `co2` 
+        to exclude from the cross correlation.   
     abs_xcorr : bool, optional
-        If True, x_corr will find the maximum absolute correlation,
-        i.e. max(|corr(func, co2)|), rather than the maximum positive correlation.
+        If True, x_corr will find the strongest absolute correlation,
+        i.e., max(|corr(func, co2)|), which could be the strongest negative correlation rather than the strongest positive correlation.
 
     Returns
     -------
     float :
-        Highest correlation
+        Strongest cross correlation
     int :
-        Index of higher correlation
+        Index of strongest cross correlation
     xcorr : np.ndarray
-        Full Xcorr
+        Full array containing all computed cross correlations between `func` and `co2`
 
     Raises
     ------
@@ -67,14 +67,14 @@ def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
     if func.shape[0] + offset > co2.shape[0]:
         if offset > 0:
             raise ValueError(
-                f"The specified offset of {offset} is too high to "
-                f"compare func of length {func.shape[0]} with co2 of "
+                f"The specified offset of {offset} is too high."
+                f"func of length {func.shape[0]} can not be compared with co2 of "
                 f"length {co2.shape[0]}"
             )
         else:
             raise NotImplementedError(
-                f"The timeseries has length of {func.shape[0]}, more than the"
-                f"length of the given regressor ({co2.shape[0]}). This case "
+                f"The timeseries has length of {func.shape[0]}, which is longer than the"
+                f"length of the given co2 regressor ({co2.shape[0]}). This "
                 "is not supported."
             )
 
@@ -86,7 +86,7 @@ def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
     else:
         if n_shifts + offset + func.shape[0] > co2.shape[0]:
             LGR.warning(
-                f"The specified amount of shifts ({n_shifts}) is too high for the "
+                f"The specified number of shifts ({n_shifts}) is too high for the "
                 f"length of the regressor ({co2.shape[0]})."
             )
             n_shifts = co2.shape[0] - (func.shape[0] + offset) + 1
@@ -104,9 +104,9 @@ def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
 
 def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
     """
-    Implement Ordinary Least Square linear regression.
+    Implement Ordinary Least Squares linear regression.
 
-    Both Ymat and Xmat must encode the time axis in axis 0.
+    For both Ymat and Xmat, axis 0 must reflect the time axis.
     This is the barebone OLS implementation. For the full regression step,
     see `stats.regression`.
 
@@ -114,33 +114,33 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
     ----------
     Ymat : np.ndarray
         Dependent variable, 1D or 2D.
-        The time axis must be in columns, i.e. time axis must be axis 0.
+        The columns must represent the variable over time, i.e., time axis must be axis 0.
     Xmat : np.ndarray
-        Independent variables, 1D or 2D. The regressor of interest MUST be the last one.
-        Regressors must be in columns, i.e. time axis must be axis 0.
+        Independent variables, 1D or 2D. The regressor of interest MUST be the last dimension.
+        The columns must represent the regressors over time, i.e., time axis must be axis 0.
     r2model : {'full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept'}, optional
         R^2 to report.
         Possible models are:
             - 'full' (default)
-                Use every regressor in the model, i.e. compare versus baseline 0
+                Use all regressors in the model, i.e., compare all regressors versus a baseline of 0
             - 'partial'
-                Consider only the first vector of Xmat in the model, i.e. compare
-                versus baseline composed by all vectors of Xmat beside the first.
+                Consider only the first vector of Xmat as regressor of interest in the model, i.e. compare the first vector with
+                a baseline which is composed of all other vectors of Xmat beside the first.
             - 'intercept'
-                Use every regressor in the model, but the intercept, i.e. compare
-                versus baseline intercept (Legendre polynomial order 0, a.k.a.
+                Use all regressors in the model, except for the intercept, i.e., compare all regressors versus a baseline which is the 
+                intercept (Legendre polynomial order 0, a.k.a.,
                 average signal)
             - 'adj_*'
-                Adjusted R^2 version of simple counterpart
-        Under normal conditions, while the R^2 value will be different between options,
-        a lagged regression based on any R^2 model will give the same results.
-        This WILL NOT be the case if orthogonalisations between the first vector of Xmat
-        and the others are introduced: a lagged regression based on `partial` might hold
-        different results from .
+                Adjusted R^2 version of 'full'
+        Under normal conditions, although the R^2 values will vary between the different options,
+        a lagged regression based on any R^2 model will provide the same results independent of the chosen option.
+        This WILL NOT be the case if orthogonalisations are applied between the first vector of Xmat
+        and the others vectors. In this case, a lagged regression based on `partial` might hold
+        different results from the others.
         Default: 'full'
     residuals : bool, optional
-        If True, output only residuals of the model - this is mainly for orthogonalisation
-        If False, output betas, tstats, R^2 (default).
+        If True, outputs only the residuals of the model - to be mainly used for orthogonalisation
+        If False, outputs betas, tstats, and R^2 (default).
     demean : bool, optional
         If True, demean Xmat before running OLS.
         Default is False.
@@ -150,7 +150,7 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
     betas : np.ndarray
         Beta values
     t_stats : np.ndarray
-        T-stats values
+        T-statistic values
     r_square : np.ndarray
         R^2 values
 
@@ -159,7 +159,7 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
     NotImplementedError
         If Ymat has more than 2 dimensions
         If Xmat has more than 2 dimensions
-        At the moment, if "poly" R^2 is declared, as it's not implemented yet.
+        If "poly" R^2 is declared (as it's not implemented yet).
     ValueError
         If a non-valid R^2 value is declared
     """
@@ -171,7 +171,7 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
         Ymat = Ymat[..., np.newaxis]
     if Xmat.ndim > 2:
         raise NotImplementedError(
-            "OLS with regressors with more than 2 dimensions is not implemented yet."
+            "OLS on regressors with more than 2 dimensions is not implemented yet."
         )
     elif Xmat.ndim < 2:
         Xmat = Xmat[..., np.newaxis]
@@ -187,7 +187,7 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
 
     except np.linalg.LinAlgError:
         raise ValueError(
-            "The given matrices might not be oriented correctly. Try to transpose the "
+            "The given matrices might not be oriented correctly. Try to first transpose the "
             "regressor matrix."
         )
 
@@ -280,37 +280,36 @@ def regression(
     Parameters
     ----------
     data : np.ndarray
-        Dependent variable of the model (i.e. Y), as a 4D volume.
+        Dependent variable of the model (i.e., Y), as a 4D volume.
     regr : np.ndarray
         Regressor of interest
     denoise_mat : np.ndarray or None, optional
         Confounding effects (regressors)
     ortho_mat : np.ndarray or None, optional
-        Confounding effects (regressors) that will be orthogonalised w.r.t. `regr`, `denoise_mat`, and
+        Confounding effects (regressors) which will be orthogonalised with respect to `regr`, `denoise_mat`, and
         `extra_mat`
     extra_mat : np.ndarray or None, optional
         Extra factors (regressors) that will be used to orthogonalise `ortho_mat`
     mask : np.ndarray or None, optional
-        A 3D mask to reduce the number of voxels to run the regression for.
+        A 3D mask to reduce the number of voxels to run the regression on.
     r2model : {'full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept'}, optional
         R^2 to report.
         Possible models are:
             - 'full' (default)
-                Use every regressor in the model, i.e. compare versus baseline 0
+                Use all regressors in the model, i.e., compare all regressors versus a baseline of 0
             - 'partial'
-                Consider only `regr` in the model, i.e. compare versus baseline
-                composed by all other regressors (`denoise_mat`)
+                Consider only `regr` in the model, i.e., compare `regr` with a baseline which is 
+                composed of all other regressors (`denoise_mat`)
             - 'intercept'
-                Use every regressor in the model, but the intercept, i.e. compare
-                versus baseline intercept (Legendre polynomial order 0, a.k.a.
+                Use all regressors in the model, except for the intercept, i.e., compare all regressors versus a baseline which is the 
+                intercept (Legendre polynomial order 0, a.k.a.
                 average signal)
             - 'adj_*'
-                Adjusted R^2 version of normal counterpart
-        Under normal conditions, while the R^2 value will be different between options,
-        a lagged regression based on any R^2 model will give the same results.
-        This WILL NOT be the case if orthogonalisations between `regr` and `denoise_mat`
-        are introduced: a lagged regression based on `partial` might hold different
-        results.
+                Adjusted R^2 version of 'full'
+        Under normal conditions, although the R^2 value will vary between the different options,
+        a lagged regression based on any R^2 model will provide the same results independent of the chosen option.
+        This WILL NOT be the case if orthogonalisations are applied  between `regr` and `denoise_mat`. In that case, 
+        a lagged regression based on `partial` might hold different results from the others.
         Default: 'full'
 
     Returns
@@ -318,7 +317,7 @@ def regression(
     bout : np.ndarray
         Beta map
     tout : np.ndarray
-        T-stats map
+        T-statics map
     rout : np.ndarray
         R^2 map
 
