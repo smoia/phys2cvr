@@ -271,7 +271,6 @@ def resample_signal_freqs(ts, freq1, freq2, axis=-1):
 
 
 
-
     Returns
     -------
     numpy.ndarray
