@@ -124,6 +124,7 @@ def test_export_nifti(testdir):
     assert np.allclose(out_img.get_fdata(), data)
     assert (out_img.affine == affine).all()
 
+
 def test_array_is_2d():
     # Test case: Valid 2D array
     input_array = np.random.rand(3, 4)
@@ -135,7 +136,8 @@ def test_array_is_2d():
     output_array = array_is_2d(input_array)
     assert output_array.shape == (5, 1)
 
-def test_load_regressor_matrices(tmp_path): 
+
+def test_load_regressor_matrices(tmp_path):
     # Test for checking if the files upload is correct
     file_path = tmp_path / "regressors.txt"
     np.savetxt(file_path, np.random.rand(10, 3))
@@ -143,7 +145,7 @@ def test_load_regressor_matrices(tmp_path):
     # Test loading a single file
     result = load_regressor_matrices(file_path)
     assert result.shape == (10, 3)
-    
+
     # Test for concatenation of additional matrices
     file_path = tmp_path / "regressors.txt"
     np.savetxt(file_path, np.random.rand(10, 3))
