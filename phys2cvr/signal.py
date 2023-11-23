@@ -151,7 +151,9 @@ def compute_petco2hrf(co2, pidx, freq, outname, response_function="hfr", mode="f
         If the provided CO2 trace is not a 1D array.
     """
     if co2.ndim > 1:
-        raise NotImplementedError("Arrays with more than 2 dimensions are not supported.")
+        raise NotImplementedError(
+            "Arrays with more than 2 dimensions are not supported."
+        )
 
     # Extract PETco2
     if type(response_function) is np.ndarray:
@@ -268,7 +270,7 @@ def resample_signal_freqs(ts, freq1, freq2, axis=-1):
         -1, i.e. the last dimension.
 
 
-        
+
 
     Returns
     -------
