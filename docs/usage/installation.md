@@ -29,7 +29,7 @@ $ pip install .
 
 ## Developer installation
 To be sure you have everything installed to develop (and test) `phys2cvr``, fork smoia/phys2cvr to your repository, then clone it locally and move inside the cloned folder. Finally, run the following commands from within the repository main folder:
-```shell 
+```shell
 # Add upstream remote
 $ git remote add upstream git@github.com:smoia/phys2cvr.git
 
@@ -46,7 +46,7 @@ $ git config remote.pushDefault origin
 
 # Install package with pip using the developer mode and the `[dev]` label
 # You might need to use pip3 depending on how you set up your system
-$ pip install -e .[dev] 
+$ pip install -e .[dev]
 ```
 
 
