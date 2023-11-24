@@ -1,5 +1,5 @@
 Use/run phys2cvr
-=============
+================
 
 You can run the `phys2cvr` workflow in a shell session (or in your code) - just follow the help:
 ```shell
