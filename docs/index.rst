@@ -6,7 +6,7 @@
 :hide-toc:
 
 phys2cvr
-============================================
+========
 
 |Latest version| |Release date| |Auto Release|
 
