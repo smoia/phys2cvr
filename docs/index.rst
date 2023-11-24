@@ -35,15 +35,15 @@ If you use ``phys2cvr`` in your work, please cite either the all-time
 Zenodo DOI [![general Zenodo DOI](https://zenodo.org/badge/5559756.svg)](https://doi.org/10.5281/zenodo.5559756) or the Zenodo DOI related to the version
 you are using. Please cite the following paper(s) too:
 
-   Moia, S., Stickland, R. C., Ayyagari, A., Termenon, M., Caballero-Gaudes, C., 
-   & Bright, M. G. (2020). *Voxelwise optimization of hemodynamic lags to improve regional CVR estimates in breath-hold fMRI.* 
-   In 2020 42nd Annual International Conference of the IEEE Engineering in Medicine & Biology Society (EMBC) (pp. 1489–1492). 
+   Moia, S., Stickland, R. C., Ayyagari, A., Termenon, M., Caballero-Gaudes, C.,
+   & Bright, M. G. (2020). *Voxelwise optimization of hemodynamic lags to improve regional CVR estimates in breath-hold fMRI.*
+   In 2020 42nd Annual International Conference of the IEEE Engineering in Medicine & Biology Society (EMBC) (pp. 1489–1492).
    Montreal, QC, Canada: IEEE. `https://doi.org/10.1109/EMBC44109.2020.9176225 <https://doi.org/10.1109/EMBC44109.2020.9176225>`__.
 
 If you are using the ``--brightspin`` configuration option:
 
-   Moia, S., Termenon, M., Uruñuela, E., Chen, G., Stickland, R. C., Bright, M. G., & Caballero-Gaudes, C. (2021). 
-   *ICA-based denoising strategies in breath-hold induced cerebrovascular reactivity mapping with multi echo BOLD fMRI.* 
+   Moia, S., Termenon, M., Uruñuela, E., Chen, G., Stickland, R. C., Bright, M. G., & Caballero-Gaudes, C. (2021).
+   *ICA-based denoising strategies in breath-hold induced cerebrovascular reactivity mapping with multi echo BOLD fMRI.*
    NeuroImage, 233, 117914.
    `https://doi.org/10.1016/j.neuroimage.2021.117914 <https://doi.org/10.1016/j.neuroimage.2021.117914>`__.
 
