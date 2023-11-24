@@ -1,6 +1,6 @@
 {
     "license":"Apache-2.0",
-    "title":"physiopy/phys2cvr: A tool to compute Cerebrovascular Reactivity maps and associated lag maps",
+    "title":"phys2cvr: A tool to compute Cerebrovascular Reactivity maps and associated lag maps",
     "upload_type":"software",
     "creators":[
         {
