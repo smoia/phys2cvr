@@ -99,8 +99,8 @@ def nifti_data(testdir):
 @pytest.fixture
 def nifti_mask(testdir):
     # Create a test nifti mask file with random binary data
-    data = np.random.randint(0, 2, size=(10, 10, 10))
-    fname = os.path.join(testdir, 'test_mask.nii.gz')
+    data = np.random.randint(0, 2, size=(10, 10, 10), dtype=np.int32)
+    fname = os.path.join(testdir, "test_mask.nii.gz")
     img = nib.Nifti1Image(data, np.eye(4))
     nib.save(img, fname)
     return fname, data
