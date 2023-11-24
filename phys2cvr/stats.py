@@ -36,10 +36,10 @@ def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
     n_shifts : int or None, optional
         Number of maximal timepoints to shift when cross-correlating func and co2.
         When None (default), consider all possible shifts.
-        Each shift consists of one shifted timepoint (one step). 
+        Each shift consists of one shifted timepoint (one step).
     offset : int, optional
-        This is optional. The desired timepoint at which `func` offsets, i.e., the number of timepoints of `co2` 
-        to exclude from the cross correlation.   
+        This is optional. The desired timepoint at which `func` offsets, i.e., the number of timepoints of `co2`
+        to exclude from the cross correlation.
     abs_xcorr : bool, optional
         If True, x_corr will find the strongest absolute correlation,
         i.e., max(|corr(func, co2)|), which could be the strongest negative correlation rather than the strongest positive correlation.
@@ -127,7 +127,7 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
                 Consider only the first vector of Xmat as regressor of interest in the model, i.e. compare the first vector with
                 a baseline which is composed of all other vectors of Xmat beside the first.
             - 'intercept'
-                Use all regressors in the model, except for the intercept, i.e., compare all regressors versus a baseline which is the 
+                Use all regressors in the model, except for the intercept, i.e., compare all regressors versus a baseline which is the
                 intercept (Legendre polynomial order 0, a.k.a.,
                 average signal)
             - 'adj_*'
@@ -298,17 +298,17 @@ def regression(
             - 'full' (default)
                 Use all regressors in the model, i.e., compare all regressors versus a baseline of 0
             - 'partial'
-                Consider only `regr` in the model, i.e., compare `regr` with a baseline which is 
+                Consider only `regr` in the model, i.e., compare `regr` with a baseline which is
                 composed of all other regressors (`denoise_mat`)
             - 'intercept'
-                Use all regressors in the model, except for the intercept, i.e., compare all regressors versus a baseline which is the 
+                Use all regressors in the model, except for the intercept, i.e., compare all regressors versus a baseline which is the
                 intercept (Legendre polynomial order 0, a.k.a.
                 average signal)
             - 'adj_*'
                 Adjusted R^2 version of 'full'
         Under normal conditions, although the R^2 value will vary between the different options,
         a lagged regression based on any R^2 model will provide the same results independent of the chosen option.
-        This WILL NOT be the case if orthogonalisations are applied  between `regr` and `denoise_mat`. In that case, 
+        This WILL NOT be the case if orthogonalisations are applied  between `regr` and `denoise_mat`. In that case,
         a lagged regression based on `partial` might hold different results from the others.
         Default: 'full'
 
@@ -317,7 +317,7 @@ def regression(
     bout : np.ndarray
         Beta map
     tout : np.ndarray
-        T-statics map
+        T-statistics map
     rout : np.ndarray
         R^2 map
 
