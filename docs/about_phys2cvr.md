@@ -1,4 +1,4 @@
-About Graph Signal Processing
+About cerebrovascular reactivity mapping
 =============================
 
 Coming Soon...
