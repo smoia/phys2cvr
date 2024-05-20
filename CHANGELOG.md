@@ -1,3 +1,21 @@
+# 0.18.4 (Mon May 20 2024)
+
+#### 🐛 Bug Fix
+
+- [Snyk] Security upgrade fonttools from 4.38.0 to 4.43.0 [#115](https://github.com/smoia/phys2cvr/pull/115) ([@snyk-bot](https://github.com/snyk-bot) [@smoia](https://github.com/smoia))
+
+#### 🏠 Internal
+
+- [pre-commit.ci] pre-commit autoupdate [#114](https://github.com/smoia/phys2cvr/pull/114) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 3
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Snyk bot ([@snyk-bot](https://github.com/snyk-bot))
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.18.3 (Tue Sep 05 2023)
 
 #### 🐛 Bug Fix
