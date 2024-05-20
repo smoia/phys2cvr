@@ -1,3 +1,16 @@
+# 0.18.5 (Mon May 20 2024)
+
+#### 🐛 Bug Fix
+
+- [Snyk] Security upgrade pillow from 9.5.0 to 10.3.0 [#118](https://github.com/smoia/phys2cvr/pull/118) ([@snyk-bot](https://github.com/snyk-bot) [@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- Snyk bot ([@snyk-bot](https://github.com/snyk-bot))
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.18.4 (Mon May 20 2024)
 
 #### 🐛 Bug Fix
