@@ -161,6 +161,7 @@ def test_load_regressor_matrices(tmp_path):
     result = load_regressor_matrices(file_path, ntp=10)
     assert result.shape == (10, 3)
 
+
 def test_array_is_2d():
     # Test case: Valid 2D array
     input_array = np.random.rand(3, 4)
