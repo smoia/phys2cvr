@@ -660,7 +660,7 @@ def phys2cvr(
 
                 for i in lag_idx_list:
                     LGR.info(
-                        f"Perform L-GLM for lag {lag_list[i]} ({i+1} of "
+                        f"Perform L-GLM for lag {lag_list[i]} ({i + 1} of "
                         f"{len(lag_idx_list)}"
                     )
                     try:
@@ -700,7 +700,7 @@ def phys2cvr(
                 )
 
                 for n, i in enumerate(lag_range):
-                    LGR.info(f"Perform L-GLM number {n+1} of {len(lag_range)}")
+                    LGR.info(f"Perform L-GLM number {n + 1} of {len(lag_range)}")
                     try:
                         regr = regr_shifts[:, i]
                         LGR.debug(f"Using shift {i} from matrix in memory: {regr}")
