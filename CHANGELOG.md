@@ -1,3 +1,16 @@
+# 0.18.6 (Sat Jun 01 2024)
+
+#### 🐛 Bug Fix
+
+- [pre-commit.ci] pre-commit autoupdate [#119](https://github.com/smoia/phys2cvr/pull/119) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]) [@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.18.5 (Mon May 20 2024)
 
 #### 🐛 Bug Fix
