@@ -218,10 +218,10 @@ def get_regr(
 
     if not skip_xcorr:
         _, optshift, xcorr = x_corr(func_cut, petco2hrf, nrep, abs_xcorr=abs_xcorr)
-        LGR.info(f"Cross correlation estimated bulk shift at {optshift/freq} seconds")
+        LGR.info(f"Cross correlation estimated bulk shift at {optshift / freq} seconds")
         # Export estimated optimal shift in seconds
         with open(f"{outname}_optshift.1D", "w") as f:
-            print(f"{(optshift/freq):.4f}", file=f)
+            print(f"{(optshift / freq):.4f}", file=f)
         # Export xcorr figure
         plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
         plt.plot(time_axis, xcorr)
