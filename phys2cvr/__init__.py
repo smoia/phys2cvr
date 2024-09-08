@@ -4,6 +4,7 @@ import pkgutil
 
 from ._version import get_versions
 __version__ = get_versions()['version']
+del get_versions
 
 __all__ = []
 for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
@@ -14,6 +15,3 @@ for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
     except AttributeError:
         _module = loader.find_spec(module_name).loader.load_module(module_name)
     globals()[module_name] = _module
-
-from . import get_versions
-__version__ = get_versions()['version']
