@@ -2,6 +2,7 @@
   "files": [
     "README.md"
   ],
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-<%= contributors.length %>-orange.svg?style=flat)](#contributors)",
   "imageSize": 100,
   "commit": false,
   "contributors": [
@@ -17,7 +18,25 @@
         "projectManagement"
       ]
     },
-
+    {
+      "login": "kristinazvolanek",
+      "name": "Kristina Zvolanek",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/54590158?v=4",
+      "profile": "https://github.com/kristinazvolanek",
+      "contributions": [
+        "code",
+        "bug"
+      ]
+    },
+    {
+      "login": "avigotsky",
+      "name": "Andrew Vigotsky",
+      "avatar_url": "https://avatars.githubusercontent.com/u/904218?v=4",
+      "profile": "https://github.com/avigotsky",
+      "contributions": [
+        "code"
+      ]
+    }
   ],
   "contributorsPerLine": 5,
   "projectName": "phys2cvr",

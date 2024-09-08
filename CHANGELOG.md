@@ -1,3 +1,334 @@
+# 0.18.6 (Sat Jun 01 2024)
+
+#### 🐛 Bug Fix
+
+- [pre-commit.ci] pre-commit autoupdate [#119](https://github.com/smoia/phys2cvr/pull/119) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]) [@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.18.5 (Mon May 20 2024)
+
+#### 🐛 Bug Fix
+
+- [Snyk] Security upgrade pillow from 9.5.0 to 10.3.0 [#118](https://github.com/smoia/phys2cvr/pull/118) ([@snyk-bot](https://github.com/snyk-bot) [@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- Snyk bot ([@snyk-bot](https://github.com/snyk-bot))
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.18.4 (Mon May 20 2024)
+
+#### 🐛 Bug Fix
+
+- [Snyk] Security upgrade fonttools from 4.38.0 to 4.43.0 [#115](https://github.com/smoia/phys2cvr/pull/115) ([@snyk-bot](https://github.com/snyk-bot) [@smoia](https://github.com/smoia))
+
+#### 🏠 Internal
+
+- [pre-commit.ci] pre-commit autoupdate [#114](https://github.com/smoia/phys2cvr/pull/114) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 3
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Snyk bot ([@snyk-bot](https://github.com/snyk-bot))
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.18.3 (Tue Sep 05 2023)
+
+#### 🐛 Bug Fix
+
+- fix: Make sure butterworth order is given ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.18.2 (Mon Aug 28 2023)
+
+#### 🐛 Bug Fix
+
+- fix: Do not crawl tests folder when importing modules (s.moia@bcbl.eu)
+
+#### ⚠️ Pushed to `master`
+
+- int: Update actions version (s.moia@bcbl.eu)
+
+#### Authors: 1
+
+- Stefano Moia (s.moia@bcbl.eu)
+
+---
+
+# 0.18.1 (Sun Aug 13 2023)
+
+#### 🐛 Bug Fix
+
+- Fix bandpass Butterworth filter order to get a better filter, add option to change order in CLI [#90](https://github.com/smoia/phys2cvr/pull/90) ([@smoia](https://github.com/smoia))
+- [pre-commit.ci] pre-commit autoupdate [#88](https://github.com/smoia/phys2cvr/pull/88) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]) [@smoia](https://github.com/smoia))
+
+#### ⚠️ Pushed to `master`
+
+- int: codespell happy ([@smoia](https://github.com/smoia))
+- Start adding a bunch of tests ([@smoia](https://github.com/smoia))
+- Wrong library ;) ([@smoia](https://github.com/smoia))
+- int: Add codespell ([@smoia](https://github.com/smoia))
+- int: update auto-release environment ([@smoia](https://github.com/smoia))
+- int: update python-publish environment ([@smoia](https://github.com/smoia))
+
+#### 🏠 Internal
+
+- [pre-commit.ci] pre-commit autoupdate [#87](https://github.com/smoia/phys2cvr/pull/87) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.18.1 (Thu May 11 2023)
+
+#### ⚠️ Pushed to `master`
+
+- Start adding a bunch of tests ([@smoia](https://github.com/smoia))
+- Wrong library ;) ([@smoia](https://github.com/smoia))
+- int: Add codespell ([@smoia](https://github.com/smoia))
+- int: update auto-release environment ([@smoia](https://github.com/smoia))
+- int: update python-publish environment ([@smoia](https://github.com/smoia))
+
+#### 🏠 Internal
+
+- [pre-commit.ci] pre-commit autoupdate [#87](https://github.com/smoia/phys2cvr/pull/87) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.18.0 (Wed Mar 08 2023)
+
+#### 💥 Breaking Change during development
+
+- Add option to add orthogonalised regressors in phys2cvr [#84](https://github.com/smoia/phys2cvr/pull/84) ([@smoia](https://github.com/smoia) [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### 🐛 Bug Fix
+
+- Improve `auto` settings to include all labels and plugins [#72](https://github.com/smoia/phys2cvr/pull/72) ([@smoia](https://github.com/smoia))
+
+#### ⚠️ Pushed to `master`
+
+- int: Fix issue templates ([@smoia](https://github.com/smoia))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.17.2 (Sat Feb 25 2023)
+
+#### 🐛 Bug Fix
+
+- [pre-commit.ci] pre-commit autoupdate [#64](https://github.com/smoia/phys2cvr/pull/64) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### ⚠️ Pushed to `master`
+
+- docs: Update developer installation ([@smoia](https://github.com/smoia))
+
+#### 🏠 Internal
+
+- [pre-commit.ci] pre-commit autoupdate [#63](https://github.com/smoia/phys2cvr/pull/63) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+- [pre-commit.ci] pre-commit autoupdate [#62](https://github.com/smoia/phys2cvr/pull/62) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+- [pre-commit.ci] pre-commit autoupdate [#61](https://github.com/smoia/phys2cvr/pull/61) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+- [pre-commit.ci] pre-commit autoupdate [#59](https://github.com/smoia/phys2cvr/pull/59) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.17.1 (Mon Dec 12 2022)
+
+#### 🐛 Bug Fix
+
+- [pre-commit.ci] pre-commit autoupdate [#58](https://github.com/smoia/phys2cvr/pull/58) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 1
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+
+---
+
+# 0.17.0 (Fri Nov 18 2022)
+
+#### 🚀 Enhancement
+
+- Add colormaps to plot lag maps (and sneak in contributors updates) [#56](https://github.com/smoia/phys2cvr/pull/56) ([@smoia](https://github.com/smoia) [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.16.0 (Mon Oct 10 2022)
+
+#### 🚀 Enhancement
+
+- Add pre-commit and format all code [#54](https://github.com/smoia/phys2cvr/pull/54) ([@smoia](https://github.com/smoia))
+
+#### ⚠️ Pushed to `master`
+
+- docs: Fix badges and latest DOI ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.15.3 (Fri Jul 01 2022)
+
+#### 🐛 Bug Fix
+
+- fix: force mask to be an ndarray of booleans in regression ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.15.2 (Fri Jul 01 2022)
+
+#### 🐛 Bug Fix
+
+- fix: Fix plot of xcorr that was called even when skipping xcorr ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.15.1 (Fri Jun 24 2022)
+
+#### 🐛 Bug Fix
+
+- Fix dimensionality check for functional images [#52](https://github.com/smoia/phys2cvr/pull/52) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.15.0 (Wed Apr 27 2022)
+
+#### 🚀 Enhancement
+
+- Add the possibility to skip the cross correlation step when creating lagged regressors [#50](https://github.com/smoia/phys2cvr/pull/50) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.14.1 (Tue Apr 19 2022)
+
+#### 🐛 Bug Fix
+
+- fix: Fix nifti import and mask creation ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.14.0 (Tue Apr 19 2022)
+
+#### 🚀 Enhancement
+
+- Allow confounding matrix and mask to be optional in `stats.regression` [#49](https://github.com/smoia/phys2cvr/pull/49) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.13.0 (Tue Apr 05 2022)
+
+#### 🚀 Enhancement
+
+- Enhance cross correlation to allow both regressor and reference to be shifted and consider max abs corr [#48](https://github.com/smoia/phys2cvr/pull/48) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.12.1 (Tue Apr 05 2022)
+
+#### 🐛 Bug Fix
+
+- Let signal be resampled over any axis of the input timeseries (default to first dimension) [#47](https://github.com/smoia/phys2cvr/pull/47) ([@smoia](https://github.com/smoia))
+
+#### ⚠️ Pushed to `master`
+
+- docs: fix readme citations ([@smoia](https://github.com/smoia))
+- docs: update README with installation instruction and badges ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.12.0 (Tue Mar 22 2022)
+
+#### 💥 Breaking Change during development
+
+- Change behaviour to create petco2hrf fmri proxy due to the SPC of average signal being more robust than average of SPC [#46](https://github.com/smoia/phys2cvr/pull/46) (s.moia@bcbl.eu)
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.11.2 (Tue Mar 22 2022)
+
+#### 🐛 Bug Fix
+
+- Fix SPC computation by dividing by the transposed mean (not the matrix itself) [#45](https://github.com/smoia/phys2cvr/pull/45) (s.moia@bcbl.eu)
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.11.1 (Mon Mar 07 2022)
 
 #### 🐛 Bug Fix
