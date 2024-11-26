@@ -473,9 +473,9 @@ def phys2cvr(
                     response_function = np.genfromtxt(response_function)
                 except IOError:
                     pass
-                petco2hrf = signal.compute_petco2hrf(
-                    co2, pidx, freq, outname, response_function
-                )
+            petco2hrf = signal.compute_petco2hrf(
+                co2, pidx, freq, outname, response_function
+            )
 
     # If a regressor directory is not specified, compute the regressors.
     if regr_dir is None:
