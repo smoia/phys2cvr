@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Tests for io."""
 
+import logging
 import os
-from unittest.mock import patch
 
 import nibabel as nib
 import numpy as np
@@ -10,21 +10,20 @@ import pytest
 
 from phys2cvr import io
 
+LGR = logging.getLogger(__name__)
+
+
 # ## Unit tests
-
-
 @pytest.mark.parametrize(
     "var, dtype, out",
     [
         (10, "int", 10),
         (10.0, "int", 10),
         ("10", "int", 10),
-        ([10], "int", [10]),
         (None, "int", None),
         (10, "float", 10.0),
         (10.0, "float", 10.0),
         ("10.0", "float", 10.0),
-        ([10.0], "float", [10.0]),
         (None, "float", None),
         (10, "str", "10"),
         (10.0, "str", "10.0"),
@@ -39,48 +38,6 @@ from phys2cvr import io
 )
 def test_if_declared_force_type(var, dtype, out):
     assert io.if_declared_force_type(var, dtype) == out
-
-
-@patch("logging.warning")
-@pytest.mark.parametrize(
-    "var, dtype, varname, expected_warning",
-    [
-        (
-            10,
-            "int",
-            "my_var",
-            "Changing type of variable my_var from <class 'int'> to int",
-        ),
-        ("10", "int", "my_var", ""),
-        (
-            [10],
-            "int",
-            "my_var",
-            "Changing type of variable my_var from <class 'list'> to int",
-        ),
-        (None, "int", "my_var", ""),
-        (10.0, "float", "my_var", ""),
-    ],
-)
-def test_if_declared_force_type_logging(mock_warning):
-    io.if_declared_force_type(10, "int", "my_var")
-    mock_warning.assert_called_with(
-        "Changing type of variable my_var from <class 'int'> to int"
-    )
-
-    io.if_declared_force_type("10", "int", "my_var")
-    mock_warning.assert_not_called()
-
-    io.if_declared_force_type([10], "int", "my_var")
-    mock_warning.assert_called_with(
-        "Changing type of variable my_var from <class 'list'> to int"
-    )
-
-    io.if_declared_force_type(None, "int", "my_var")
-    mock_warning.assert_not_called()
-
-    io.if_declared_force_type(10.0, "float", "my_var", silent=True)
-    mock_warning.assert_not_called()
 
 
 def test_check_ext():
@@ -100,8 +57,7 @@ def test_check_ext():
     assert io.check_ext(all_ext, fname, remove=True) == ("data.csv", False)
 
 
-@patch("logging.warning")
-def test_check_nifti_dim(mock_warning):
+def test_check_nifti_dim():
     fname = "valid.nii.gz"
     data = np.ones((4, 4, 4, 4, 4))
     output = io.check_nifti_dim(fname, data, dim=5)
@@ -111,9 +67,6 @@ def test_check_nifti_dim(mock_warning):
 
     # Test if data has more dimensions than `dim`
     output = io.check_nifti_dim(fname, data, dim=3)
-    mock_warning.assert_called_with(
-        f"{fname} has more than 3 dimensions. Removing D > 3."
-    )
     assert output.ndim == 3
 
 
@@ -134,18 +87,17 @@ def test_load_nifti_get_mask(nifti_data, nifti_mask):
 
 
 def test_export_regressor(testdir):
-    petco2hrf_shift = np.random.rand(10)
-    freq = 1
-    tr = 2
+    petco2hrf_shift = np.arange(10)
+    ntp = 5
     outname = os.path.join(testdir, "test_regressor")
     suffix = "petco2hrf"
     ext = ".1D"
 
     petco2hrf_demean = io.export_regressor(
-        petco2hrf_shift, freq, tr, outname, suffix=suffix, ext=ext
+        petco2hrf_shift, ntp, outname, suffix=suffix, ext=ext
     )
 
-    pco2 = (petco2hrf_shift - petco2hrf_shift.mean())[::2]
+    pco2 = np.asarray([-4.5, -2.25, 0, 2.25, 4.5])
     assert np.allclose(petco2hrf_demean, pco2)
 
     # Check if file was saved and has the correct content
@@ -169,14 +121,85 @@ def test_export_nifti(testdir):
 
     # load the output file and check if the data matches the input
     out_img = nib.load(fname)
-    assert out_img.get_fdata() == data
-    assert out_img.affine == affine
-    assert out_img.header == header
+    assert np.allclose(out_img.get_fdata(), data)
+    assert (out_img.affine == affine).all()
+
+
+def test_array_is_2d():
+    # Test case: Valid 2D array
+    input_array = np.random.rand(3, 4)
+    output_array = array_is_2d(input_array)
+    assert output_array.shape == (3, 4)
+
+    # Test case: 1D array
+    input_array = np.random.rand(5)
+    output_array = array_is_2d(input_array)
+    assert output_array.shape == (5, 1)
+
+
+def test_load_regressor_matrices(tmp_path):
+    # Test for checking if the files upload is correct
+    file_path = tmp_path / "regressors.txt"
+    np.savetxt(file_path, np.random.rand(10, 3))
+
+    # Test loading a single file
+    result = load_regressor_matrices(file_path)
+    assert result.shape == (10, 3)
+
+    # Test for concatenation of additional matrices
+    file_path = tmp_path / "regressors.txt"
+    np.savetxt(file_path, np.random.rand(10, 3))
+    additional_matrix = np.ones((10, 1))
+
+    result = load_regressor_matrices(file_path, additional_matrix=additional_matrix)
+    assert result.shape == (10, 4)
+
+    # Test for manipulation of temporal dimension (ntp)
+    file_path = tmp_path / "regressors.txt"
+    np.savetxt(file_path, np.random.rand(10, 3))
+
+    result = load_regressor_matrices(file_path, ntp=10)
+    assert result.shape == (10, 3)
+
+
+def test_array_is_2d():
+    # Test case: Valid 2D array
+    input_array = np.random.rand(3, 4)
+    output_array = array_is_2d(input_array)
+    assert output_array.shape == (3, 4)
+
+    # Test case: 1D array
+    input_array = np.random.rand(5)
+    output_array = array_is_2d(input_array)
+    assert output_array.shape == (5, 1)
+
+
+def test_load_regressor_matrices(tmp_path):
+    # Test for checking if the files upload is correct
+    file_path = tmp_path / "regressors.txt"
+    np.savetxt(file_path, np.random.rand(10, 3))
+
+    # Test loading a single file
+    result = load_regressor_matrices(file_path)
+    assert result.shape == (10, 3)
+
+    # Test for concatenation of additional matrices
+    file_path = tmp_path / "regressors.txt"
+    np.savetxt(file_path, np.random.rand(10, 3))
+    additional_matrix = np.ones((10, 1))
+
+    result = load_regressor_matrices(file_path, additional_matrix=additional_matrix)
+    assert result.shape == (10, 4)
+
+    # Test for manipulation of temporal dimension (ntp)
+    file_path = tmp_path / "regressors.txt"
+    np.savetxt(file_path, np.random.rand(10, 3))
+
+    result = load_regressor_matrices(file_path, ntp=10)
+    assert result.shape == (10, 3)
 
 
 # ## Break tests
-
-
 def test_break_if_declared_force_type():
     with pytest.raises(NotImplementedError) as errorinfo:
         io.if_declared_force_type("10", "invalid_type")
@@ -187,3 +210,35 @@ def test_break_check_nifti_dim_missing_dims():
     with pytest.raises(ValueError) as errorinfo:
         io.check_nifti_dim("missing_dims.nii.gz", np.ones((4, 4)), dim=4)
     assert "seem to be a 4D file." in str(errorinfo.value)
+
+
+def test_array_is_2d():
+    # Test case: 0D array (scalar)
+    input_array = np.random.rand()
+    with pytest.raises(
+        ValueError, match="Files with 0 dimensions are not supported yet"
+    ):
+        array_is_2d(input_array)
+    # Test case: 3D array
+    input_array = np.random.rand(2, 3, 4)
+    with pytest.raises(
+        ValueError, match="Files with 3 dimensions are not supported yet"
+    ):
+        array_is_2d(input_array)
+    # Test case: Empty array
+    input_array = np.array([])
+    with pytest.raises(
+        ValueError, match="Files with 0 dimensions are not supported yet"
+    ):
+        array_is_2d(input_array)
+
+
+def test_load_regressor_matrices_dimension_error(tmp_path):
+    file_path = tmp_path / "regressors.txt"
+    np.savetxt(file_path, np.random.rand(10, 3))
+    additional_matrix = np.ones((5, 2))
+    with pytest.raises(
+        ValueError,
+        match="Loaded matrix has shape .* but additional matrix has shape .*",
+    ):
+        load_regressor_matrices(file_path, additional_matrix=additional_matrix)

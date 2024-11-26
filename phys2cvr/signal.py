@@ -25,21 +25,22 @@ LGR.setLevel(logging.INFO)
 
 def spc(ts):
     """
-    Compute signal percentage change of ts.
+    Compute signal percentage change over time series (ts).
 
-    Those ts that have mean 0 are divided by 1 instead.
+    Timeseries are divided by the mean.
+    Timeseries that have a mean of 0 are divided by 1 instead.
 
     Parameters
     ----------
     ts : numpy.ndarray
-        A timeseries or a set of timeseries - it is assumed that the last dimension is time.
+        A timeseries or a set of timeseries - it is assumed that the array's last dimension is time.
 
     Returns
     -------
     numpy.ndarray
-        The SPC version of ts.
+        The signal percentage change version of the original ts.
     """
-    m = ts.mean(axis=-1)[..., np.newaxis]
+    m = np.nanmean(ts, axis=-1)[..., np.newaxis]
     md = deepcopy(m)
     md[md == 0] = 1
     ts = (ts - m) / md
@@ -50,12 +51,12 @@ def spc(ts):
 
 def create_hrf(freq=40):
     """
-    Create a canonical haemodynamic response function sampled at the given frequency.
+    Create a canonical haemodynamic response function which is sampled at the given frequency.
 
     Parameters
     ----------
     freq : float
-        Sampling frequency of the haemodynamic response function.
+        Sampling frequency used to resample the haemodynamic response function.
 
     Returns
     -------
@@ -92,25 +93,25 @@ def create_hrf(freq=40):
 
 def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     """
-    Create a bandpass filter given a lowcut and a highcut, then filter data.
+    Create a bandpass filter with a lowcut (lower threshold) and a highcut (upper threshold), then filter data accordingly.
 
     Parameters
     ----------
     data : np.ndarray
-        Data to filter (along last axis)
+        Data to filter (over the last dimension)
     tr : float
-        TR of functional files
+        Repetition time (TR) of functional files
     lowcut : float
-        Lower frequency in the bandpass
+        Low frequency threshold in the bandpass
     highcut : float
-        Higher frequency in the bandpass
+        High frequency threshold in the bandpass
     order : int
-        The order of the butterworth filter
+        The order to be used for the butterworth filter
 
     Returns
     -------
     filt_data : np.ndarray
-        Input `data`, but filtered.
+        Bandpass-filtered input `data`.
     """
     nyq = (1 / tr) / 2
     low = lowcut / nyq
@@ -120,30 +121,69 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     return filt_data
 
 
-def convolve_petco2(co2, pidx, freq, outname):
+def compute_petco2hrf(co2, pidx, freq, outname, response_function="hfr", mode="full"):
     """
-    Convolve the CO2 trace into the PetCO2 trace.
+    Create the PetCO2 trace from CO2 trace, then convolve it to obtain the PetCO2hrf.
 
     Parameters
     ----------
     co2 : np.ndarray
         CO2 (or physiological) regressor
     pidx : np.ndarray
-        index of peaks
+        indices of peaks
     freq : str, int, or float
         sample frequency of the CO2 regressor
     outname : str
-        prefix of the exported file
+        desired prefix of the output file
+    response_function : "hrf", "rrf", "crf", np.ndarray, or None, optional
+        the response function to be used to convolve the signal of interest
+    mode : {'full', 'valid', 'same'} str, optional
+        desired convolution mode, see numpy.convolve.
 
     Returns
     -------
-    co2_conv : np.ndarray
-        Convolved CO2 trace
+    petco2hrf : np.ndarray
+        Convolved PetCO2 trace.
+
+    Raises
+    ------
+    NotImplementedError
+        If the provided CO2 trace is not a 1D array.
     """
+    if co2.ndim > 1:
+        raise NotImplementedError(
+            "Arrays with more than 2 dimensions are not supported."
+        )
+
     # Extract PETco2
-    hrf = create_hrf(freq)
-    co2_lenght = len(co2)
-    nx = np.linspace(0, co2_lenght, co2_lenght)
+    if type(response_function) is np.ndarray:
+        hrf = response_function
+    elif response_function is None:
+        pass
+    elif response_function == "hrf":
+        hrf = create_hrf(freq)
+    elif response_function == "rrf":
+        try:
+            from phys2denoise.metrics.responses import rrf
+        except ImportError:
+            raise ImportError(
+                "phys2denoise is required for the use of RRF response functions. "
+                "Please see install instructions."
+            )
+        hrf = rrf
+    elif response_function == "crf":
+        try:
+            from phys2denoise.metrics.responses import crf
+        except ImportError:
+            raise ImportError(
+                "phys2denoise is required for the use of CRF response functions. "
+                "Please see install instructions."
+            )
+        hrf = crf
+    else:
+        raise ValueError(f"Response function {response_function} is not supported yet")
+
+    nx = np.linspace(0, co2.size, co2.size)
     f = spint.interp1d(pidx, co2[pidx], fill_value="extrapolate")
     petco2 = f(nx)
 
@@ -151,6 +191,8 @@ def convolve_petco2(co2, pidx, freq, outname):
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
     plt.title("CO2 and PetCO2")
     plt.plot(co2, "-", petco2, "-")
+    plt.legend(["CO2", "PetCO2"])
+    plt.tight_layout()
     plt.savefig(f"{outname}_petco2.png", dpi=SET_DPI)
     plt.close()
 
@@ -159,39 +201,41 @@ def convolve_petco2(co2, pidx, freq, outname):
     np.savetxt(f"{outname}_petco2.1D", petco2, fmt="%.18f")
 
     # Convolve, and then rescale to have same amplitude (?)
-    co2_conv = np.convolve(petco2, hrf)
-    co2_conv = np.interp(
-        co2_conv, (co2_conv.min(), co2_conv.max()), (petco2.min(), petco2.max())
+    if response_function is None:
+        petco2hrf = petco2
+    else:
+        petco2hrf = np.convolve(petco2, hrf, mode=mode)
+    petco2hrf = np.interp(
+        petco2hrf, (petco2hrf.min(), petco2hrf.max()), (petco2.min(), petco2.max())
     )
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.title("PetCO2 and convolved regressor (PetCO2hrf)")
-    plt.plot(co2_conv, "-", petco2, "-")
+    plt.title("PetCO2 and convolved PetCO2 (PetCO2hrf)")
+    plt.plot(petco2hrf, "-", petco2, "-")
+    plt.tight_layout()
     plt.savefig(f"{outname}_petco2hrf.png", dpi=SET_DPI)
     plt.close()
 
-    np.savetxt(f"{outname}_petco2hrf.1D", co2_conv, fmt="%.18f")
+    np.savetxt(f"{outname}_petco2hrf.1D", petco2hrf, fmt="%.18f")
 
-    return co2_conv
+    return petco2hrf
 
 
-def resample_signal(ts, freq1, freq2, axis=0):
+def resample_signal(ts, samples, axis=-1):
     """
-    Upsample or downsample a given timeseries.
+    Upsample or downsample a given timeseries based on number of samples.
 
-    This program brings ts at freq1 to a new timeseries at freq2
+    This program resamples ts with the original frequency (freq1) to a timeseries at new frequency (freq2)
 
     Parameters
     ----------
     ts : numpy.ndarray
-        The timeseries to resample.
-    freq1 : float
-        The frequency of the timeseries to resample
-    freq2 : float
-        The new desired frequency
+        The timeseries to be resampled
+    samples : int
+        The new desired number of samples in ts
     axis : int
-        The axis over with the interpolation should happen - by default it's
-        0, i.e. the first dimension.
+        The axis (dimension) over which the interpolation should be applied - by default it's
+        -1, i.e., the last dimension.
 
     Returns
     -------
@@ -199,13 +243,48 @@ def resample_signal(ts, freq1, freq2, axis=0):
         The resampled timeseries
     """
     # Upsample functional signal
-    len_tp = ts.shape[0]
-    len_s = (len_tp - 1) * 1 / freq1
-    regr_t = np.linspace(0, len_s, int(len_s * freq2) + 1)
-    time_t = np.linspace(0, len_s, len_tp)
-    f = spint.interp1d(time_t, ts, fill_value="extrapolate", axis=axis)
+    len_tp = ts.shape[axis]
+    orig_t = np.linspace(0, len_tp, len_tp)
+    interp_t = np.linspace(0, len_tp, samples)
+    f = spint.interp1d(orig_t, ts, fill_value="extrapolate", axis=axis)
 
-    return f(regr_t)
+    return f(interp_t)
+
+
+def resample_signal_freqs(ts, freq1, freq2, axis=-1):
+    """
+    Upsample or downsample a given timeseries based on the current and desired frequency.
+
+    This program resamples ts with the original frequency (freq1) to a timeseries at new frequency (freq2)
+
+    Parameters
+    ----------
+    ts : numpy.ndarray
+        The timeseries to be resampled
+    freq1 : float
+        The current frequency of the timeseries to be resampled
+    freq2 : float
+        The new desired frequency for the timeseries
+    axis : int
+        The axis (dimension) over which the interpolation should happen - by default it's
+        -1, i.e. the last dimension.
+
+
+
+    Returns
+    -------
+    numpy.ndarray
+        The resampled timeseries
+    """
+    # Upsample functional signal
+    len_tp = ts.shape[axis]
+    len_newtp = int(np.around(ts.shape[axis] * (freq2 / freq1)))
+    len_s = len_tp / freq1
+    orig_t = np.linspace(0, len_s, len_tp)
+    interp_t = np.linspace(0, len_s, len_newtp)
+    f = spint.interp1d(orig_t, ts, fill_value="extrapolate", axis=axis)
+
+    return f(interp_t)
 
 
 """
