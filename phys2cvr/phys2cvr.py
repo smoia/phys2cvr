@@ -246,8 +246,8 @@ def phys2cvr(
     # If lagged regression is selected, make sure run_regression is true.
     if lagged_regression:
         run_regression = True
-   # Set the output directory 
-   # Add logger and suff
+    # Set the output directory
+    # Add logger and suff
     if outdir:
         outdir = os.path.abspath(outdir)
     else:
@@ -292,7 +292,7 @@ def phys2cvr(
             format="%(levelname)-10s %(message)s",
         )
     else:
-         # Default logging level is INFO
+        # Default logging level is INFO
         logging.basicConfig(
             level=logging.INFO,
             handlers=[log_handler, sh],
@@ -308,36 +308,40 @@ def phys2cvr(
     func_is_1d = io.check_ext(EXT_1D, fname_func)
     func_is_nifti = io.check_ext(EXT_NIFTI, fname_func)
 
-    # Validate and convert input parameters to the correct types    
+    # Validate and convert input parameters to the correct types
     # Check that all input values have right type
-    tr = io.if_declared_force_type(tr, "float", "tr") # Repetition time (TR)
-    freq = io.if_declared_force_type(freq, "float", "freq") #Sampling frequency
-    trial_len = io.if_declared_force_type(trial_len, "int", "trial_len") # Trial lens 
-    n_trials = io.if_declared_force_type(n_trials, "int", "n_trials") # Number of trials
-    highcut = io.if_declared_force_type(highcut, "float", "highcut") #High cutoff frequency 
-    lowcut = io.if_declared_force_type(lowcut, "float", "lowcut") #Low cutoff frequency
-    lag_max = io.if_declared_force_type(lag_max, "float", "lag_max") #Maximum lag
-    
+    tr = io.if_declared_force_type(tr, "float", "tr")  # Repetition time (TR)
+    freq = io.if_declared_force_type(freq, "float", "freq")  # Sampling frequency
+    trial_len = io.if_declared_force_type(trial_len, "int", "trial_len")  # Trial lens
+    n_trials = io.if_declared_force_type(
+        n_trials, "int", "n_trials"
+    )  # Number of trials
+    highcut = io.if_declared_force_type(
+        highcut, "float", "highcut"
+    )  # High cutoff frequency
+    lowcut = io.if_declared_force_type(
+        lowcut, "float", "lowcut"
+    )  # Low cutoff frequency
+    lag_max = io.if_declared_force_type(lag_max, "float", "lag_max")  # Maximum lag
+
     # Added by Cristina (line 321 to 341)
     # Handle symmetric and asymmetric lag ranges
     if isinstance(lag_max, (list, tuple)) and len(lag_max) == 2:
-         # If lag_max is a tuple or list with two values, treat it as an asymmetric range
-        lag_min= float(lag_max[0])  # First value is the minimum lag
-        lag_max= float(lag_max[1]) # Second value is the maximum lag
+        # If lag_max is a tuple or list with two values, treat it as an asymmetric range
+        lag_min = float(lag_max[0])  # First value is the minimum lag
+        lag_max = float(lag_max[1])  # Second value is the maximum lag
         LGR.info(f"Using asymmetric lag range: [{lag_min}, {lag_max}]")
-    
+
     elif isinstance(lag_max, (int, float)):
         # If lag_max is a single value, treat it as a symmetric range
-        lag_min =  -float(lag_max)
+        lag_min = -float(lag_max)
         lag_max = float(lag_max)
         LGR.info(f"Using symmetric lag range: [{lag_min}, {lag_max}]")
 
-    else:  
+    else:
         # Raise an error if lag_max is invalid
-       raise ValueError(
-            "Invalid lag_max value. Using default symmetric range."
-        )
-    
+        raise ValueError("Invalid lag_max value. Using default symmetric range.")
+
     # Validate and convert additional input parameters
     lag_step = io.if_declared_force_type(lag_step, "float", "lag_step")
     l_degree = io.if_declared_force_type(l_degree, "int", "l_degree")
@@ -349,7 +353,7 @@ def phys2cvr(
 
     # Validate the R^2 model
     if r2model not in stats.R2MODEL:
-         # Raise an error if the R^2 model is not supported
+        # Raise an error if the R^2 model is not supported
         raise ValueError(
             f"R^2 model {r2model} not supported. Supported models "
             f"are {stats.R2MODEL}"
@@ -361,20 +365,20 @@ def phys2cvr(
             # Load the functional signal from the 1D text file
             func_avg = np.genfromtxt(fname_func)
             LGR.info(f"Loading {fname_func}")
-             # Apply a Butterworth filter to the functional signal
+            # Apply a Butterworth filter to the functional signal
             if apply_filter:
                 LGR.info("Applying butterworth filter to {fname_func}")
                 func_avg = signal.filter_signal(
                     func_avg, tr, lowcut, highcut, butter_order
                 )
         else:
-             # Raise an error if TR is not specified for a 1D input file
+            # Raise an error if TR is not specified for a 1D input file
             raise NameError(
                 "Provided functional signal, but no TR specified! "
                 "Rerun specifying the TR"
             )
     elif func_is_nifti:
-         # Load the functional data from a NIfTI file
+        # Load the functional data from a NIfTI file
         func, dmask, img = io.load_nifti_get_mask(fname_func, dim=4)
         if len(func.shape) < 4:
             # Raise an error if the NIfTI file is not 4D
@@ -389,13 +393,13 @@ def phys2cvr(
         if fname_mask:
             _, mask, _ = io.load_nifti_get_mask(fname_mask, is_mask=True)
             if func.shape[:3] != mask.shape:
-                 # Raise an error if the mask dimensions do not match the functional data
+                # Raise an error if the mask dimensions do not match the functional data
                 raise ValueError(f"{fname_mask} and {fname_func} have different sizes!")
-            mask = mask * dmask # Combine the mask with the data mask
+            mask = mask * dmask  # Combine the mask with the data mask
             LGR.info(
                 f"Masking {os.path.basename(fname_func)} using {os.path.basename(fname_mask)}"
             )
-            func = func * mask[..., np.newaxis] # Apply the mask to the functional data
+            func = func * mask[..., np.newaxis]  # Apply the mask to the functional data
             roiref = os.path.basename(fname_mask)
         else:
             # Use the data mask if no mask file is provided
@@ -412,7 +416,7 @@ def phys2cvr(
             if func.shape[:3] != roi.shape:
                 # Raise an error if the ROI dimensions do not match the functional data
                 raise ValueError(f"{fname_roi} and {fname_func} have different sizes!")
-            roi = roi * mask # Combine the ROI with the mask
+            roi = roi * mask  # Combine the ROI with the mask
             roiref = os.path.basename(fname_roi)
         else:
             # Use the mask as the ROI if no ROI file is provided
@@ -422,7 +426,7 @@ def phys2cvr(
             )
 
         if apply_filter:
-             # Apply a Butterworth filter to the functional data and compute the average signal
+            # Apply a Butterworth filter to the functional data and compute the average signal
             LGR.info(f"Obtaining filtered average signal in {roiref}")
             func_filt = signal.filter_signal(func, tr, lowcut, highcut, butter_order)
             func_avg = func_filt[roi].mean(axis=0)
@@ -442,7 +446,7 @@ def phys2cvr(
         # If no CO2 file is provided, compute CVR maps using only the functional data
         LGR.info(f'Computing "CVR" (approximation) maps using {fname_func} only')
         if func_is_1d:
-             # Warn the user that using only the average signal might not be optimal
+            # Warn the user that using only the average signal might not be optimal
             LGR.warning("Using an average signal only, solution might be unoptimal.")
 
             if apply_filter is None:
@@ -455,7 +459,7 @@ def phys2cvr(
         # The former is more robust to intrinsic data noise than the latter
         petco2hrf = signal.spc(func_avg)
 
-         # Generate a base name for the output CO2 file (using functional file name as a base)
+        # Generate a base name for the output CO2 file (using functional file name as a base)
         # Reassign fname_co2 to fname_func for later use - calling splitext twice cause .gz
         basename_co2 = os.path.splitext(
             os.path.splitext(f"avg_{os.path.basename(fname_func)}")[0]
@@ -472,7 +476,7 @@ def phys2cvr(
             LGR.info(f"Resampling the average fMRI timeseries at {freq}Hz")
             petco2hrf = signal.resample_signal(petco2hrf, 1 / tr, freq)
     else:
-         # If a CO2 file is provided, check its type (.phys or 1D)
+        # If a CO2 file is provided, check its type (.phys or 1D)
         co2_is_phys = io.check_ext(".phys", fname_co2)
         co2_is_1d = io.check_ext(EXT_1D, fname_co2)
 
@@ -490,32 +494,32 @@ def phys2cvr(
                 )
 
             if freq is None:
-                 # Raise an error if frequency is required but not provided
+                # Raise an error if frequency is required but not provided
                 raise NameError(
                     f"{fname_co2} file is a text file, but no "
                     "frequency was specified. Please provide peak "
                     " file!"
                 )
-             # Load the CO2 timeseries from the 1D text file
+            # Load the CO2 timeseries from the 1D text file
             co2 = np.genfromtxt(fname_co2)
         elif co2_is_phys:
             # Read a phys file!
             phys = load_physio(fname_co2, allow_pickle=True)
 
-            co2 = phys.data # Extract the CO2 timeseries
-            pidx = phys.peaks # Extract the CO2 peaks
+            co2 = phys.data  # Extract the CO2 timeseries
+            pidx = phys.peaks  # Extract the CO2 peaks
             if freq:
-                 # Warn the user if the frequency is being overwritten
+                # Warn the user if the frequency is being overwritten
                 LGR.warning(f"Forcing CO2 frequency to be {freq} Hz")
             else:
                 freq = phys.fs
         else:
-             # Raise an error if the CO2 file type is not supported
+            # Raise an error if the CO2 file type is not supported
             raise NotImplementedError(
                 f"{fname_co2} file type is not supported yet, or "
                 "the extension was not specified."
             )
-        
+
         # Generate a base name for the output CO2 file
         # Set output file & path - calling splitext twice cause .gz
         basename_co2 = os.path.splitext(
@@ -524,7 +528,7 @@ def phys2cvr(
         outname = os.path.join(outdir, basename_co2)
 
         # Unless user asks to skip this step, convolve the end tidal signal.
-         # If the user asks to skip convolution, use the raw CO2 signal
+        # If the user asks to skip convolution, use the raw CO2 signal
         if run_conv is False:
             petco2hrf = co2
         else:
@@ -535,26 +539,26 @@ def phys2cvr(
     if regr_dir is None:
         # Generate regressors using the functional average and CO2 HRF
         regr, regr_shifts = stats.get_regr(
-            func_avg, 
-            petco2hrf, 
+            func_avg,
+            petco2hrf,
             tr,
             freq,
-            outname, # output file base name
+            outname,  # output file base name
             lag_max,
             trial_len,
             n_trials,
             ".1D",
-            lagged_regression, # whether to compute lagged regressors
-            legacy, # Use legacy mode for ranges
-            abs_xcorr, # Use absolute cross-correlation
-            skip_xcorr, # Skip cross-correlation step
+            lagged_regression,  # whether to compute lagged regressors
+            legacy,  # Use legacy mode for ranges
+            abs_xcorr,  # Use absolute cross-correlation
+            skip_xcorr,  # Skip cross-correlation step
         )
     elif run_regression:
-         # If regressors are precomputed, try to load them
+        # If regressors are precomputed, try to load them
         try:
             regr = np.genfromtxt(f"{outname}_petco2hrf.1D")
         except IOError:
-              # If the regressor file is not found, compute it
+            # If the regressor file is not found, compute it
             LGR.warning(
                 f"Regressor {outname}_petco2hrf.1D not found. " "Estimating it."
             )
@@ -638,7 +642,7 @@ def phys2cvr(
         LGR.info("Compute simple CVR estimation (bulk shift only)")
         x1D = os.path.join(outdir, "mat", "mat_simple.1D")
         beta, tstat, r_square = stats.regression(
-            func, 
+            func,
             regr,
             denoise_matrix,
             orthogonalised_matrix,
@@ -654,7 +658,7 @@ def phys2cvr(
         if scale_factor is None:
             LGR.warning("Remember: CVR might not be in %BOLD/mmHg!")
         else:
-            beta = beta / float(scale_factor) # Scale beta by the scale factor
+            beta = beta / float(scale_factor)  # Scale beta by the scale factor
         # Scale beta by scale factor while exporting (useful to transform V in mmHg)
         # Export CVR and T-stat maps
         LGR.info("Export CVR and T-stat of simple regression")
@@ -674,7 +678,7 @@ def phys2cvr(
             # If lagged regression is enabled and regressors are available
             # Perform lagged CVR estimation
             if lag_max:
-                 # Log the minimum and maximum lag being used 
+                # Log the minimum and maximum lag being used
                 LGR.info(
                     f"Running lagged CVR estimation with lag range: [{lag_min}, {lag_max}]"
                     "(might take a while...)"
@@ -685,7 +689,7 @@ def phys2cvr(
                     f"Running lagged CVR estimation with lag map {lag_map}! "
                     "(might take a while...)"
                 )
-             # Determine the number of repetitions (nrep) based on lag_max and frequency    
+            # Determine the number of repetitions (nrep) based on lag_max and frequency
             if legacy:
                 # Legacy mode: use pythonic ranges (exclude the upper limit)
                 nrep = int(lag_max * freq * 2)
@@ -716,7 +720,7 @@ def phys2cvr(
                     # If lag_step is not provided, calculate it from the lag map
                     lag_step = np.unique(lag_list[1:] - lag_list[:-1])
                     if lag_step.size > 1:
-                         # Raise an error if the lag map has inconsistent step sizes
+                        # Raise an error if the lag map has inconsistent step sizes
                         raise ValueError(
                             f"phys2cvr found different delta lags in {lag_map}"
                         )
@@ -726,14 +730,14 @@ def phys2cvr(
                             f"phys2cvr detected a delta lag of {lag_step} seconds"
                         )
                 else:
-                     # Log the forced lag step
+                    # Log the forced lag step
                     LGR.warning(f"Forcing delta lag to be {lag_step}")
 
                 # Convert lag_step to samples
                 step = int(lag_step * freq)
 
                 if lag_max is None:
-                     # If lag_max is not provided, calculate it from the lag map
+                    # If lag_max is not provided, calculate it from the lag map
                     lag_max = np.abs(lag_list).max()
                     LGR.warning(f"phys2cvr detected a max lag of {lag_max} seconds")
                 else:
@@ -750,18 +754,18 @@ def phys2cvr(
                 tstat = np.empty_like(lag, dtype="float32")
 
                 for i in lag_idx_list:
-                     # Perform lagged regression for each unique lag index
+                    # Perform lagged regression for each unique lag index
                     LGR.info(
                         f"Perform L-GLM for lag {lag_list[i]} ({i + 1} of "
                         f"{len(lag_idx_list)}"
                     )
                     try:
-                         # Use precomputed regressors if available
+                        # Use precomputed regressors if available
                         regr = regr_shifts[:, (i * step)]
                     except NameError:
-                         # Otherwise, load regressors from file
+                        # Otherwise, load regressors from file
                         regr = np.genfromtxt(f"{outprefix}_{i:04g}")
-                    
+
                     # Perform regression for the current lag
                     x1D = os.path.join(outdir, "mat", f"mat_{i:04g}.1D")
                     (beta[lag_idx == i], tstat[lag_idx == i], _) = stats.regression(
@@ -780,13 +784,13 @@ def phys2cvr(
                 # If no lag map is provided, calculate lagged regressors dynamically
                 # Check the number of repetitions first
                 if lag_step:
-                     # Convert lag_step to samples
+                    # Convert lag_step to samples
                     step = int(lag_step * freq)
                 else:
                     step = 1
-                #this was the lag range implemment by stefano as it is symmetric
+                # this was the lag range implemment by stefano as it is symmetric
                 # lag_range = list(range(0, nrep, step))
-                
+
                 # Create Cristina's lag range taking into account assymetric lag and symmetric lag
                 lag_range = np.arange(lag_min, lag_max + lag_step, lag_step)
                 LGR.info(f"Generated lag range: {lag_range}")
@@ -794,13 +798,13 @@ def phys2cvr(
                 # Prepare empty matrices to store results for all lags
                 r_square_all = np.empty(
                     list(func.shape[:3]) + [len(lag_range)], dtype="float32"
-                ) # Matrix to store R^2 values for all lags
+                )  # Matrix to store R^2 values for all lags
                 beta_all = np.empty(
                     list(func.shape[:3]) + [len(lag_range)], dtype="float32"
-                ) # Matrix to store beta values for all lags
+                )  # Matrix to store beta values for all lags
                 tstat_all = np.empty(
                     list(func.shape[:3]) + [len(lag_range)], dtype="float32"
-                ) # Matrix to store t-stat values for all lags
+                )  # Matrix to store t-stat values for all lags
 
                 # Loop through each lag in the generated lag range
                 for n, i in enumerate(lag_range):
@@ -818,9 +822,13 @@ def phys2cvr(
                     # Define the output path for the current lag's design matrix
                     x1D = os.path.join(outdir, "mat", f"mat_{i:04g}.1D")
                     (
-                        beta_all[:, :, :, n], # Store beta values for the current lag
-                        tstat_all[:, :, :, n], # Store t-stat values for the current lag
-                        r_square_all[:, :, :, n], # Store R^2 values for the current lag
+                        beta_all[:, :, :, n],  # Store beta values for the current lag
+                        tstat_all[
+                            :, :, :, n
+                        ],  # Store t-stat values for the current lag
+                        r_square_all[
+                            :, :, :, n
+                        ],  # Store R^2 values for the current lag
                     ) = stats.regression(
                         func,
                         regr,
@@ -848,23 +856,31 @@ def phys2cvr(
                     io.export_nifti(beta_all, oimg_all, f"{fname_out_func}_beta_all")
 
                 # Find the optimal lag for CVR estimation based on R^2 values
-                lag_idx = np.argmax(r_square_all, axis=-1) # Index of the maximum R^2 value along the lag dimension
-                lag = (lag_idx * step) / freq - (mask * lag_max) # Convert lag index to time in seconds
-                
+                lag_idx = np.argmax(
+                    r_square_all, axis=-1
+                )  # Index of the maximum R^2 value along the lag dimension
+                lag = (lag_idx * step) / freq - (
+                    mask * lag_max
+                )  # Convert lag index to time in seconds
+
                 # Express lag map relative to median of the roi
                 lag_rel = lag - (mask * np.median(lag[roi]))
 
                 # Run through indexes to pick the right value
-                lag_idx_list = np.unique(lag_idx) # Get unique lag indices
-                beta = np.empty_like(lag, dtype="float32") # Initialize empty matrix for beta values
-                tstat = np.empty_like(lag, dtype="float32") # Initialize empty matrix for t-stat values
+                lag_idx_list = np.unique(lag_idx)  # Get unique lag indices
+                beta = np.empty_like(
+                    lag, dtype="float32"
+                )  # Initialize empty matrix for beta values
+                tstat = np.empty_like(
+                    lag, dtype="float32"
+                )  # Initialize empty matrix for t-stat values
                 # Loop through each unique lag index
                 for i in lag_idx_list:
                     # Assign beta and t-stat values for the current lag index
                     beta[lag_idx == i] = beta_all[:, :, :, i][lag_idx == i]
                     tstat[lag_idx == i] = tstat_all[:, :, :, i][lag_idx == i]
-            
-            # Export the final results for the optimal lag  
+
+            # Export the final results for the optimal lag
             LGR.info("Export fine shift results")
             if scale_factor is None:
                 # Warn the user if no scale factor is provided
@@ -873,10 +889,10 @@ def phys2cvr(
                 # Scale beta values by the scale factor
                 beta = beta / float(scale_factor)
 
-            # Export the CVR and T-stat maps 
+            # Export the CVR and T-stat maps
             io.export_nifti(beta, oimg, f"{fname_out_func}_cvr")
             io.export_nifti(tstat, oimg, f"{fname_out_func}_tstat")
-            
+
             # If no lag map is provided, export the lag map and relative lag map
             if not lag_map:
                 io.export_nifti(lag, oimg, f"{fname_out_func}_lag")
@@ -912,7 +928,7 @@ def _main(argv=None):
 
 if __name__ == "__main__":
 
-     _main(sys.argv[1:])
+    _main(sys.argv[1:])
 
 
 """
