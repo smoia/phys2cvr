@@ -2,10 +2,9 @@
 
 import pkgutil
 
-from ._version import get_versions
+from . import _version
 
-__version__ = get_versions()["version"]
-del get_versions
+__version__ = _version.get_versions()["version"]
 
 __all__ = []
 for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):

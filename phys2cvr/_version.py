@@ -101,7 +101,6 @@ def run_command(
         try:
             dispcmd = str([command] + args)
             # remember shell=False, so use git.cmd on windows, not just git
-
             process = subprocess.Popen(
                 [command] + args,
                 cwd=cwd,
@@ -225,7 +224,6 @@ def git_versions_from_keywords(
     # just "foo-1.0". If we see a "tag: " prefix, prefer those.
     TAG = "tag: "
     tags = {r[len(TAG) :] for r in refs if r.startswith(TAG)}
-
     if not tags:
         # Either we're using git < 1.8.3, or there really are no tags. We use
         # a heuristic: assume all version tags have a digit. The old git %d
@@ -235,7 +233,6 @@ def git_versions_from_keywords(
         # filter out many common branch names like "release" and
         # "stabilization", as well as "HEAD" and "master".
         tags = {r for r in refs if re.search(r"\d", r)}
-
         if verbose:
             print("discarding '%s', no digits" % ",".join(refs - tags))
     if verbose:
@@ -250,7 +247,6 @@ def git_versions_from_keywords(
             # when prefix is '')
             if not re.match(r"\d", r):
                 continue
-
             if verbose:
                 print("picking %s" % r)
             return {
@@ -294,7 +290,6 @@ def git_pieces_from_vcs(
     runner = functools.partial(runner, env=env)
 
     _, rc = runner(GITS, ["rev-parse", "--git-dir"], cwd=root, hide_stderr=not verbose)
-
     if rc != 0:
         if verbose:
             print("Directory %s not under git control" % root)
@@ -302,7 +297,6 @@ def git_pieces_from_vcs(
 
     # if there is a tag matching tag_prefix, this yields TAG-NUM-gHEX[-dirty]
     # if there isn't one, this yields HEX[-dirty] (no NUM)
-
     describe_out, rc = runner(
         GITS,
         [

@@ -307,7 +307,6 @@ https://img.shields.io/travis/com/python-versioneer/python-versioneer.svg
 # pylint:disable=too-few-public-methods,redefined-outer-name,consider-using-with
 # pylint:disable=attribute-defined-outside-init,too-many-arguments
 
-
 import configparser
 import errno
 import json
@@ -517,7 +516,6 @@ def run_command(
 LONG_VERSION_PY[
     "git"
 ] = r'''
-
 # This file helps to compute a version number in source trees obtained from
 # git-archive tarball (such as those provided by githubs download-from-tag
 # feature). Distribution tarballs (built by setup.py sdist) and build
@@ -1348,7 +1346,6 @@ def git_pieces_from_vcs(
         ],
         cwd=root,
     )
-
     # --long was added in git-1.5.5
     if describe_out is None:
         raise NotThisMethod("'git describe' failed")
