@@ -1,3 +1,21 @@
+# 0.19.0 (Mon May 05 2025)
+
+#### 🚀 Enhancement
+
+- Update installation to add python 3.12 compatibility and update a few settings [#120](https://github.com/smoia/phys2cvr/pull/120) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]) [@smoia](https://github.com/smoia))
+
+#### 🏠 Internal
+
+- Updated versioneer to v0.29 [#123](https://github.com/smoia/phys2cvr/pull/123) ([@kristinazvolanek](https://github.com/kristinazvolanek) [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 3
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Kristina Zvolanek ([@kristinazvolanek](https://github.com/kristinazvolanek))
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.18.6 (Sat Jun 01 2024)
 
 #### 🐛 Bug Fix
