@@ -115,7 +115,7 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     nyq = (1 / tr) / 2
     low = lowcut / nyq
     high = highcut / nyq
-    a, b = butter(int(order), [low, high], btype="band")
+    a, b = butter(int(order), [low, high], btype='band')
     filt_data = filtfilt(a, b, data, axis=-1)
     return filt_data
 
@@ -144,19 +144,19 @@ def convolve_petco2(co2, pidx, freq, outname):
     hrf = create_hrf(freq)
     co2_lenght = len(co2)
     nx = np.linspace(0, co2_lenght, co2_lenght)
-    f = spint.interp1d(pidx, co2[pidx], fill_value="extrapolate")
+    f = spint.interp1d(pidx, co2[pidx], fill_value='extrapolate')
     petco2 = f(nx)
 
     # Plot PETco2
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.title("CO2 and PetCO2")
-    plt.plot(co2, "-", petco2, "-")
-    plt.savefig(f"{outname}_petco2.png", dpi=SET_DPI)
+    plt.title('CO2 and PetCO2')
+    plt.plot(co2, '-', petco2, '-')
+    plt.savefig(f'{outname}_petco2.png', dpi=SET_DPI)
     plt.close()
 
     # Demean and export
     petco2 = petco2 - petco2.mean()
-    np.savetxt(f"{outname}_petco2.1D", petco2, fmt="%.18f")
+    np.savetxt(f'{outname}_petco2.1D', petco2, fmt='%.18f')
 
     # Convolve, and then rescale to have same amplitude (?)
     co2_conv = np.convolve(petco2, hrf)
@@ -165,12 +165,12 @@ def convolve_petco2(co2, pidx, freq, outname):
     )
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.title("PetCO2 and convolved regressor (PetCO2hrf)")
-    plt.plot(co2_conv, "-", petco2, "-")
-    plt.savefig(f"{outname}_petco2hrf.png", dpi=SET_DPI)
+    plt.title('PetCO2 and convolved regressor (PetCO2hrf)')
+    plt.plot(co2_conv, '-', petco2, '-')
+    plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
     plt.close()
 
-    np.savetxt(f"{outname}_petco2hrf.1D", co2_conv, fmt="%.18f")
+    np.savetxt(f'{outname}_petco2hrf.1D', co2_conv, fmt='%.18f')
 
     return co2_conv
 
@@ -203,7 +203,7 @@ def resample_signal(ts, freq1, freq2, axis=0):
     len_s = (len_tp - 1) * 1 / freq1
     regr_t = np.linspace(0, len_s, int(len_s * freq2) + 1)
     time_t = np.linspace(0, len_s, len_tp)
-    f = spint.interp1d(time_t, ts, fill_value="extrapolate", axis=axis)
+    f = spint.interp1d(time_t, ts, fill_value='extrapolate', axis=axis)
 
     return f(regr_t)
 

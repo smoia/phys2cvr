@@ -98,7 +98,7 @@ def test_convolve_petco2(testdir):
     co2[40] = 1
     pidx = np.array([20, 40])
     freq = 10
-    outname = str(os.path.join(testdir, "test"))
+    outname = str(os.path.join(testdir, 'test'))
 
     # Call function
     co2_conv = signal.convolve_petco2(co2, pidx, freq, outname)
@@ -112,10 +112,10 @@ def test_convolve_petco2(testdir):
     assert np.allclose(co2_conv[41:], 0)
 
     # Check files were created
-    assert (os.path.join(testdir, "test_petco2.png")).is_file()
-    assert (os.path.join(testdir, "test_petco2.1D")).is_file()
-    assert (os.path.join(testdir, "test_petco2hrf.png")).is_file()
-    assert (os.path.join(testdir, "test_petco2hrf.1D")).is_file()
+    assert (os.path.join(testdir, 'test_petco2.png')).is_file()
+    assert (os.path.join(testdir, 'test_petco2.1D')).is_file()
+    assert (os.path.join(testdir, 'test_petco2hrf.png')).is_file()
+    assert (os.path.join(testdir, 'test_petco2hrf.1D')).is_file()
 
 
 def test_resample_signal():
