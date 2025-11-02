@@ -11,8 +11,8 @@ for loader, module_name, _is_pkg in pkgutil.walk_packages(__path__):
     if 'tests' not in module_name:
         __all__.append(module_name)
 
-    try:
-        _module = loader.find_module(module_name).load_module(module_name)
-    except AttributeError:
-        _module = loader.find_spec(module_name).loader.load_module(module_name)
-    globals()[module_name] = _module
+        try:
+            _module = loader.find_module(module_name).load_module(module_name)
+        except AttributeError:
+            _module = loader.find_spec(module_name).loader.load_module(module_name)
+        globals()[module_name] = _module
