@@ -460,7 +460,7 @@ def load_array(fname, shape=''):
     return mtx
 
 
-def export_regressor(petco2hrf_shift, freq, tr, outname, suffix='petco2hrf', ext='.1D'):
+def export_regressor(petco2hrf_shift, ntp, outname, suffix='petco2hrf', ext='.1D'):
     """
     Export generated regressors for fMRI analysis.
 

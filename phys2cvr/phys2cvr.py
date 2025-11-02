@@ -250,12 +250,6 @@ def phys2cvr(
         - If physiological file is lacking frequency and the latter was not specified.
     """
     # If lagged regression is selected, make sure run_regression is true.
-    if extra_matrix_file is None:
-        extra_matrix_file = []
-    if orthogonalised_matrix_file is None:
-        orthogonalised_matrix_file = []
-    if denoise_matrix_file is None:
-        denoise_matrix_file = []
     if lagged_regression:
         run_regression = True
     # Add logger and suff
@@ -555,8 +549,8 @@ def phys2cvr(
             )
         # Read in eventual extra factors
         if extra_matrix_file is not None:
-            denoise_matrix = io.load_regressor_matrices(
-                denoise_matrix_file,
+            extra_matrix = io.load_regressor_matrices(
+                extra_matrix_file,
                 ntp=func.shape[-1],
                 regtype='extra orthogonalisation',
             )
@@ -564,8 +558,8 @@ def phys2cvr(
             extra_matrix = None
         # Read in eventual orthogonalisable factors
         if orthogonalised_matrix_file is not None:
-            denoise_matrix = io.load_regressor_matrices(
-                denoise_matrix_file, ntp=func.shape[-1], regtype='confounding'
+            orthogonalised_matrix = io.load_regressor_matrices(
+                orthogonalised_matrix_file, ntp=func.shape[-1], regtype='confounding'
             )
         else:
             orthogonalised_matrix = None
