@@ -8,7 +8,8 @@ __version__ = _version.get_versions()['version']
 
 __all__ = []
 for loader, module_name, _is_pkg in pkgutil.walk_packages(__path__):
-    __all__.append(module_name)
+    if 'tests' not in module_name:
+        __all__.append(module_name)
 
     try:
         _module = loader.find_module(module_name).load_module(module_name)

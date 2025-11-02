@@ -82,7 +82,7 @@ def phys2cvr(
     lag_map=None,
     regr_dir=None,
     run_petco2hrf=True,
-    response_function="hrf",
+    response_function='hrf',
     quiet=False,
     debug=False,
 ):
@@ -260,7 +260,7 @@ def phys2cvr(
         run_regression = True
     # Add logger and suff
     if outdir is None:
-        outdir = os.path.join(os.path.split(fname_func)[0], "phys2cvr")
+        outdir = os.path.join(os.path.split(fname_func)[0], 'phys2cvr')
     outdir = os.path.abspath(outdir)
     petco2log_path = os.path.join(outdir, 'logs')
     os.makedirs(petco2log_path, exist_ok=True)
@@ -391,11 +391,11 @@ def phys2cvr(
                 f'No ROI specified, using any voxel different from 0 in {roiref}'
             )
 
-        LGR.info(f"Obtaining average signal in {roiref}")
+        LGR.info(f'Obtaining average signal in {roiref}')
         func_avg = func[roi].mean(axis=0)
 
         if apply_filter:
-            LGR.info(f"Obtaining filtered average signal in {roiref}")
+            LGR.info(f'Obtaining filtered average signal in {roiref}')
             func_avg = signal.filter_signal(func_avg, tr, lowcut, highcut, butter_order)
 
     if fname_co2 is None:
@@ -425,7 +425,7 @@ def phys2cvr(
             freq = 1 / tr
             LGR.info(f'No frequency declared, using 1/tr ({freq}Hz)')
         else:
-            LGR.info(f"Resampling the average fMRI timeseries at {freq}Hz")
+            LGR.info(f'Resampling the average fMRI timeseries at {freq}Hz')
             upsamp_tps = int(np.round(petco2hrf.shape[-1] * tr * freq))
             petco2hrf = signal.resample_signal(petco2hrf, upsamp_tps)
     else:
@@ -477,10 +477,10 @@ def phys2cvr(
         if run_petco2hrf is False:
             petco2hrf = co2
         else:
-            if response_function not in ["hrf", "rrf", "crf"]:
+            if response_function not in ['hrf', 'rrf', 'crf']:
                 try:
                     response_function = np.genfromtxt(response_function)
-                except IOError:
+                except OSError:
                     pass
             petco2hrf = signal.compute_petco2hrf(
                 co2, pidx, freq, outname, response_function
@@ -505,9 +505,9 @@ def phys2cvr(
         )
     elif run_regression:
         try:
-            regr = np.genfromtxt(f"{outname}_petco2hrf.1D")
-        except IOError:
-            LGR.warning(f"Regressor {outname}_petco2hrf.1D not found. Estimating it.")
+            regr = np.genfromtxt(f'{outname}_petco2hrf.1D')
+        except OSError:
+            LGR.warning(f'Regressor {outname}_petco2hrf.1D not found. Estimating it.')
             regr, regr_shifts = create_physio_regressor(
                 func_avg,
                 petco2hrf,
@@ -543,29 +543,29 @@ def phys2cvr(
         func = signal.spc(func)
 
         # Generate polynomial regressors (at least average) and assign them to denoise_matrix
-        LGR.info(f"Compute Legendre polynomials up to order {l_degree}")
+        LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
         denoise_matrix = create_legendre(l_degree, regr.size)
 
         # Read in eventual denoising factors
-        if denoise_matrix_file:
+        if denoise_matrix_file is not None:
             denoise_matrix = io.load_regressor_matrices(
                 denoise_matrix_file,
                 additional_matrix=denoise_matrix,
                 ntp=func.shape[-1],
             )
         # Read in eventual extra factors
-        if extra_matrix_file:
+        if extra_matrix_file is not None:
             denoise_matrix = io.load_regressor_matrices(
                 denoise_matrix_file,
                 ntp=func.shape[-1],
-                regtype="extra orthogonalisation",
+                regtype='extra orthogonalisation',
             )
         else:
             extra_matrix = None
         # Read in eventual orthogonalisable factors
-        if orthogonalised_matrix_file:
+        if orthogonalised_matrix_file is not None:
             denoise_matrix = io.load_regressor_matrices(
-                denoise_matrix_file, ntp=func.shape[-1], regtype="confounding"
+                denoise_matrix_file, ntp=func.shape[-1], regtype='confounding'
             )
         else:
             orthogonalised_matrix = None
@@ -697,20 +697,20 @@ def phys2cvr(
                 lag_range = list(range(0, nrep, step))
                 # Prepare empty matrices
                 r_square_all = np.zeros(
-                    list(func.shape[:3]) + [len(lag_range)], dtype="float32"
+                    list(func.shape[:3]) + [len(lag_range)], dtype='float32'
                 )
                 beta_all = np.zeros(
-                    list(func.shape[:3]) + [len(lag_range)], dtype="float32"
+                    list(func.shape[:3]) + [len(lag_range)], dtype='float32'
                 )
                 tstat_all = np.zeros(
-                    list(func.shape[:3]) + [len(lag_range)], dtype="float32"
+                    list(func.shape[:3]) + [len(lag_range)], dtype='float32'
                 )
 
                 for n, i in enumerate(lag_range):
                     LGR.info(f'Perform L-GLM number {n + 1} of {len(lag_range)}')
                     try:
                         regr = regr_shifts[i, :]
-                        LGR.debug(f"Using shift {i} from matrix in memory: {regr}")
+                        LGR.debug(f'Using shift {i} from matrix in memory: {regr}')
                     except NameError:
                         regr = np.genfromtxt(f'{outprefix}_{i:04g}')
                         LGR.debug(f'Reading shift {i} from file {outprefix}_{i:04g}')
@@ -758,8 +758,8 @@ def phys2cvr(
 
                 # Run through indexes to pick the right value
                 lag_idx_list = np.unique(lag_idx)
-                beta = np.zeros_like(lag, dtype="float32")
-                tstat = np.zeros_like(lag, dtype="float32")
+                beta = np.zeros_like(lag, dtype='float32')
+                tstat = np.zeros_like(lag, dtype='float32')
                 for i in lag_idx_list:
                     beta[lag_idx == i] = beta_all[:, :, :, i][lag_idx == i]
                     tstat[lag_idx == i] = tstat_all[:, :, :, i][lag_idx == i]
@@ -782,8 +782,8 @@ def phys2cvr(
             'regression is not supported for other formats.'
         )
 
-    LGR.info("phys2cvr finished! Enjoy your outputs!")
-    LGR.warning("Due to float rounding, you might need to mask your output.")
+    LGR.info('phys2cvr finished! Enjoy your outputs!')
+    LGR.warning('Due to float rounding, you might need to mask your output.')
 
 
 def _main(argv=None):

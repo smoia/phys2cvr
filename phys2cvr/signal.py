@@ -121,7 +121,7 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9):
     return filt_data
 
 
-def compute_petco2hrf(co2, pidx, freq, outname, response_function="hfr", mode="full"):
+def compute_petco2hrf(co2, pidx, freq, outname, response_function='hfr', mode='full'):
     """
     Create the PetCO2 trace from CO2 trace, then convolve it to obtain the PetCO2hrf.
 
@@ -153,7 +153,7 @@ def compute_petco2hrf(co2, pidx, freq, outname, response_function="hfr", mode="f
     co2 = co2.squeeze()
     if co2.ndim > 1:
         raise NotImplementedError(
-            "Arrays with more than 2 dimensions are not supported."
+            'Arrays with more than 2 dimensions are not supported.'
         )
 
     # Extract PETco2
@@ -161,40 +161,40 @@ def compute_petco2hrf(co2, pidx, freq, outname, response_function="hfr", mode="f
         hrf = response_function
     elif response_function is None:
         pass
-    elif response_function == "hrf":
+    elif response_function == 'hrf':
         hrf = create_hrf(freq)
-    elif response_function == "rrf":
+    elif response_function == 'rrf':
         try:
             from phys2denoise.metrics.responses import rrf
         except ImportError:
             raise ImportError(
-                "phys2denoise is required for the use of RRF response functions. "
-                "Please see install instructions."
+                'phys2denoise is required for the use of RRF response functions. '
+                'Please see install instructions.'
             )
         hrf = rrf
-    elif response_function == "crf":
+    elif response_function == 'crf':
         try:
             from phys2denoise.metrics.responses import crf
         except ImportError:
             raise ImportError(
-                "phys2denoise is required for the use of CRF response functions. "
-                "Please see install instructions."
+                'phys2denoise is required for the use of CRF response functions. '
+                'Please see install instructions.'
             )
         hrf = crf
     else:
-        raise ValueError(f"Response function {response_function} is not supported yet")
+        raise ValueError(f'Response function {response_function} is not supported yet')
 
     nx = np.linspace(0, co2.size, co2.size)
-    f = spint.interp1d(pidx, co2[pidx], fill_value="extrapolate")
+    f = spint.interp1d(pidx, co2[pidx], fill_value='extrapolate')
     petco2 = f(nx)
 
     # Plot PETco2
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.title("CO2 and PetCO2")
-    plt.plot(co2, "-", petco2, "-")
-    plt.legend(["CO2", "PetCO2"])
+    plt.title('CO2 and PetCO2')
+    plt.plot(co2, '-', petco2, '-')
+    plt.legend(['CO2', 'PetCO2'])
     plt.tight_layout()
-    plt.savefig(f"{outname}_petco2.png", dpi=SET_DPI)
+    plt.savefig(f'{outname}_petco2.png', dpi=SET_DPI)
     plt.close()
 
     # Demean and export
@@ -211,13 +211,13 @@ def compute_petco2hrf(co2, pidx, freq, outname, response_function="hfr", mode="f
     )
 
     plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.title("PetCO2 and convolved PetCO2 (PetCO2hrf)")
-    plt.plot(petco2hrf, "-", petco2, "-")
+    plt.title('PetCO2 and convolved PetCO2 (PetCO2hrf)')
+    plt.plot(petco2hrf, '-', petco2, '-')
     plt.tight_layout()
-    plt.savefig(f"{outname}_petco2hrf.png", dpi=SET_DPI)
+    plt.savefig(f'{outname}_petco2hrf.png', dpi=SET_DPI)
     plt.close()
 
-    np.savetxt(f"{outname}_petco2hrf.1D", petco2hrf, fmt="%.18f")
+    np.savetxt(f'{outname}_petco2hrf.1D', petco2hrf, fmt='%.18f')
 
     return petco2hrf
 
@@ -247,7 +247,7 @@ def resample_signal(ts, samples, axis=-1):
     len_tp = ts.shape[axis]
     orig_t = np.linspace(0, len_tp, len_tp)
     interp_t = np.linspace(0, len_tp, samples)
-    f = spint.interp1d(orig_t, ts, fill_value="extrapolate", axis=axis)
+    f = spint.interp1d(orig_t, ts, fill_value='extrapolate', axis=axis)
 
     return f(interp_t)
 
@@ -283,7 +283,7 @@ def resample_signal_freqs(ts, freq1, freq2, axis=-1):
     len_s = len_tp / freq1
     orig_t = np.linspace(0, len_s, len_tp)
     interp_t = np.linspace(0, len_s, len_newtp)
-    f = spint.interp1d(orig_t, ts, fill_value="extrapolate", axis=axis)
+    f = spint.interp1d(orig_t, ts, fill_value='extrapolate', axis=axis)
 
     return f(interp_t)
 

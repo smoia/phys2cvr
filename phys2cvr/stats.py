@@ -17,7 +17,7 @@ from scipy.stats import zscore
 
 from phys2cvr import io
 
-R2MODEL = ["full", "partial", "intercept", "adj_full", "adj_partial", "adj_intercept"]
+R2MODEL = ['full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept']
 
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
@@ -25,7 +25,7 @@ LGR.setLevel(logging.INFO)
 
 def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
     """
-    Calculates the cross correlation between `func` and `co2`.
+    Compute the cross correlation between `func` and `co2`.
 
     Parameters
     ----------
@@ -62,35 +62,35 @@ def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
         If `co2` length is smaller than `func` length.
     """
     if offset < 0:
-        raise NotImplementedError("Negative offsets are not supported yet.")
+        raise NotImplementedError('Negative offsets are not supported yet.')
 
     if func.shape[0] + offset > co2.shape[0]:
         if offset > 0:
             raise ValueError(
-                f"The specified offset of {offset} is too high."
-                f"func of length {func.shape[0]} can not be compared with co2 of "
-                f"length {co2.shape[0]}"
+                f'The specified offset of {offset} is too high.'
+                f'func of length {func.shape[0]} can not be compared with co2 of '
+                f'length {co2.shape[0]}'
             )
         else:
             raise NotImplementedError(
-                f"The timeseries has length of {func.shape[0]}, which is longer than the"
-                f"length of the given co2 regressor ({co2.shape[0]}). This "
-                "is not supported."
+                f'The timeseries has length of {func.shape[0]}, which is longer than the'
+                f'length of the given co2 regressor ({co2.shape[0]}). This '
+                'is not supported.'
             )
 
     if n_shifts is None:
         n_shifts = co2.shape[0] - (func.shape[0] + offset) + 1
         LGR.info(
-            f"Considering all possible shifts of regressor for Xcorr, i.e. {n_shifts}"
+            f'Considering all possible shifts of regressor for Xcorr, i.e. {n_shifts}'
         )
     else:
         if n_shifts + offset + func.shape[0] > co2.shape[0]:
             LGR.warning(
-                f"The specified number of shifts ({n_shifts}) is too high for the "
-                f"length of the regressor ({co2.shape[0]})."
+                f'The specified number of shifts ({n_shifts}) is too high for the '
+                f'length of the regressor ({co2.shape[0]}).'
             )
             n_shifts = co2.shape[0] - (func.shape[0] + offset) + 1
-            LGR.warning(f"Considering {n_shifts} shifts instead.")
+            LGR.warning(f'Considering {n_shifts} shifts instead.')
 
     sco2 = swv(co2, func.shape[0], axis=-1)[offset : n_shifts + offset]
 
@@ -102,7 +102,7 @@ def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
         return xcorr.max(), xcorr.argmax() + offset, xcorr
 
 
-def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
+def ols(Ymat, Xmat, r2model='full', residuals=False, demean=False):
     """
     Implement Ordinary Least Squares linear regression.
 
@@ -171,7 +171,7 @@ def ols(Ymat, Xmat, r2model="full", residuals=False, demean=False):
         Ymat = Ymat[..., np.newaxis]
     if Xmat.ndim > 2:
         raise NotImplementedError(
-            "OLS on regressors with more than 2 dimensions is not implemented yet."
+            'OLS on regressors with more than 2 dimensions is not implemented yet.'
         )
     elif Xmat.ndim < 2:
         Xmat = Xmat[..., np.newaxis]

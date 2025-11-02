@@ -19,7 +19,8 @@ omit = [
 ]
 
 [tool.ruff]
-extend-exclude = ['docs', 'versioneer.py', 'setup.py', '_version.py']
+# exclude tests for the moment
+extend-exclude = ['docs', 'versioneer.py', 'setup.py', '_version.py', '*/tests/*']
 line-length = 88
 target-version = 'py310'
 

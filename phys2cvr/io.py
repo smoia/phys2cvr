@@ -267,6 +267,7 @@ def load_nifti_get_mask(fname, is_mask=False, dim=3):
     img : nib.img
         Image object from nibabel.
     """
+    LGR.info(f'Loading {fname}')
     img = nib.load(fname)
 
     LGR.info(f'Loading {fname}')
@@ -486,10 +487,10 @@ def export_regressor(petco2hrf_shift, freq, tr, outname, suffix='petco2hrf', ext
     if petco2hrf_demean.ndim > 1:
         for i in range(petco2hrf_demean.shape[0]):
             np.savetxt(
-                f"{outname}_{suffix}{i:04g}{ext}", petco2hrf_demean[i, :], fmt="%.6f"
+                f'{outname}_{suffix}{i:04g}{ext}', petco2hrf_demean[i, :], fmt='%.6f'
             )
     else:
-        np.savetxt(f"{outname}_{suffix}{ext}", petco2hrf_demean, fmt="%.6f")
+        np.savetxt(f'{outname}_{suffix}{ext}', petco2hrf_demean, fmt='%.6f')
 
     return petco2hrf_demean
 
@@ -533,7 +534,7 @@ def array_is_2d(array):
         If array dimension is less than 1 or more than 2
     """
     if array.ndim > 2 or array.ndim < 1:
-        raise ValueError(f"Files with {array.ndim} dimensions are not supported yet")
+        raise ValueError(f'Files with {array.ndim} dimensions are not supported yet')
     elif array.ndim == 1:
         array = array[..., np.newaxis]
 
@@ -541,7 +542,7 @@ def array_is_2d(array):
 
 
 def load_regressor_matrices(
-    regressor_matrix_file, additional_matrix=None, ntp=None, regtype="confounding"
+    regressor_matrix_file, additional_matrix=None, ntp=None, regtype='confounding'
 ):
     """
     Load regressors from files.
@@ -569,30 +570,30 @@ def load_regressor_matrices(
         If additional_matrix is declared and its shape does not match the regressors one.
     """
     regressor_matrix_file = if_declared_force_type(
-        regressor_matrix_file, "list", "regressor_matrix_file"
+        regressor_matrix_file, 'list', 'regressor_matrix_file'
     )
     matlist = []
-    regtype = "" if regtype is None else regtype
+    regtype = '' if regtype is None else regtype
 
     for matrix in regressor_matrix_file:
-        LGR.info(f"Read {regtype} factor from {matrix}")
+        LGR.info(f'Read {regtype} factor from {matrix}')
         regr = np.genfromtxt(matrix)
         regr = array_is_2d(regr)
 
         if ntp is not None:
             if ntp not in regr.shape:
                 raise ValueError(
-                    f"One shape of the regressor matrix should be {ntp}, but loaded "
-                    f"file has shape {regr.shape}"
+                    f'One shape of the regressor matrix should be {ntp}, but loaded '
+                    f'file has shape {regr.shape}'
                 )
             if regr.shape[0] != ntp:
                 regr = regr.T
         else:
             if regr.shape[1] > regr.shape[0]:
                 LGR.warning(
-                    f"The number of regressors {regr.shape[1]} seems higher than the "
-                    f"number of timepoints {regr.shape[0]}. Assuming regressor matrix "
-                    "needs to be transposed"
+                    f'The number of regressors {regr.shape[1]} seems higher than the '
+                    f'number of timepoints {regr.shape[0]}. Assuming regressor matrix '
+                    'needs to be transposed'
                 )
                 regr = regr.T
         matlist += [regr]
@@ -603,8 +604,8 @@ def load_regressor_matrices(
         if additional_matrix.shape[0] != regressor_matrix.shape[0]:
             if additional_matrix.shape[1] != regressor_matrix.shape[0]:
                 raise ValueError(
-                    f"Loaded matrix has shape {regressor_matrix.shape}, but additional "
-                    f"matrix has shape {additional_matrix.shape}"
+                    f'Loaded matrix has shape {regressor_matrix.shape}, but additional '
+                    f'matrix has shape {additional_matrix.shape}'
                 )
             else:
                 additional_matrix = additional_matrix.T
