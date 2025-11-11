@@ -15,8 +15,7 @@ import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view as swv
 from scipy.stats import zscore
 
-from phys2cvr.io import FIGSIZE, SET_DPI, export_regressor
-from phys2cvr.signal import resample_signal_freqs
+from phys2cvr.io import array_is_2d
 
 R2MODEL = ['full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept']
 
@@ -326,17 +325,17 @@ def regression(
 
     Ymat = data[mask]
     # Check that regr has "two" dimensions
-    if regr.ndim < 2:
-        regr = regr[..., np.newaxis]
+    regr = array_is_2d(regr)
 
     if denoise_mat is not None:
         if regr.shape[0] != denoise_mat.shape[0]:
-            denoise_mat = denoise_mat.T
-            if regr.shape[0] != denoise_mat.shape[0]:
+            if regr.shape[0] != denoise_mat.shape[1]:
                 raise ValueError(
                     'The provided confounding matrix does not match '
                     'the dimensionality of the PetCO2hrf regressor!'
                 )
+            else:
+                denoise_mat = denoise_mat.T
         # Stack mat
         # Note: Xmat is not currently demeaned within this function, so inputs
         # should already be demeaned
@@ -379,9 +378,9 @@ def regression(
         pass
 
     # Assign betas, Rsquare and tstats to new volume
-    bout = np.zeros(mask.shape)
-    tout = np.zeros(mask.shape)
-    rout = np.zeros(mask.shape)
+    bout = np.zeros_like(mask, dtype=np.float32)
+    tout = np.zeros_like(mask, dtype=np.float32)
+    rout = np.zeros_like(mask, dtype=np.float32)
     bout[mask] = betas[-1, :]
     tout[mask] = tstats[-1, :]
     rout[mask] = r_square
