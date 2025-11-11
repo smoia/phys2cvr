@@ -1,0 +1,19 @@
+[run]
+omit =
+    docs/*
+    tests/*
+    _version.py
+    __init__.py
+    **/__init__.py
+    due.py
+    .*rc
+    versioneer.py
+    setup.py
+    phys2cvr/tests/*
+    phys2cvr/_version.py
+    phys2cvr/__init__.py
+    phys2cvr/**/__init__.py
+    phys2cvr/due.py
+    phys2cvr/.*rc
+    phys2cvr/versioneer.py
+    phys2cvr/setup.py
