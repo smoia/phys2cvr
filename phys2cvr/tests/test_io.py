@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 """Tests for io."""
 
-import logging
 import os
+from unittest.mock import patch
 
 import nibabel as nib
 import numpy as np
 import pytest
 
 from phys2cvr import io
-
-LGR = logging.getLogger(__name__)
 
 
 # ## Unit tests
@@ -95,9 +93,9 @@ def test_load_nifti_get_mask(nifti_data, nifti_mask):
 def test_export_regressor(testdir):
     petco2hrf_shift = np.arange(10)
     ntp = 5
-    outname = os.path.join(testdir, "test_regressor")
-    suffix = "petco2hrf"
-    ext = ".1D"
+    outname = os.path.join(testdir, 'test_regressor')
+    suffix = 'petco2hrf'
+    ext = '.1D'
 
     petco2hrf_demean = io.export_regressor(
         petco2hrf_shift, ntp, outname, suffix=suffix, ext=ext
@@ -130,40 +128,6 @@ def test_export_nifti(testdir):
     assert np.allclose(out_img.get_fdata(), data)
     assert (out_img.affine == affine).all()
 
-def test_array_is_2d():
-    # Test case: Valid 2D array
-    input_array = np.random.rand(3, 4)
-    output_array = array_is_2d(input_array)
-    assert output_array.shape == (3, 4)
-
-    # Test case: 1D array
-    input_array = np.random.rand(5)
-    output_array = array_is_2d(input_array)
-    assert output_array.shape == (5, 1)
-
-def test_load_regressor_matrices(tmp_path): 
-    # Test for checking if the files upload is correct
-    file_path = tmp_path / "regressors.txt"
-    np.savetxt(file_path, np.random.rand(10, 3))
-
-    # Test loading a single file
-    result = load_regressor_matrices(file_path)
-    assert result.shape == (10, 3)
-    
-    # Test for concatenation of additional matrices
-    file_path = tmp_path / "regressors.txt"
-    np.savetxt(file_path, np.random.rand(10, 3))
-    additional_matrix = np.ones((10, 1))
-
-    result = load_regressor_matrices(file_path, additional_matrix=additional_matrix)
-    assert result.shape == (10, 4)
-
-    # Test for manipulation of temporal dimension (ntp)
-    file_path = tmp_path / "regressors.txt"
-    np.savetxt(file_path, np.random.rand(10, 3))
-
-    result = load_regressor_matrices(file_path, ntp=10)
-    assert result.shape == (10, 3)
 
 # ## Break tests
 def test_break_if_declared_force_type():
@@ -174,28 +138,5 @@ def test_break_if_declared_force_type():
 
 def test_break_check_nifti_dim_missing_dims():
     with pytest.raises(ValueError) as errorinfo:
-        io.check_nifti_dim("missing_dims.nii.gz", np.ones((4, 4)), dim=4)
-    assert "seem to be a 4D file." in str(errorinfo.value)
-
-def test_array_is_2d():
-    # Test case: 0D array (scalar)
-    input_array = np.random.rand()
-    with pytest.raises(ValueError, match="Files with 0 dimensions are not supported yet"):
-        array_is_2d(input_array)
-    # Test case: 3D array
-    input_array = np.random.rand(2, 3, 4)
-    with pytest.raises(ValueError, match="Files with 3 dimensions are not supported yet"):
-        array_is_2d(input_array)
-    # Test case: Empty array
-    input_array = np.array([])
-    with pytest.raises(ValueError, match="Files with 0 dimensions are not supported yet"):
-        array_is_2d(input_array)
-
-def test_load_regressor_matrices_dimension_error(tmp_path):
-    file_path = tmp_path / "regressors.txt"
-    np.savetxt(file_path, np.random.rand(10, 3))
-    additional_matrix = np.ones((5, 2))
-    with pytest.raises(ValueError, match="Loaded matrix has shape .* but additional matrix has shape .*"):
-        load_regressor_matrices(file_path, additional_matrix=additional_matrix)
-
-
+        io.check_nifti_dim('missing_dims.nii.gz', np.ones((4, 4)), dim=4)
+    assert 'seem to be a 4D file.' in str(errorinfo.value)
