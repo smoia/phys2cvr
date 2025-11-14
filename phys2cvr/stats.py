@@ -15,7 +15,7 @@ import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view as swv
 from scipy.stats import zscore
 
-from phys2cvr.io import array_is_2d
+from phys2cvr.io import check_array_dim
 
 R2MODEL = ['full', 'partial', 'intercept', 'adj_full', 'adj_partial', 'adj_intercept']
 
@@ -325,7 +325,7 @@ def regression(
 
     Ymat = data[mask]
     # Check that regr has "two" dimensions
-    regr = array_is_2d(regr)
+    regr = check_array_dim('regr', regr, shape='rectangle')
 
     if denoise_mat is not None:
         if regr.shape[0] != denoise_mat.shape[0]:
