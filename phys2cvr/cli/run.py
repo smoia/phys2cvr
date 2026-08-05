@@ -512,6 +512,34 @@ def _get_parser():
         default=None,
     )
     opt_lreg.add_argument(
+        '-slm',
+        '--starting-lag-max',
+        dest='starting_lag_max',
+        type=float,
+        help=(
+            'Initial upper limit of the temporal area to explore, expressed in seconds. '
+            'If this value is specified, it is used as the initial upper limit of the search range for '
+            'identifying the optimal lag. If the optimal lag of a voxel '
+            'is within 1 lag step of the minimum or starting maximum lag, the maximum lag for that voxel will be iteratively '
+            'increased by the amount specified with --lag-increment until the optimal lag '
+            'is not at within 1 lag step of the boundary or --lag-max is reached, whichever comes first. '
+            'E.g., --starting-lag-max 9 -lag-max 15 --lag-increment 2 starts at 9s and will expand to 9, 11, 13 and 15s if needed.'
+        ),
+        default=None,
+    )
+    
+    opt_lreg.add_argument(
+        '-li',
+        '--lag-increment',
+        dest='lag_increment',
+        type=float,
+        help=(
+            'Step size (in seconds) to increase the maximum lag when the optimal lag is within 1 lag step '
+            'of a boundary (minimum or maximum).  This value needs to be specified if starting_lag_max is not None.'
+        ),
+        default=None,
+    )
+    opt_lreg.add_argument(
         '--legacy',
         dest='legacy',
         action='store_true',

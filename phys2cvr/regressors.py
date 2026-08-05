@@ -445,6 +445,92 @@ def create_physio_regressor(
     return petco2hrf_demean, petco2hrf_lagged
 
 
+def select_lag_avoid_boundary(
+    r_square_all,
+    mask,
+    starting_max,
+    final_max,
+    lag_min,
+    lag_step,
+    freq,
+    expand_by=2,
+):
+    """
+    Expand the maximum shift only in voxels with lag values at the boundaries.
+
+    Parameters
+    ----------
+    r_square_all : ndarray
+        R^2 values with shape (..., N_lags)
+    mask : ndarray
+        Boolean or 0/1 mask of valid voxels
+    starting_max : float
+        Initial maximum temporal shift to explore, expressed in seconds.
+        Caution: this is not a pythonic range, but a real range, i.e. the upper limit is included.
+        Default: None
+    final_max : float
+        Hard upper limit of the temporal area to explore, expressed in seconds.
+        Caution: this is not a pythonic range, but a real range, i.e. the upper limit is included.
+        Default: None
+    lag_min : int, float, or None, optional
+        Lower limit of the temporal area to explore, expressed in seconds.
+        If set to None, and lag_max is not None and is positive, lag_min defaults to -lag_max (symmetric range).
+        Default: None
+    lag_step : float
+        Lag step in seconds
+    freq : float
+        Sampling frequency (Hz)
+    expand_by : float, optional
+        Amount (seconds) to expand the lag window each iteration
+
+    Returns
+    -------
+    final_lag_idx : ndarray
+        Selected lag indices per voxel.
+    """
+
+    LGR.info(
+        f'Identifying optimal shifts using a starting maximum of {starting_max}s and a final maximum of {final_max}s. If needed, the starting maximum will be increased in increments of {expand_by}s.'
+    )
+
+    final_lag_idx = np.full(mask.shape, 0, dtype=int) #stores final lag indices
+    active = mask.astype(bool) #make all in mask voxels active
+    current_max = starting_max
+
+    while True:
+        # Convert lag (seconds) -> index
+        max_idx = int((current_max - lag_min) / lag_step)
+        boundary_idx = max_idx - 1
+
+        # Argmax only within current window
+        lag_idx = np.argmax(r_square_all[..., : max_idx + 1], axis=-1)
+        
+        # Identify voxels that hit the boundary
+        #at_boundary = (lag_idx >= boundary_idx) & active
+        at_boundary = ((lag_idx >= boundary_idx) | (lag_idx == 0) | (lag_idx == 1)) & active
+
+        # Accept non-boundary voxels and freeze them
+        frozen = active & ~at_boundary
+        final_lag_idx[frozen] = lag_idx[frozen]
+    
+        # Remove frozen voxels from active
+        active[frozen] = 0  # now only boundary voxels remain active
+    
+        # Keep only boundary-stuck voxels
+        active = active.astype(bool)  # ensure it's boolean
+
+        if not np.any(active):
+            break
+
+        if current_max + expand_by > final_max:
+            # Give up on remaining voxels
+            final_lag_idx[active] = lag_idx[active]
+            break
+
+        current_max += expand_by
+
+    return final_lag_idx
+
 """
 Copyright 2021-2026, Stefano Moia & phys2cvr contributors.
 
