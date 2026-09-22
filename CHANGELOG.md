@@ -1,3 +1,19 @@
+# 0.30.0 (Tue Sep 22 2026)
+
+#### 🚀 Enhancement
+
+- Support I/O of Freesurfer's motion parameters and fix debug volumes header's pixdim [#166](https://github.com/smoia/phys2cvr/pull/166) ([@smoia](https://github.com/smoia))
+
+#### 🐛 Bug Fix
+
+- Fix runner [#167](https://github.com/smoia/phys2cvr/pull/167) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.29.1 (Tue Sep 22 2026)
 
 #### 🐛 Bug Fix
