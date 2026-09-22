@@ -1,3 +1,24 @@
+# 0.29.1 (Tue Sep 22 2026)
+
+#### 🐛 Bug Fix
+
+- Export lag index if debug flag is True, and change header of exported volumes to reflect the lag step timescale rather than the neuroimaging TR [#165](https://github.com/smoia/phys2cvr/pull/165) ([@smoia](https://github.com/smoia))
+
+#### 🏠 Internal
+
+- Bump actions/labeler from 6 to 7 [#164](https://github.com/smoia/phys2cvr/pull/164) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump actions/labeler from 6 to 7 [#163](https://github.com/smoia/phys2cvr/pull/163) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump actions/setup-python from 6 to 7 [#162](https://github.com/smoia/phys2cvr/pull/162) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- [pre-commit.ci] pre-commit autoupdate [#161](https://github.com/smoia/phys2cvr/pull/161) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 3
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.29.0 (Tue Jun 30 2026)
 
 #### 🚀 Enhancement
