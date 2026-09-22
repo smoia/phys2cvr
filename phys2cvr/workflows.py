@@ -732,8 +732,11 @@ def phys2cvr(
                     LGR.debug('Export all betas, tstats, and R^2 volumes.')
                     newdim_all = deepcopy(img.header['dim'])
                     newdim_all[0], newdim_all[4] = 4, int(len(lag_range))
+                    newpixdim_all = deepcopy(img.header['dim'])
+                    newpixdim_all[4] = lag_range
                     oimg_all = deepcopy(img)
                     oimg_all.header['dim'] = newdim_all
+                    oimg_all.header['pixdim'] = newpixdim_all
                     io.export_nifti(
                         r_square_all,
                         oimg_all,
@@ -771,6 +774,11 @@ def phys2cvr(
             if not lag_map:
                 io.export_nifti(lag, oimg, f'{fname_out_func}_lag{fname_ext}')
                 io.export_nifti(lag_rel, oimg, f'{fname_out_func}_lag_mkrel{fname_ext}')
+                if debug:
+                    LGR.debug('Export the lag indexes volume.')
+                    io.export_nifti(
+                        lag_idx, oimg, f'{fname_out_func}_r_square_index{fname_ext}'
+                    )
 
     elif run_regression:
         LGR.warning(
