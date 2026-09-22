@@ -32,7 +32,7 @@ from peakdet.io import load_physio as load_pk_physio
 
 from phys2cvr import utils
 
-EXT_1D = ['.txt', '.csv', '.tsv', '.1d', '.par', '.tsv.gz']
+EXT_1D = ['.txt', '.csv', '.tsv', '.1d', '.par', '.tsv.gz', '.csv.gz', '.mcdat']
 EXT_MAT = ['.mat']
 # EXT_XLS = [".xls"]
 EXT_ARRAY = EXT_1D + EXT_MAT  # + EXT_XLS
@@ -119,10 +119,14 @@ def load_txt(fname, shape=None):
         '.txt': ' ',
         '.1d': ' ',
         '.par': ' ',
+        '.mcdat': None,
         '': ' ',
     }
 
     mtx = np.genfromtxt(fname, delimiter=delimiter_map.get(ext))
+
+    mtx = mtx[:, 1:7] if ext == '.mcdat' else mtx
+
     return utils.check_array_dim(fname, mtx, shape)
 
 

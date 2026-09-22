@@ -733,7 +733,7 @@ def phys2cvr(
                     newdim_all = deepcopy(img.header['dim'])
                     newdim_all[0], newdim_all[4] = 4, int(len(lag_range))
                     newpixdim_all = deepcopy(img.header['dim'])
-                    newpixdim_all[4] = lag_range
+                    newpixdim_all[4] = lag_step
                     oimg_all = deepcopy(img)
                     oimg_all.header['dim'] = newdim_all
                     oimg_all.header['pixdim'] = newpixdim_all
