@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import sys
 import tkinter as tk
 from tkinter import ttk
 
@@ -13,6 +12,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from scipy.stats import zscore
 from sv_ttk import set_theme
 
+from phys2cvr import __version__
 
 def load_and_prep_data(nii_path, matrix_path, cvr_path=None, lag_path=None):
     img = nib.load(nii_path)
@@ -66,7 +66,7 @@ class VoxelViewerApp(tk.Tk):
         self.curr_shift_sec = 0.0
 
         # Configure Window
-        self.title('fMRI Voxel & Regressor Viewer')
+        self.title(f'fMRI Voxel & Regressor Viewer, phys2cvr v{__version__}')
         self.geometry('1200x850')
 
         # Apply darkdetect + sv_ttk theme
