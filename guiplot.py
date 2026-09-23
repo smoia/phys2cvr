@@ -14,15 +14,35 @@ from sv_ttk import set_theme
 
 from phys2cvr import __version__
 
-def load_and_prep_data(nii_path, matrix_path, cvr_path=None, lag_path=None):
+
+def load_and_prep_data(
+    nii_path, matrix_path, cvr_path=None, lag_path=None, mask_path=None
+):
     img = nib.load(nii_path)
     func_data = img.get_fdata()
     regressor_matrix = np.loadtxt(matrix_path)
 
+    # Load mask if provided
+    mask_data = (
+        nib.load(mask_path).get_fdata().astype(bool)
+        if mask_path and mask_path != ''
+        else None
+    )
+
+    # Optional CVR and Lag Maps
     cvr_data = nib.load(cvr_path).get_fdata() if cvr_path and cvr_path != '' else None
     lag_data = nib.load(lag_path).get_fdata() if lag_path and lag_path != '' else None
 
-    return func_data, regressor_matrix, cvr_data, lag_data
+    # Apply mask: set voxels outside the mask to NaN
+    if mask_data is not None:
+        if cvr_data is not None:
+            cvr_data = cvr_data.copy()
+            cvr_data[~mask_data] = np.nan
+        if lag_data is not None:
+            lag_data = lag_data.copy()
+            lag_data[~mask_data] = np.nan
+
+    return func_data, regressor_matrix, cvr_data, lag_data, tr
 
 
 class VoxelViewerApp(tk.Tk):
@@ -217,11 +237,15 @@ class VoxelViewerApp(tk.Tk):
         self.ax_axi.set_xlabel('X')
         self.ax_axi.set_ylabel('Y')
 
-        # CVR Map
+        # CVR Map (Black background for masked-out NaNs)
         if self.cvr_data is not None:
+            self.ax_cvr.set_facecolor('black')
+            cmap_cvr = plt.cm.inferno.copy()
+            cmap_cvr.set_bad(color='black')
+
             self.img_cvr = self.ax_cvr.imshow(
                 self.cvr_data[:, :, self.curr_z].T,
-                cmap='inferno',
+                cmap=cmap_cvr,
                 origin='lower',
                 aspect='auto',
             )
@@ -235,11 +259,15 @@ class VoxelViewerApp(tk.Tk):
             self.ax_cvr.set_xlabel('X')
             self.ax_cvr.set_ylabel('Y')
 
-        # Lag Map
+        # Lag Map (Inverted Viridis + Black background for masked-out NaNs)
         if self.lag_data is not None:
+            self.ax_lag.set_facecolor('black')
+            cmap_lag = plt.cm.viridis_r.copy()  # Inverted viridis
+            cmap_lag.set_bad(color='black')
+
             self.img_lag = self.ax_lag.imshow(
                 self.lag_data[:, :, self.curr_z].T,
-                cmap='turbo',
+                cmap=cmap_lag,
                 origin='lower',
                 aspect='auto',
             )
@@ -300,7 +328,9 @@ class VoxelViewerApp(tk.Tk):
             self.cross_cvr_v.set_xdata([x, x])
             self.cross_cvr_h.set_ydata([y, y])
             val = self.cvr_data[x, y, z]
-            self.ax_cvr.set_title(f'CVR: {val:.2f}')
+            self.ax_cvr.set_title(
+                f'CVR: {val:.2f}' if not np.isnan(val) else 'CVR: Masked'
+            )
 
         if self.lag_data is not None:
             self.img_lag.set_data(self.lag_data[:, :, z].T)
@@ -308,7 +338,7 @@ class VoxelViewerApp(tk.Tk):
             self.cross_lag_h.set_ydata([y, y])
             val = self.lag_data[x, y, z]
             self.ax_lag.set_title(
-                f'Lag: {val:.2f}s' if not np.isnan(val) else 'Lag: N/A'
+                f'Lag: {val:.2f}s' if not np.isnan(val) else 'Lag: Masked'
             )
 
         # Update Timecourse Plot
@@ -394,6 +424,9 @@ if __name__ == '__main__':
     parser.add_argument('--cvr', default=None, help='Optional path to 3D CVR NIfTI map')
     parser.add_argument('--lag', default=None, help='Optional path to 3D Lag NIfTI map')
     parser.add_argument(
+        '--mask', default=None, help='Optional path to 3D brain mask NIfTI file'
+    )
+    parser.add_argument(
         '--fs',
         type=float,
         default=1.0,
@@ -402,8 +435,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    func_data, regressor_matrix, cvr_data, lag_data = load_and_prep_data(
-        args.nii_file, args.matrix_file, args.cvr, args.lag
+    func_data, regressor_matrix, cvr_data, lag_data, tr = load_and_prep_data(
+        args.nii_file, args.matrix_file, args.cvr, args.lag, args.mask
     )
 
     app = VoxelViewerApp(
