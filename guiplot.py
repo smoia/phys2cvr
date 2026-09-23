@@ -32,7 +32,6 @@ class VoxelViewerApp(tk.Tk):
         regressor_matrix,
         cvr_data=None,
         lag_data=None,
-        init_coords=None,
         fs=1.0,
     ):
         super().__init__()
@@ -53,14 +52,10 @@ class VoxelViewerApp(tk.Tk):
 
         self.mean_vol = np.mean(func_data, axis=-1)
 
-        # Initial coordinates
-        if init_coords is not None:
-            self.curr_x, self.curr_y, self.curr_z = init_coords
-        else:
-            self.curr_x, self.curr_y, self.curr_z = (
-                self.nx // 2,
-                self.ny // 2,
-                self.nz // 2,
+        # Default to center voxel
+        self.curr_x = self.nx // 2
+        self.curr_y = self.ny // 2
+        self.curr_z = self.nz // 2
             )
 
         self.curr_shift_sec = 0.0
@@ -404,14 +399,6 @@ if __name__ == '__main__':
         default=1.0,
         help='Regressor sampling frequency in Hz (default: 1.0)',
     )
-    parser.add_argument(
-        '--coords',
-        '-c',
-        nargs=3,
-        type=int,
-        metavar=('X', 'Y', 'Z'),
-        help='Initial voxel coordinates',
-    )
 
     args = parser.parse_args()
 
@@ -424,7 +411,6 @@ if __name__ == '__main__':
         regressor_matrix=regressor_matrix,
         cvr_data=cvr_data,
         lag_data=lag_data,
-        init_coords=args.coords,
         fs=args.fs,
     )
     app.mainloop()
