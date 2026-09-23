@@ -69,19 +69,32 @@ def load_and_prep_data(
     )
 
     # Optional CVR and Lag Maps
-    cvr_data = nib.load(cvr_path).get_fdata() if cvr_path and cvr_path != '' else None
-    lag_data = nib.load(lag_path).get_fdata() if lag_path and lag_path != '' else None
+    raw_cvr_data = (
+        nib.load(cvr_path).get_fdata() if cvr_path and cvr_path != '' else None
+    )
+    raw_lag_data = (
+        nib.load(lag_path).get_fdata() if lag_path and lag_path != '' else None
+    )
 
     # Apply mask: set voxels outside the mask to NaN
+    cvr_data = raw_cvr_data.copy() if raw_cvr_data is not None else None
+    lag_data = raw_lag_data.copy() if raw_lag_data is not None else None
+
     if mask_data is not None:
         if cvr_data is not None:
-            cvr_data = cvr_data.copy()
             cvr_data[~mask_data] = np.nan
         if lag_data is not None:
-            lag_data = lag_data.copy()
             lag_data[~mask_data] = np.nan
 
-    return func_data, regressor_matrix, cvr_data, lag_data, tr
+    return (
+        func_data,
+        regressor_matrix,
+        cvr_data,
+        lag_data,
+        tr,
+        raw_cvr_data,
+        raw_lag_data,
+    )
 
 
 class VoxelViewerApp(tk.Tk):
@@ -94,6 +107,8 @@ class VoxelViewerApp(tk.Tk):
         fs=1.0,
         tr=None,
         mask_data=None,
+        raw_cvr_data=None,
+        raw_lag_data=None,
     ):
         super().__init__()
 
@@ -101,6 +116,8 @@ class VoxelViewerApp(tk.Tk):
         self.regressor_matrix = regressor_matrix
         self.cvr_data = cvr_data
         self.lag_data = lag_data
+        self.raw_cvr_data = raw_cvr_data if raw_cvr_data is not None else cvr_data
+        self.raw_lag_data = raw_lag_data if raw_lag_data is not None else lag_data
         self.mask_data = mask_data
         self.fs = fs
         self.tr = tr
@@ -275,9 +292,9 @@ class VoxelViewerApp(tk.Tk):
         if not file_path:
             return
 
-        cvr_data = nib.load(file_path).get_fdata()
+        self.raw_cvr_data = nib.load(file_path).get_fdata()
+        cvr_data = self.raw_cvr_data.copy()
         if self.mask_data is not None:
-            cvr_data = cvr_data.copy()
             cvr_data[~self.mask_data] = np.nan
         self.cvr_data = cvr_data
 
@@ -291,9 +308,9 @@ class VoxelViewerApp(tk.Tk):
         if not file_path:
             return
 
-        lag_data = nib.load(file_path).get_fdata()
+        self.raw_lag_data = nib.load(file_path).get_fdata()
+        lag_data = self.raw_lag_data.copy()
         if self.mask_data is not None:
-            lag_data = lag_data.copy()
             lag_data[~self.mask_data] = np.nan
         self.lag_data = lag_data
 
@@ -309,12 +326,16 @@ class VoxelViewerApp(tk.Tk):
 
         self.mask_data = nib.load(file_path).get_fdata().astype(bool)
 
-        if self.cvr_data is not None:
-            self.cvr_data = self.cvr_data.copy()
-            self.cvr_data[~self.mask_data] = np.nan
-        if self.lag_data is not None:
-            self.lag_data = self.lag_data.copy()
-            self.lag_data[~self.mask_data] = np.nan
+        # Apply mask on raw data copies to avoid compounding mask operations
+        if self.raw_cvr_data is not None:
+            cvr_data = self.raw_cvr_data.copy()
+            cvr_data[~self.mask_data] = np.nan
+            self.cvr_data = cvr_data
+
+        if self.raw_lag_data is not None:
+            lag_data = self.raw_lag_data.copy()
+            lag_data[~self.mask_data] = np.nan
+            self.lag_data = lag_data
 
         self.reinit_plots()
 
@@ -649,8 +670,10 @@ class VoxelViewerApp(tk.Tk):
 def _main(argv=None):
     args = _get_parser().parse_args(argv)
 
-    func_data, regressor_matrix, cvr_data, lag_data, tr = load_and_prep_data(
-        args.nii_file, args.matrix_file, args.cvr, args.lag, args.mask
+    func_data, regressor_matrix, cvr_data, lag_data, tr, raw_cvr_data, raw_lag_data = (
+        load_and_prep_data(
+            args.nii_file, args.matrix_file, args.cvr, args.lag, args.mask
+        )
     )
 
     mask_data = (
@@ -665,6 +688,8 @@ def _main(argv=None):
         cvr_data=cvr_data,
         lag_data=lag_data,
         mask_data=mask_data,
+        raw_cvr_data=raw_cvr_data,
+        raw_lag_data=raw_lag_data,
         fs=args.fs,
         tr=tr,
     )
