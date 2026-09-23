@@ -54,8 +54,12 @@ def load_and_prep_data(
     img = nib.load(nii_path)
     func_data = img.get_fdata()
 
+    # Get spatial pixel dimensions (pixdim)
+    zooms = img.header.get_zooms()
+    pixdim = zooms[:3] if len(zooms) >= 3 else (1.0, 1.0, 1.0)
+
     # Get TR in seconds from NIfTI header (pixdim[4]), fallback to 1.0s if invalid
-    tr = img.header.get_zooms()[3] if len(img.header.get_zooms()) > 3 else 1.0
+    tr = zooms[3] if len(zooms) > 3 else 1.0
     if tr <= 0 or np.isnan(tr):
         tr = 1.0
 
@@ -92,6 +96,7 @@ def load_and_prep_data(
         cvr_data,
         lag_data,
         tr,
+        pixdim,
         raw_cvr_data,
         raw_lag_data,
     )
@@ -106,6 +111,7 @@ class VoxelViewerApp(tk.Tk):
         lag_data=None,
         fs=1.0,
         tr=None,
+        pixdim=(1.0, 1.0, 1.0),
         mask_data=None,
         raw_cvr_data=None,
         raw_lag_data=None,
@@ -121,6 +127,7 @@ class VoxelViewerApp(tk.Tk):
         self.mask_data = mask_data
         self.fs = fs
         self.tr = tr
+        self.pixdim = pixdim
 
         self.nx, self.ny, self.nz, self.nt = func_data.shape
         self.num_lags = regressor_matrix.shape[0]
@@ -142,6 +149,12 @@ class VoxelViewerApp(tk.Tk):
         self.curr_y = self.ny // 2
         self.curr_z = self.nz // 2
         self.curr_shift_sec = 0.0
+
+        # Check if initial voxel has a valid lag value
+        if self.lag_data is not None:
+            init_lag = self.lag_data[self.curr_x, self.curr_y, self.curr_z]
+            if not np.isnan(init_lag):
+                self.curr_shift_sec = float(init_lag)
 
         # Configure Window
         self.title(f'fMRI Voxel & Regressor Viewer, phys2cvr v{__version__}')
@@ -180,7 +193,7 @@ class VoxelViewerApp(tk.Tk):
         )
         plt.style.use(style_name)
 
-        bg_color = '#1c1c1c' if theme_mode == 'dark' else '#ffffff'
+        bg_color = '#000000' if theme_mode == 'dark' else '#ffffff'
         fg_color = '#ffffff' if theme_mode == 'dark' else '#000000'
 
         self.fig.patch.set_facecolor(bg_color)
@@ -243,7 +256,10 @@ class VoxelViewerApp(tk.Tk):
         img = nib.load(file_path)
         self.func_data = img.get_fdata()
 
-        tr = img.header.get_zooms()[3] if len(img.header.get_zooms()) > 3 else 1.0
+        zooms = img.header.get_zooms()
+        self.pixdim = zooms[:3] if len(zooms) >= 3 else (1.0, 1.0, 1.0)
+
+        tr = zooms[3] if len(zooms) > 3 else 1.0
         if tr <= 0 or np.isnan(tr):
             tr = 1.0
         self.tr = tr
@@ -424,6 +440,12 @@ class VoxelViewerApp(tk.Tk):
             2, num_cols, height_ratios=[1.2, 1], hspace=0.3, wspace=0.25
         )
 
+        # Calculate voxel aspect ratios from pixdim
+        dx, dy, dz = self.pixdim
+        aspect_sag = dz / dy
+        aspect_cor = dz / dx
+        aspect_axi = dy / dx
+
         # Axes setup
         self.ax_sag = self.fig.add_subplot(gs[0, 0])
         self.ax_cor = self.fig.add_subplot(gs[0, 1])
@@ -441,12 +463,12 @@ class VoxelViewerApp(tk.Tk):
 
         self.ax_ts = self.fig.add_subplot(gs[1, :])
 
-        # Render Base Anatomical Slices
+        # Render Base Anatomical Slices with pixdim scaling
         self.img_sag = self.ax_sag.imshow(
             self.mean_vol[self.curr_x, :, :].T,
             cmap='gray',
             origin='lower',
-            aspect='auto',
+            aspect=aspect_sag,
         )
         (self.cross_sag_v,) = self.ax_sag.plot(
             [self.curr_y, self.curr_y], [0, self.nz - 1], 'r-', lw=1
@@ -461,7 +483,7 @@ class VoxelViewerApp(tk.Tk):
             self.mean_vol[:, self.curr_y, :].T,
             cmap='gray',
             origin='lower',
-            aspect='auto',
+            aspect=aspect_cor,
         )
         (self.cross_cor_v,) = self.ax_cor.plot(
             [self.curr_x, self.curr_x], [0, self.nz - 1], 'r-', lw=1
@@ -476,7 +498,7 @@ class VoxelViewerApp(tk.Tk):
             self.mean_vol[:, :, self.curr_z].T,
             cmap='gray',
             origin='lower',
-            aspect='auto',
+            aspect=aspect_axi,
         )
         (self.cross_axi_v,) = self.ax_axi.plot(
             [self.curr_x, self.curr_x], [0, self.ny - 1], 'r-', lw=1
@@ -497,7 +519,7 @@ class VoxelViewerApp(tk.Tk):
                 self.cvr_data[:, :, self.curr_z].T,
                 cmap=cmap_cvr,
                 origin='lower',
-                aspect='auto',
+                aspect=aspect_axi,
             )
             (self.cross_cvr_v,) = self.ax_cvr.plot(
                 [self.curr_x, self.curr_x], [0, self.ny - 1], 'cyan', lw=1
@@ -519,7 +541,7 @@ class VoxelViewerApp(tk.Tk):
                 self.lag_data[:, :, self.curr_z].T,
                 cmap=cmap_lag,
                 origin='lower',
-                aspect='auto',
+                aspect=aspect_axi,
             )
             (self.cross_lag_v,) = self.ax_lag.plot(
                 [self.curr_x, self.curr_x], [0, self.ny - 1], 'red', lw=1
@@ -646,14 +668,27 @@ class VoxelViewerApp(tk.Tk):
         y = np.clip(y, 0, self.ny - 1)
         z = np.clip(z, 0, self.nz - 1)
 
-        self.update_all(x, y, z, self.curr_shift_sec, update_controls=True)
+        shift_sec = self.curr_shift_sec
+        if self.lag_data is not None:
+            lag_val = self.lag_data[x, y, z]
+            if not np.isnan(lag_val):
+                shift_sec = float(lag_val)
+
+        self.update_all(x, y, z, shift_sec, update_controls=True)
 
     def on_coord_entry_submit(self):
         try:
             x = np.clip(int(self.entry_x.get()), 0, self.nx - 1)
             y = np.clip(int(self.entry_y.get()), 0, self.ny - 1)
             z = np.clip(int(self.entry_z.get()), 0, self.nz - 1)
-            self.update_all(x, y, z, self.curr_shift_sec, update_controls=False)
+
+            shift_sec = self.curr_shift_sec
+            if self.lag_data is not None:
+                lag_val = self.lag_data[x, y, z]
+                if not np.isnan(lag_val):
+                    shift_sec = float(lag_val)
+
+            self.update_all(x, y, z, shift_sec, update_controls=True)
         except ValueError:
             pass
 
@@ -670,10 +705,17 @@ class VoxelViewerApp(tk.Tk):
 def _main(argv=None):
     args = _get_parser().parse_args(argv)
 
-    func_data, regressor_matrix, cvr_data, lag_data, tr, raw_cvr_data, raw_lag_data = (
-        load_and_prep_data(
-            args.nii_file, args.matrix_file, args.cvr, args.lag, args.mask
-        )
+    (
+        func_data,
+        regressor_matrix,
+        cvr_data,
+        lag_data,
+        tr,
+        pixdim,
+        raw_cvr_data,
+        raw_lag_data,
+    ) = load_and_prep_data(
+        args.nii_file, args.matrix_file, args.cvr, args.lag, args.mask
     )
 
     mask_data = (
@@ -692,6 +734,7 @@ def _main(argv=None):
         raw_lag_data=raw_lag_data,
         fs=args.fs,
         tr=tr,
+        pixdim=pixdim,
     )
     app.mainloop()
 
