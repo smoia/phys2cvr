@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
+import sys
 import tkinter as tk
-from tkinter import ttk
+from tkinter import filedialog, ttk
 
 import matplotlib.pyplot as plt
 import nibabel as nib
@@ -13,6 +14,38 @@ from scipy.stats import zscore
 from sv_ttk import set_theme
 
 from phys2cvr import __version__
+
+
+def emptyfunc():
+    # Momentarily here for menu
+    pass
+
+
+def _get_parser():
+    """
+    Parse command line inputs for this function.
+
+    Returns
+    -------
+    parser.parse_args() : argparse dict
+
+    """
+    parser = argparse.ArgumentParser(description='phys2cvr viewer.')
+    parser.add_argument('nii_file', help='Path to 4D fMRI NIfTI file')
+    parser.add_argument('matrix_file', help='Path to regressor matrix text/mat file')
+    parser.add_argument('--cvr', default=None, help='Optional path to 3D CVR NIfTI map')
+    parser.add_argument('--lag', default=None, help='Optional path to 3D Lag NIfTI map')
+    parser.add_argument(
+        '--mask', default=None, help='Optional path to 3D brain mask NIfTI file'
+    )
+    parser.add_argument(
+        '--fs',
+        type=float,
+        default=1.0,
+        help='Regressor sampling frequency in Hz (default: 1.0)',
+    )
+
+    return parser
 
 
 def load_and_prep_data(
@@ -60,6 +93,7 @@ class VoxelViewerApp(tk.Tk):
         lag_data=None,
         fs=1.0,
         tr=None,
+        mask_data=None,
     ):
         super().__init__()
 
@@ -67,6 +101,7 @@ class VoxelViewerApp(tk.Tk):
         self.regressor_matrix = regressor_matrix
         self.cvr_data = cvr_data
         self.lag_data = lag_data
+        self.mask_data = mask_data
         self.fs = fs
         self.tr = tr
 
@@ -97,15 +132,199 @@ class VoxelViewerApp(tk.Tk):
 
         # Apply darkdetect + sv_ttk theme
         current_theme = theme()
-        if current_theme and current_theme.lower() == 'dark':
-            set_theme('dark')
+        self.current_theme_mode = (
+            'dark' if (current_theme and current_theme.lower() == 'dark') else 'light'
+        )
+        set_theme(self.current_theme_mode)
+        if self.current_theme_mode == 'dark':
             plt.style.use('dark_background')
         else:
-            set_theme('light')
-            plt.style.use('default')
+            plt.style.use('seaborn-v0_8-colorblind')
 
+        # Build UI Components
+        self.create_menu()
         self.create_widgets()
         self.init_plots()
+        self.update_all(
+            self.curr_x,
+            self.curr_y,
+            self.curr_z,
+            self.curr_shift_sec,
+            update_controls=True,
+        )
+
+    def set_app_theme(self, theme_mode):
+        self.current_theme_mode = theme_mode
+        set_theme(theme_mode)
+
+        # Toggle Matplotlib style dynamically
+        style_name = (
+            'dark_background' if theme_mode == 'dark' else 'seaborn-v0_8-colorblind'
+        )
+        plt.style.use(style_name)
+
+        bg_color = '#1c1c1c' if theme_mode == 'dark' else '#ffffff'
+        fg_color = '#ffffff' if theme_mode == 'dark' else '#000000'
+
+        self.fig.patch.set_facecolor(bg_color)
+        for ax in self.fig.axes:
+            if ax not in [self.ax_cvr, self.ax_lag]:
+                ax.set_facecolor(bg_color)
+            ax.title.set_color(fg_color)
+            ax.xaxis.label.set_color(fg_color)
+            ax.yaxis.label.set_color(fg_color)
+            ax.tick_params(colors=fg_color, which='both')
+            for spine in ax.spines.values():
+                spine.set_color(fg_color)
+
+        self.canvas.draw_idle()
+
+    def create_menu(self):
+        # Disable menu tear-offs globally
+        self.option_add('*tearOff', tk.FALSE)
+
+        # Root menu bar
+        menu_master = tk.Menu(self)
+        self.config(menu=menu_master)
+
+        # File menu
+        menu_file = tk.Menu(menu_master, tearoff=0)
+        menu_master.add_cascade(label='File', menu=menu_file)
+        menu_file.add_command(
+            label='Load timeseries', command=self.load_timeseries_file
+        )
+        menu_file.add_command(
+            label='Load regressors', command=self.load_regressors_file
+        )
+        menu_file.add_command(label='Load CVR map', command=self.load_cvr_file)
+        menu_file.add_command(label='Load lag map', command=self.load_lag_file)
+        menu_file.add_command(label='Load mask', command=self.load_mask_file)
+        menu_file.add_separator()
+        menu_file.add_command(label='Exit', command=self.destroy)
+
+        # Options menu
+        menu_options = tk.Menu(menu_master, tearoff=0)
+        menu_master.add_cascade(label='Options', menu=menu_options)
+        menu_options.add_command(label='About', command=lambda: emptyfunc())
+        menu_options.add_command(label='Documentation', command=lambda: emptyfunc())
+        menu_options.add_separator()
+        menu_theme = tk.Menu(menu_options, tearoff=0)
+        menu_options.add_cascade(label='Theme', menu=menu_theme)
+        menu_theme.add_command(
+            label='Light', command=lambda: self.set_app_theme('light')
+        )
+        menu_theme.add_command(label='Dark', command=lambda: self.set_app_theme('dark'))
+
+    def load_timeseries_file(self):
+        file_path = filedialog.askopenfilename(
+            title='Select 4D fMRI NIfTI File',
+            filetypes=[('NIfTI files', '*.nii *.nii.gz'), ('All files', '*.*')],
+        )
+        if not file_path:
+            return
+
+        img = nib.load(file_path)
+        self.func_data = img.get_fdata()
+
+        tr = img.header.get_zooms()[3] if len(img.header.get_zooms()) > 3 else 1.0
+        if tr <= 0 or np.isnan(tr):
+            tr = 1.0
+        self.tr = tr
+
+        self.nx, self.ny, self.nz, self.nt = self.func_data.shape
+        self.time = (
+            np.arange(self.nt) * self.tr if self.tr is not None else np.arange(self.nt)
+        )
+        self.mean_vol = np.mean(self.func_data, axis=-1)
+
+        self.curr_x = np.clip(self.curr_x, 0, self.nx - 1)
+        self.curr_y = np.clip(self.curr_y, 0, self.ny - 1)
+        self.curr_z = np.clip(self.curr_z, 0, self.nz - 1)
+
+        self.reinit_plots()
+
+    def load_regressors_file(self):
+        file_path = filedialog.askopenfilename(
+            title='Select Regressor Matrix File',
+            filetypes=[('Text/Mat files', '*.txt *.mat *.1D'), ('All files', '*.*')],
+        )
+        if not file_path:
+            return
+
+        self.regressor_matrix = np.loadtxt(file_path)
+        self.num_lags = self.regressor_matrix.shape[0]
+
+        self.half_lags = (self.num_lags - 1) / 2.0
+        self.min_delay_sec = -self.half_lags / self.fs
+        self.max_delay_sec = self.half_lags / self.fs
+
+        self.slider.config(from_=self.min_delay_sec, to=self.max_delay_sec)
+        self.update_all(
+            self.curr_x,
+            self.curr_y,
+            self.curr_z,
+            self.curr_shift_sec,
+            update_controls=True,
+        )
+
+    def load_cvr_file(self):
+        file_path = filedialog.askopenfilename(
+            title='Select 3D CVR Map NIfTI File',
+            filetypes=[('NIfTI files', '*.nii *.nii.gz'), ('All files', '*.*')],
+        )
+        if not file_path:
+            return
+
+        cvr_data = nib.load(file_path).get_fdata()
+        if self.mask_data is not None:
+            cvr_data = cvr_data.copy()
+            cvr_data[~self.mask_data] = np.nan
+        self.cvr_data = cvr_data
+
+        self.reinit_plots()
+
+    def load_lag_file(self):
+        file_path = filedialog.askopenfilename(
+            title='Select 3D Lag Map NIfTI File',
+            filetypes=[('NIfTI files', '*.nii *.nii.gz'), ('All files', '*.*')],
+        )
+        if not file_path:
+            return
+
+        lag_data = nib.load(file_path).get_fdata()
+        if self.mask_data is not None:
+            lag_data = lag_data.copy()
+            lag_data[~self.mask_data] = np.nan
+        self.lag_data = lag_data
+
+        self.reinit_plots()
+
+    def load_mask_file(self):
+        file_path = filedialog.askopenfilename(
+            title='Select 3D Brain Mask NIfTI File',
+            filetypes=[('NIfTI files', '*.nii *.nii.gz'), ('All files', '*.*')],
+        )
+        if not file_path:
+            return
+
+        self.mask_data = nib.load(file_path).get_fdata().astype(bool)
+
+        if self.cvr_data is not None:
+            self.cvr_data = self.cvr_data.copy()
+            self.cvr_data[~self.mask_data] = np.nan
+        if self.lag_data is not None:
+            self.lag_data = self.lag_data.copy()
+            self.lag_data[~self.mask_data] = np.nan
+
+        self.reinit_plots()
+
+    def reinit_plots(self):
+        if hasattr(self, 'canvas'):
+            self.canvas.get_tk_widget().destroy()
+        plt.close(self.fig)
+
+        self.init_plots()
+        self.set_app_theme(self.current_theme_mode)
         self.update_all(
             self.curr_x,
             self.curr_y,
@@ -427,28 +646,17 @@ class VoxelViewerApp(tk.Tk):
         )
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Tkinter fMRI Voxel Viewer with Lag and CVR Maps.'
-    )
-    parser.add_argument('nii_file', help='Path to 4D fMRI NIfTI file')
-    parser.add_argument('matrix_file', help='Path to regressor matrix text/mat file')
-    parser.add_argument('--cvr', default=None, help='Optional path to 3D CVR NIfTI map')
-    parser.add_argument('--lag', default=None, help='Optional path to 3D Lag NIfTI map')
-    parser.add_argument(
-        '--mask', default=None, help='Optional path to 3D brain mask NIfTI file'
-    )
-    parser.add_argument(
-        '--fs',
-        type=float,
-        default=1.0,
-        help='Regressor sampling frequency in Hz (default: 1.0)',
-    )
-
-    args = parser.parse_args()
+def _main(argv=None):
+    args = _get_parser().parse_args(argv)
 
     func_data, regressor_matrix, cvr_data, lag_data, tr = load_and_prep_data(
         args.nii_file, args.matrix_file, args.cvr, args.lag, args.mask
+    )
+
+    mask_data = (
+        nib.load(args.mask).get_fdata().astype(bool)
+        if args.mask and args.mask != ''
+        else None
     )
 
     app = VoxelViewerApp(
@@ -456,7 +664,12 @@ if __name__ == '__main__':
         regressor_matrix=regressor_matrix,
         cvr_data=cvr_data,
         lag_data=lag_data,
+        mask_data=mask_data,
         fs=args.fs,
         tr=tr,
     )
     app.mainloop()
+
+
+if __name__ == '__main__':
+    _main(sys.argv[1:])
