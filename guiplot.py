@@ -2,12 +2,16 @@
 
 import argparse
 import sys
+import tkinter as tk
+from tkinter import ttk
 
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
-from matplotlib.widgets import Slider, TextBox
+from darkdetect import theme
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from scipy.stats import zscore
+from sv_ttk import set_theme
 
 
 def load_and_prep_data(nii_path, matrix_path, cvr_path=None, lag_path=None):
@@ -15,289 +19,390 @@ def load_and_prep_data(nii_path, matrix_path, cvr_path=None, lag_path=None):
     func_data = img.get_fdata()
     regressor_matrix = np.loadtxt(matrix_path)
 
-    cvr_data = nib.load(cvr_path).get_fdata() if cvr_path else None
-    lag_data = nib.load(lag_path).get_fdata() if lag_path else None
+    cvr_data = nib.load(cvr_path).get_fdata() if cvr_path and cvr_path != '' else None
+    lag_data = nib.load(lag_path).get_fdata() if lag_path and lag_path != '' else None
 
     return func_data, regressor_matrix, cvr_data, lag_data
 
 
-def launch_gui(
-    func_data, regressor_matrix, cvr_data=None, lag_data=None, init_coords=None, fs=1.0
-):
-    nx, ny, nz, nt = func_data.shape
-    num_lags = regressor_matrix.shape[0]
+class VoxelViewerApp(tk.Tk):
+    def __init__(
+        self,
+        func_data,
+        regressor_matrix,
+        cvr_data=None,
+        lag_data=None,
+        init_coords=None,
+        fs=1.0,
+    ):
+        super().__init__()
 
-    # Calculate lag range in seconds centered around 0
-    # Half of total lags mapped to negative seconds, half to positive seconds
-    half_lags = (num_lags - 1) / 2.0
-    min_delay_sec = -half_lags / fs
-    max_delay_sec = half_lags / fs
-    sec_per_step = 1.0 / fs
+        self.func_data = func_data
+        self.regressor_matrix = regressor_matrix
+        self.cvr_data = cvr_data
+        self.lag_data = lag_data
+        self.fs = fs
 
-    # Mean anatomical volume
-    mean_vol = np.mean(func_data, axis=-1)
+        self.nx, self.ny, self.nz, self.nt = func_data.shape
+        self.num_lags = regressor_matrix.shape[0]
 
-    # Initial Coordinates
-    if init_coords is not None:
-        curr_x, curr_y, curr_z = init_coords
-    else:
-        curr_x, curr_y, curr_z = nx // 2, ny // 2, nz // 2
+        # Calculate delay parameters
+        self.half_lags = (self.num_lags - 1) / 2.0
+        self.min_delay_sec = -self.half_lags / self.fs
+        self.max_delay_sec = self.half_lags / self.fs
 
-    # Initial shift set to middle index (0 seconds)
-    curr_shift_idx = int(round(half_lags))
+        self.mean_vol = np.mean(func_data, axis=-1)
 
-    # Dynamic Column Layout
-    num_cols = (
-        3 + (1 if cvr_data is not None else 0) + (1 if lag_data is not None else 0)
-    )
+        # Initial coordinates
+        if init_coords is not None:
+            self.curr_x, self.curr_y, self.curr_z = init_coords
+        else:
+            self.curr_x, self.curr_y, self.curr_z = (
+                self.nx // 2,
+                self.ny // 2,
+                self.nz // 2,
+            )
 
-    fig = plt.figure(figsize=(4 * num_cols, 8))
-    gs = fig.add_gridspec(
-        3, num_cols, height_ratios=[1.2, 1, 0.45], hspace=0.35, wspace=0.25
-    )
+        self.curr_shift_sec = 0.0
 
-    # Orthogonal Anatomical Axes
-    ax_sag = fig.add_subplot(gs[0, 0])
-    ax_cor = fig.add_subplot(gs[0, 1])
-    ax_axi = fig.add_subplot(gs[0, 2])
+        # Configure Window
+        self.title('fMRI Voxel & Regressor Viewer')
+        self.geometry('1200x850')
 
-    # Optional Map Axes
-    col_idx = 3
-    ax_cvr = None
-    if cvr_data is not None:
-        ax_cvr = fig.add_subplot(gs[0, col_idx])
-        col_idx += 1
+        # Apply darkdetect + sv_ttk theme
+        current_theme = theme()  # returns 'Dark' or 'Light'
+        if current_theme and current_theme.lower() == 'dark':
+            set_theme('dark')
+            plt.style.use('dark_background')
+        else:
+            set_theme('light')
+            plt.style.use('default')
 
-    ax_lag = None
-    if lag_data is not None:
-        ax_lag = fig.add_subplot(gs[0, col_idx])
-
-    # Timecourse Plot Axis
-    ax_ts = fig.add_subplot(gs[1, :])
-
-    plt.subplots_adjust(bottom=0.18, left=0.06, right=0.96)
-
-    # 1. Plot Anatomical Slices
-    img_sag = ax_sag.imshow(
-        mean_vol[curr_x, :, :].T, cmap='gray', origin='lower', aspect='auto'
-    )
-    (cross_sag_v,) = ax_sag.plot([curr_y, curr_y], [0, nz - 1], 'r-', lw=1)
-    (cross_sag_h,) = ax_sag.plot([0, ny - 1], [curr_z, curr_z], 'r-', lw=1)
-    ax_sag.set_title(f'Sagittal (X={curr_x})')
-    ax_sag.set_xlabel('Y')
-    ax_sag.set_ylabel('Z')
-
-    img_cor = ax_cor.imshow(
-        mean_vol[:, curr_y, :].T, cmap='gray', origin='lower', aspect='auto'
-    )
-    (cross_cor_v,) = ax_cor.plot([curr_x, curr_x], [0, nz - 1], 'r-', lw=1)
-    (cross_cor_h,) = ax_cor.plot([0, nx - 1], [curr_z, curr_z], 'r-', lw=1)
-    ax_cor.set_title(f'Coronal (Y={curr_y})')
-    ax_cor.set_xlabel('X')
-    ax_cor.set_ylabel('Z')
-
-    img_axi = ax_axi.imshow(
-        mean_vol[:, :, curr_z].T, cmap='gray', origin='lower', aspect='auto'
-    )
-    (cross_axi_v,) = ax_axi.plot([curr_x, curr_x], [0, ny - 1], 'r-', lw=1)
-    (cross_axi_h,) = ax_axi.plot([0, nx - 1], [curr_y, curr_y], 'r-', lw=1)
-    ax_axi.set_title(f'Axial (Z={curr_z})')
-    ax_axi.set_xlabel('X')
-    ax_axi.set_ylabel('Y')
-
-    # 2. Plot CVR Map (Axial Slice)
-    img_cvr, cross_cvr_v, cross_cvr_h = None, None, None
-    if cvr_data is not None:
-        img_cvr = ax_cvr.imshow(
-            cvr_data[:, :, curr_z].T, cmap='inferno', origin='lower', aspect='auto'
+        self.create_widgets()
+        self.init_plots()
+        self.update_all(
+            self.curr_x,
+            self.curr_y,
+            self.curr_z,
+            self.curr_shift_sec,
+            update_controls=True,
         )
-        (cross_cvr_v,) = ax_cvr.plot([curr_x, curr_x], [0, ny - 1], 'cyan', lw=1)
-        (cross_cvr_h,) = ax_cvr.plot([0, nx - 1], [curr_y, curr_y], 'cyan', lw=1)
-        fig.colorbar(img_cvr, ax=ax_cvr, fraction=0.046, pad=0.04)
-        ax_cvr.set_title(f'CVR: {cvr_data[curr_x, curr_y, curr_z]:.2f}')
-        ax_cvr.set_xlabel('X')
-        ax_cvr.set_ylabel('Y')
 
-    # 3. Plot Lag Map (Axial Slice)
-    img_lag, cross_lag_v, cross_lag_h = None, None, None
-    if lag_data is not None:
-        img_lag = ax_lag.imshow(
-            lag_data[:, :, curr_z].T, cmap='turbo', origin='lower', aspect='auto'
+    def create_widgets(self):
+        # Main Layout Frames
+        self.plot_frame = ttk.Frame(self)
+        self.plot_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=5)
+
+        self.control_frame = ttk.Frame(self, padding=10)
+        self.control_frame.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # 1. Coordinate Inputs
+        coord_frame = ttk.LabelFrame(
+            self.control_frame, text=' Voxel Coordinates ', padding=5
         )
-        (cross_lag_v,) = ax_lag.plot([curr_x, curr_x], [0, ny - 1], 'black', lw=1)
-        (cross_lag_h,) = ax_lag.plot([0, nx - 1], [curr_y, curr_y], 'black', lw=1)
-        fig.colorbar(img_lag, ax=ax_lag, fraction=0.046, pad=0.04)
-        ax_lag.set_title(f'Lag: {lag_data[curr_x, curr_y, curr_z]:.2f}s')
-        ax_lag.set_xlabel('X')
-        ax_lag.set_ylabel('Y')
+        coord_frame.pack(side=tk.LEFT, padx=10)
 
-    # 4. Timecourse Plot Setup
-    init_sec = (curr_shift_idx - half_lags) / fs
-    voxel_ts = zscore(func_data[curr_x, curr_y, curr_z, :])
-    co2_ts = zscore(regressor_matrix[curr_shift_idx, :])
+        ttk.Label(coord_frame, text='X:').grid(row=0, column=0, padx=2)
+        self.entry_x = ttk.Entry(coord_frame, width=5)
+        self.entry_x.grid(row=0, column=1, padx=4)
 
-    (line_voxel,) = ax_ts.plot(
-        voxel_ts, label=f'Voxel ({curr_x}, {curr_y}, {curr_z})', color='b'
-    )
-    (line_co2,) = ax_ts.plot(
-        co2_ts, label=f'CO2 Shift ({init_sec:+.2f}s)', color='r', linestyle='--'
-    )
+        ttk.Label(coord_frame, text='Y:').grid(row=0, column=2, padx=2)
+        self.entry_y = ttk.Entry(coord_frame, width=5)
+        self.entry_y.grid(row=0, column=3, padx=4)
 
-    ax_ts.set_title(f'Timecourse Comparison — Voxel ({curr_x}, {curr_y}, {curr_z})')
-    ax_ts.set_xlabel('Timepoint (TR)')
-    ax_ts.set_ylabel('Z-Score')
-    ax_ts.legend(loc='upper right')
-    ax_ts.grid(True, linestyle=':', alpha=0.6)
+        ttk.Label(coord_frame, text='Z:').grid(row=0, column=4, padx=2)
+        self.entry_z = ttk.Entry(coord_frame, width=5)
+        self.entry_z.grid(row=0, column=5, padx=4)
 
-    # 5. Widgets Setup (Slider in Seconds)
-    ax_shift = plt.axes([0.2, 0.08, 0.65, 0.03])
-    slider_shift = Slider(
-        ax_shift,
-        'CO2 Delay (s)',
-        min_delay_sec,
-        max_delay_sec,
-        valinit=0.0,
-        valstep=sec_per_step,
-        valfmt='%+.2f s',
-    )
+        btn_update = ttk.Button(
+            coord_frame, text='Set', command=self.on_coord_entry_submit
+        )
+        btn_update.grid(row=0, column=6, padx=6)
 
-    ax_box_x = plt.axes([0.2, 0.02, 0.1, 0.03])
-    ax_box_y = plt.axes([0.45, 0.02, 0.1, 0.03])
-    ax_box_z = plt.axes([0.7, 0.02, 0.1, 0.03])
+        # Bind Enter key to coordinate fields
+        self.entry_x.bind('<Return>', lambda e: self.on_coord_entry_submit())
+        self.entry_y.bind('<Return>', lambda e: self.on_coord_entry_submit())
+        self.entry_z.bind('<Return>', lambda e: self.on_coord_entry_submit())
 
-    text_x = TextBox(ax_box_x, 'X: ', initial=str(curr_x))
-    text_y = TextBox(ax_box_y, 'Y: ', initial=str(curr_y))
-    text_z = TextBox(ax_box_z, 'Z: ', initial=str(curr_z))
+        # 2. Regressor Shift Slider
+        slider_frame = ttk.LabelFrame(
+            self.control_frame, text=' CO2 Delay (seconds) ', padding=5
+        )
+        slider_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=10)
 
-    # Master Update Function
-    def update_all(x, y, z, shift_sec, update_textboxes=True):
-        nonlocal curr_x, curr_y, curr_z, curr_shift_idx
-        curr_x, curr_y, curr_z = x, y, z
+        self.slider_var = tk.DoubleVar(value=0.0)
+        self.slider = ttk.Scale(
+            slider_frame,
+            from_=self.min_delay_sec,
+            to=self.max_delay_sec,
+            variable=self.slider_var,
+            orient=tk.HORIZONTAL,
+            command=self.on_slider_move,
+        )
+        self.slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
-        # Convert delay in seconds back to row index in regressor_matrix
-        shift_idx = int(round(shift_sec * fs + half_lags))
-        curr_shift_idx = np.clip(shift_idx, 0, num_lags - 1)
+        self.lbl_delay = ttk.Label(
+            slider_frame, text='+0.00 s', width=10, anchor='center'
+        )
+        self.lbl_delay.pack(side=tk.RIGHT, padx=5)
 
-        # Update Slices
-        img_sag.set_data(mean_vol[x, :, :].T)
-        cross_sag_v.set_xdata([y, y])
-        cross_sag_h.set_ydata([z, z])
-        ax_sag.set_title(f'Sagittal (X={x})')
+    def init_plots(self):
+        # Determine Grid Layout
+        num_cols = (
+            3
+            + (1 if self.cvr_data is not None else 0)
+            + (1 if self.lag_data is not None else 0)
+        )
 
-        img_cor.set_data(mean_vol[:, y, :].T)
-        cross_cor_v.set_xdata([x, x])
-        cross_cor_h.set_ydata([z, z])
-        ax_cor.set_title(f'Coronal (Y={y})')
+        self.fig = plt.figure(figsize=(4 * num_cols, 7), tight_layout=True)
+        gs = self.fig.add_gridspec(
+            2, num_cols, height_ratios=[1.2, 1], hspace=0.3, wspace=0.25
+        )
 
-        img_axi.set_data(mean_vol[:, :, z].T)
-        cross_axi_v.set_xdata([x, x])
-        cross_axi_h.set_ydata([y, y])
-        ax_axi.set_title(f'Axial (Z={z})')
+        # Axes setup
+        self.ax_sag = self.fig.add_subplot(gs[0, 0])
+        self.ax_cor = self.fig.add_subplot(gs[0, 1])
+        self.ax_axi = self.fig.add_subplot(gs[0, 2])
 
-        # Update CVR Map
-        if cvr_data is not None:
-            img_cvr.set_data(cvr_data[:, :, z].T)
-            cross_cvr_v.set_xdata([x, x])
-            cross_cvr_h.set_ydata([y, y])
-            ax_cvr.set_title(f'CVR: {cvr_data[x, y, z]:.2f}')
+        col_idx = 3
+        self.ax_cvr = None
+        if self.cvr_data is not None:
+            self.ax_cvr = self.fig.add_subplot(gs[0, col_idx])
+            col_idx += 1
 
-        # Update Lag Map
-        if lag_data is not None:
-            img_lag.set_data(lag_data[:, :, z].T)
-            cross_lag_v.set_xdata([x, x])
-            cross_lag_h.set_ydata([y, y])
-            ax_lag.set_title(f'Lag: {lag_data[x, y, z]:.2f}s')
+        self.ax_lag = None
+        if self.lag_data is not None:
+            self.ax_lag = self.fig.add_subplot(gs[0, col_idx])
 
-        # Update Timecourse
-        new_voxel_ts = zscore(func_data[x, y, z, :])
-        new_co2_ts = zscore(regressor_matrix[curr_shift_idx, :])
+        self.ax_ts = self.fig.add_subplot(gs[1, :])
 
-        actual_sec = (curr_shift_idx - half_lags) / fs
+        # Render Base Anatomical Slices
+        self.img_sag = self.ax_sag.imshow(
+            self.mean_vol[self.curr_x, :, :].T,
+            cmap='gray',
+            origin='lower',
+            aspect='auto',
+        )
+        (self.cross_sag_v,) = self.ax_sag.plot(
+            [self.curr_y, self.curr_y], [0, self.nz - 1], 'r-', lw=1
+        )
+        (self.cross_sag_h,) = self.ax_sag.plot(
+            [0, self.ny - 1], [self.curr_z, self.curr_z], 'r-', lw=1
+        )
+        self.ax_sag.set_xlabel('Y')
+        self.ax_sag.set_ylabel('Z')
 
-        line_voxel.set_ydata(new_voxel_ts)
-        line_voxel.set_label(f'Voxel ({x}, {y}, {z})')
+        self.img_cor = self.ax_cor.imshow(
+            self.mean_vol[:, self.curr_y, :].T,
+            cmap='gray',
+            origin='lower',
+            aspect='auto',
+        )
+        (self.cross_cor_v,) = self.ax_cor.plot(
+            [self.curr_x, self.curr_x], [0, self.nz - 1], 'r-', lw=1
+        )
+        (self.cross_cor_h,) = self.ax_cor.plot(
+            [0, self.nx - 1], [self.curr_z, self.curr_z], 'r-', lw=1
+        )
+        self.ax_cor.set_xlabel('X')
+        self.ax_cor.set_ylabel('Z')
 
-        line_co2.set_ydata(new_co2_ts)
-        line_co2.set_label(f'CO2 Shift ({actual_sec:+.2f}s)')
+        self.img_axi = self.ax_axi.imshow(
+            self.mean_vol[:, :, self.curr_z].T,
+            cmap='gray',
+            origin='lower',
+            aspect='auto',
+        )
+        (self.cross_axi_v,) = self.ax_axi.plot(
+            [self.curr_x, self.curr_x], [0, self.ny - 1], 'r-', lw=1
+        )
+        (self.cross_axi_h,) = self.ax_axi.plot(
+            [0, self.nx - 1], [self.curr_y, self.curr_y], 'r-', lw=1
+        )
+        self.ax_axi.set_xlabel('X')
+        self.ax_axi.set_ylabel('Y')
 
-        ax_ts.set_title(f'Timecourse Comparison — Voxel ({x}, {y}, {z})')
-        ax_ts.legend(loc='upper right')
+        # CVR Map
+        if self.cvr_data is not None:
+            self.img_cvr = self.ax_cvr.imshow(
+                self.cvr_data[:, :, self.curr_z].T,
+                cmap='inferno',
+                origin='lower',
+                aspect='auto',
+            )
+            (self.cross_cvr_v,) = self.ax_cvr.plot(
+                [self.curr_x, self.curr_x], [0, self.ny - 1], 'cyan', lw=1
+            )
+            (self.cross_cvr_h,) = self.ax_cvr.plot(
+                [0, self.nx - 1], [self.curr_y, self.curr_y], 'cyan', lw=1
+            )
+            self.fig.colorbar(self.img_cvr, ax=self.ax_cvr, fraction=0.046, pad=0.04)
+            self.ax_cvr.set_xlabel('X')
+            self.ax_cvr.set_ylabel('Y')
 
-        ax_ts.relim()
-        ax_ts.autoscale_view(scalex=False, scaley=True)
+        # Lag Map
+        if self.lag_data is not None:
+            self.img_lag = self.ax_lag.imshow(
+                self.lag_data[:, :, self.curr_z].T,
+                cmap='turbo',
+                origin='lower',
+                aspect='auto',
+            )
+            (self.cross_lag_v,) = self.ax_lag.plot(
+                [self.curr_x, self.curr_x], [0, self.ny - 1], 'black', lw=1
+            )
+            (self.cross_lag_h,) = self.ax_lag.plot(
+                [0, self.nx - 1], [self.curr_y, self.curr_y], 'black', lw=1
+            )
+            self.fig.colorbar(self.img_lag, ax=self.ax_lag, fraction=0.046, pad=0.04)
+            self.ax_lag.set_xlabel('X')
+            self.ax_lag.set_ylabel('Y')
 
-        # Sync Textboxes
-        if update_textboxes:
-            text_x.eventson = text_y.eventson = text_z.eventson = False
-            text_x.set_val(str(x))
-            text_y.set_val(str(y))
-            text_z.set_val(str(z))
-            text_x.eventson = text_y.eventson = text_z.eventson = True
+        # Timecourse setup
+        (self.line_voxel,) = self.ax_ts.plot([], [], label='Voxel TS', color='#1f77b4')
+        (self.line_co2,) = self.ax_ts.plot(
+            [], [], label='CO2 Regressor', color='#ff7f0e', linestyle='--'
+        )
+        self.ax_ts.set_xlabel('Timepoint (TR)')
+        self.ax_ts.set_ylabel('Z-Score')
+        self.ax_ts.grid(True, linestyle=':', alpha=0.5)
 
-        fig.canvas.draw_idle()
+        # Canvas Embedding
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        # Canvas Mouse Click Binding
+        self.canvas.mpl_connect('button_press_event', self.on_canvas_click)
+
+    def update_all(self, x, y, z, shift_sec, update_controls=False):
+        self.curr_x, self.curr_y, self.curr_z = x, y, z
+        self.curr_shift_sec = shift_sec
+
+        # Compute regressor matrix row index
+        shift_idx = int(round(shift_sec * self.fs + self.half_lags))
+        shift_idx = np.clip(shift_idx, 0, self.num_lags - 1)
+        actual_sec = (shift_idx - self.half_lags) / self.fs
+
+        # Update Images & Crosshairs
+        self.img_sag.set_data(self.mean_vol[x, :, :].T)
+        self.cross_sag_v.set_xdata([y, y])
+        self.cross_sag_h.set_ydata([z, z])
+        self.ax_sag.set_title(f'Sagittal (X={x})')
+
+        self.img_cor.set_data(self.mean_vol[:, y, :].T)
+        self.cross_cor_v.set_xdata([x, x])
+        self.cross_cor_h.set_ydata([z, z])
+        self.ax_cor.set_title(f'Coronal (Y={y})')
+
+        self.img_axi.set_data(self.mean_vol[:, :, z].T)
+        self.cross_axi_v.set_xdata([x, x])
+        self.cross_axi_h.set_ydata([y, y])
+        self.ax_axi.set_title(f'Axial (Z={z})')
+
+        if self.cvr_data is not None:
+            self.img_cvr.set_data(self.cvr_data[:, :, z].T)
+            self.cross_cvr_v.set_xdata([x, x])
+            self.cross_cvr_h.set_ydata([y, y])
+            val = self.cvr_data[x, y, z]
+            self.ax_cvr.set_title(f'CVR: {val:.2f}')
+
+        if self.lag_data is not None:
+            self.img_lag.set_data(self.lag_data[:, :, z].T)
+            self.cross_lag_v.set_xdata([x, x])
+            self.cross_lag_h.set_ydata([y, y])
+            val = self.lag_data[x, y, z]
+            self.ax_lag.set_title(
+                f'Lag: {val:.2f}s' if not np.isnan(val) else 'Lag: N/A'
+            )
+
+        # Update Timecourse Plot
+        voxel_ts = zscore(self.func_data[x, y, z, :])
+        co2_ts = zscore(self.regressor_matrix[shift_idx, :])
+
+        self.line_voxel.set_data(np.arange(len(voxel_ts)), voxel_ts)
+        self.line_voxel.set_label(f'Voxel ({x}, {y}, {z})')
+
+        self.line_co2.set_data(np.arange(len(co2_ts)), co2_ts)
+        self.line_co2.set_label(f'CO2 Shift ({actual_sec:+.2f}s)')
+
+        self.ax_ts.set_title(f'Timecourse Comparison — Voxel ({x}, {y}, {z})')
+        self.ax_ts.legend(loc='upper right')
+        self.ax_ts.relim()
+        self.ax_ts.autoscale_view(scalex=False, scaley=True)
+
+        # Update Tkinter Controls if requested
+        if update_controls:
+            self.entry_x.delete(0, tk.END)
+            self.entry_x.insert(0, str(x))
+            self.entry_y.delete(0, tk.END)
+            self.entry_y.insert(0, str(y))
+            self.entry_z.delete(0, tk.END)
+            self.entry_z.insert(0, str(z))
+
+            self.slider_var.set(actual_sec)
+
+        self.lbl_delay.config(text=f'{actual_sec:+.2f} s')
+        self.canvas.draw_idle()
 
     # Callbacks
-    def on_click(event):
-        clickable_axes = [ax_sag, ax_cor, ax_axi]
-        if ax_cvr:
-            clickable_axes.append(ax_cvr)
-        if ax_lag:
-            clickable_axes.append(ax_lag)
+    def on_canvas_click(self, event):
+        clickable = [self.ax_sag, self.ax_cor, self.ax_axi]
+        if self.ax_cvr:
+            clickable.append(self.ax_cvr)
+        if self.ax_lag:
+            clickable.append(self.ax_lag)
 
-        if event.inaxes not in clickable_axes:
+        if event.inaxes not in clickable or event.xdata is None or event.ydata is None:
             return
 
-        x, y, z = curr_x, curr_y, curr_z
-        if event.inaxes == ax_sag:
+        x, y, z = self.curr_x, self.curr_y, self.curr_z
+
+        if event.inaxes == self.ax_sag:
             y, z = int(round(event.xdata)), int(round(event.ydata))
-        elif event.inaxes == ax_cor:
+        elif event.inaxes == self.ax_cor:
             x, z = int(round(event.xdata)), int(round(event.ydata))
-        elif event.inaxes in [ax_axi, ax_cvr, ax_lag]:
+        elif event.inaxes in [self.ax_axi, self.ax_cvr, self.ax_lag]:
             x, y = int(round(event.xdata)), int(round(event.ydata))
 
-        x, y, z = (
-            np.clip(x, 0, nx - 1),
-            np.clip(y, 0, ny - 1),
-            np.clip(z, 0, nz - 1),
-        )
-        update_all(x, y, z, slider_shift.val)
+        x = np.clip(x, 0, self.nx - 1)
+        y = np.clip(y, 0, self.ny - 1)
+        z = np.clip(z, 0, self.nz - 1)
 
-    def on_textbox_submit(_=None):
+        self.update_all(x, y, z, self.curr_shift_sec, update_controls=True)
+
+    def on_coord_entry_submit(self):
         try:
-            x = np.clip(int(text_x.text), 0, nx - 1)
-            y = np.clip(int(text_y.text), 0, ny - 1)
-            z = np.clip(int(text_z.text), 0, nz - 1)
-            update_all(x, y, z, slider_shift.val, update_textboxes=False)
+            x = np.clip(int(self.entry_x.get()), 0, self.nx - 1)
+            y = np.clip(int(self.entry_y.get()), 0, self.ny - 1)
+            z = np.clip(int(self.entry_z.get()), 0, self.nz - 1)
+            self.update_all(x, y, z, self.curr_shift_sec, update_controls=False)
         except ValueError:
             pass
 
-    def on_slider_change(val_sec):
-        update_all(curr_x, curr_y, curr_z, val_sec)
-
-    fig.canvas.mpl_connect('button_press_event', on_click)
-    slider_shift.on_changed(on_slider_change)
-    text_x.on_submit(on_textbox_submit)
-    text_y.on_submit(on_textbox_submit)
-    text_z.on_submit(on_textbox_submit)
-
-    plt.show()
+    def on_slider_move(self, val):
+        self.update_all(
+            self.curr_x,
+            self.curr_y,
+            self.curr_z,
+            float(val),
+            update_controls=False,
+        )
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Plot voxel timecourses against a lag-shifted regressor matrix alongside CVR and Lag maps.'
+        description='Tkinter fMRI Voxel Viewer with Lag and CVR Maps.'
     )
-    parser.add_argument('nii_file', help='Path to the 4D fMRI NIfTI file')
-    parser.add_argument(
-        'matrix_file', help='Path to the regressor matrix text/mat file'
-    )
-    parser.add_argument('--cvr', help='Optional path to 3D CVR NIfTI map')
-    parser.add_argument('--lag', help='Optional path to 3D Lag NIfTI map')
+    parser.add_argument('nii_file', help='Path to 4D fMRI NIfTI file')
+    parser.add_argument('matrix_file', help='Path to regressor matrix text/mat file')
+    parser.add_argument('--cvr', default=None, help='Optional path to 3D CVR NIfTI map')
+    parser.add_argument('--lag', default=None, help='Optional path to 3D Lag NIfTI map')
     parser.add_argument(
         '--fs',
         type=float,
         default=1.0,
-        help='Sampling frequency of the regressor matrix in Hz (default: 1.0)',
+        help='Regressor sampling frequency in Hz (default: 1.0)',
     )
     parser.add_argument(
         '--coords',
@@ -314,11 +419,12 @@ if __name__ == '__main__':
         args.nii_file, args.matrix_file, args.cvr, args.lag
     )
 
-    launch_gui(
-        func_data,
-        regressor_matrix,
-        cvr_data,
-        lag_data,
+    app = VoxelViewerApp(
+        func_data=func_data,
+        regressor_matrix=regressor_matrix,
+        cvr_data=cvr_data,
+        lag_data=lag_data,
         init_coords=args.coords,
         fs=args.fs,
     )
+    app.mainloop()
