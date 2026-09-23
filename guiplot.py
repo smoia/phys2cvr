@@ -20,6 +20,12 @@ def load_and_prep_data(
 ):
     img = nib.load(nii_path)
     func_data = img.get_fdata()
+
+    # Get TR in seconds from NIfTI header (pixdim[4]), fallback to 1.0s if invalid
+    tr = img.header.get_zooms()[3] if len(img.header.get_zooms()) > 3 else 1.0
+    if tr <= 0 or np.isnan(tr):
+        tr = 1.0
+
     regressor_matrix = np.loadtxt(matrix_path)
 
     # Load mask if provided
@@ -53,6 +59,7 @@ class VoxelViewerApp(tk.Tk):
         cvr_data=None,
         lag_data=None,
         fs=1.0,
+        tr=None,
     ):
         super().__init__()
 
@@ -61,11 +68,17 @@ class VoxelViewerApp(tk.Tk):
         self.cvr_data = cvr_data
         self.lag_data = lag_data
         self.fs = fs
+        self.tr = tr
 
         self.nx, self.ny, self.nz, self.nt = func_data.shape
         self.num_lags = regressor_matrix.shape[0]
 
-        # Calculate delay parameters
+        # Calculate time vector for full timecourses in seconds
+        self.time = (
+            np.arange(self.nt) * self.tr if self.tr is not None else np.arange(self.nt)
+        )
+
+        # Calculate delay parameters for the slider
         self.half_lags = (self.num_lags - 1) / 2.0
         self.min_delay_sec = -self.half_lags / self.fs
         self.max_delay_sec = self.half_lags / self.fs
@@ -76,8 +89,6 @@ class VoxelViewerApp(tk.Tk):
         self.curr_x = self.nx // 2
         self.curr_y = self.ny // 2
         self.curr_z = self.nz // 2
-            )
-
         self.curr_shift_sec = 0.0
 
         # Configure Window
@@ -85,7 +96,7 @@ class VoxelViewerApp(tk.Tk):
         self.geometry('1200x850')
 
         # Apply darkdetect + sv_ttk theme
-        current_theme = theme()  # returns 'Dark' or 'Light'
+        current_theme = theme()
         if current_theme and current_theme.lower() == 'dark':
             set_theme('dark')
             plt.style.use('dark_background')
@@ -162,7 +173,6 @@ class VoxelViewerApp(tk.Tk):
         self.lbl_delay.pack(side=tk.RIGHT, padx=5)
 
     def init_plots(self):
-        # Determine Grid Layout
         num_cols = (
             3
             + (1 if self.cvr_data is not None else 0)
@@ -272,22 +282,23 @@ class VoxelViewerApp(tk.Tk):
                 aspect='auto',
             )
             (self.cross_lag_v,) = self.ax_lag.plot(
-                [self.curr_x, self.curr_x], [0, self.ny - 1], 'black', lw=1
+                [self.curr_x, self.curr_x], [0, self.ny - 1], 'red', lw=1
             )
             (self.cross_lag_h,) = self.ax_lag.plot(
-                [0, self.nx - 1], [self.curr_y, self.curr_y], 'black', lw=1
+                [0, self.nx - 1], [self.curr_y, self.curr_y], 'red', lw=1
             )
             self.fig.colorbar(self.img_lag, ax=self.ax_lag, fraction=0.046, pad=0.04)
             self.ax_lag.set_xlabel('X')
             self.ax_lag.set_ylabel('Y')
 
-        # Timecourse setup
+        # Full Timecourse setup (X-axis in seconds)
         (self.line_voxel,) = self.ax_ts.plot([], [], label='Voxel TS', color='#1f77b4')
         (self.line_co2,) = self.ax_ts.plot(
             [], [], label='CO2 Regressor', color='#ff7f0e', linestyle='--'
         )
-        self.ax_ts.set_xlabel('Timepoint (TR)')
+        self.ax_ts.set_xlabel('Time (s)')
         self.ax_ts.set_ylabel('Z-Score')
+        self.ax_ts.set_xlim(0, self.time[-1])
         self.ax_ts.grid(True, linestyle=':', alpha=0.5)
 
         # Canvas Embedding
@@ -341,22 +352,23 @@ class VoxelViewerApp(tk.Tk):
                 f'Lag: {val:.2f}s' if not np.isnan(val) else 'Lag: Masked'
             )
 
-        # Update Timecourse Plot
-        voxel_ts = zscore(self.func_data[x, y, z, :])
-        co2_ts = zscore(self.regressor_matrix[shift_idx, :])
+        # Plot full voxel and regressor timecourses against time in seconds
+        full_voxel_ts = zscore(self.func_data[x, y, z, :])
+        full_co2_ts = zscore(self.regressor_matrix[shift_idx, :])
 
-        self.line_voxel.set_data(np.arange(len(voxel_ts)), voxel_ts)
+        self.line_voxel.set_data(self.time, full_voxel_ts)
         self.line_voxel.set_label(f'Voxel ({x}, {y}, {z})')
 
-        self.line_co2.set_data(np.arange(len(co2_ts)), co2_ts)
+        self.line_co2.set_data(self.time, full_co2_ts)
         self.line_co2.set_label(f'CO2 Shift ({actual_sec:+.2f}s)')
 
         self.ax_ts.set_title(f'Timecourse Comparison — Voxel ({x}, {y}, {z})')
         self.ax_ts.legend(loc='upper right')
+        self.ax_ts.set_xlim(0, self.time[-1])
         self.ax_ts.relim()
         self.ax_ts.autoscale_view(scalex=False, scaley=True)
 
-        # Update Tkinter Controls if requested
+        # Update Tkinter Controls
         if update_controls:
             self.entry_x.delete(0, tk.END)
             self.entry_x.insert(0, str(x))
@@ -445,5 +457,6 @@ if __name__ == '__main__':
         cvr_data=cvr_data,
         lag_data=lag_data,
         fs=args.fs,
+        tr=tr,
     )
     app.mainloop()
