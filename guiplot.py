@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 import sys
 import tkinter as tk
 from tkinter import filedialog, ttk
+from typing import Optional, Tuple
 
 import matplotlib.pyplot as plt
 import nibabel as nib
@@ -14,6 +16,46 @@ from scipy.stats import zscore
 from sv_ttk import set_theme
 
 from phys2cvr import __version__
+
+logger = logging.getLogger(__name__)
+
+
+def setup_slider(
+    lag_range: tuple[int, int] | None = None,
+    fs: float | None = None,
+) -> tuple[int, int]:
+    """
+    Configures the slider start and end values.
+
+    If lag_range is provided, it overrides fs and is used as the start and end range.
+    A warning is logged if fs was also supplied alongside lag_range.
+    """
+    if lag_range is not None:
+        if fs is not None:
+            logger.warning('`lag_range` provided; overriding `fs` parameter.')
+        slider_start, slider_end = lag_range
+    else:
+        # Default behavior using fs or standard fallback values
+        slider_start, slider_end = 0, int(fs) if fs else 100
+
+    return slider_start, slider_end
+
+
+def build_regressor_matrix(
+    data: np.ndarray,
+    regressor_matrix: np.ndarray | None = None,
+) -> np.ndarray:
+    """
+    Constructs or updates the regressor matrix.
+
+    The `regressor_matrix` input is optional. If not provided, a default matrix
+    is computed from the input data.
+    """
+    if regressor_matrix is None:
+        # Initialize or generate matrix when no existing input is supplied
+        regressor_matrix = np.column_stack([data, np.ones_like(data)])
+
+    return regressor_matrix
 
 
 def emptyfunc():
@@ -32,7 +74,11 @@ def _get_parser():
     """
     parser = argparse.ArgumentParser(description='phys2cvr viewer.')
     parser.add_argument('nii_file', help='Path to 4D fMRI NIfTI file')
-    parser.add_argument('matrix_file', help='Path to regressor matrix text/mat file')
+    parser.add_argument(
+        '--matrix_file',
+        default=None,
+        help='Path to regressor matrix text/mat file',
+    )
     parser.add_argument('--cvr', default=None, help='Optional path to 3D CVR NIfTI map')
     parser.add_argument('--lag', default=None, help='Optional path to 3D Lag NIfTI map')
     parser.add_argument(
@@ -41,15 +87,27 @@ def _get_parser():
     parser.add_argument(
         '--fs',
         type=float,
-        default=1.0,
+        default=None,
         help='Regressor sampling frequency in Hz (default: 1.0)',
+    )
+    parser.add_argument(
+        '--lag_range',
+        type=int,
+        nargs=2,
+        default=None,
+        metavar=('START', 'END'),
+        help='Optional explicit lag range tuple (start, end) in seconds',
     )
 
     return parser
 
 
 def load_and_prep_data(
-    nii_path, matrix_path, cvr_path=None, lag_path=None, mask_path=None
+    nii_path,
+    matrix_path=None,
+    cvr_path=None,
+    lag_path=None,
+    mask_path=None,
 ):
     img = nib.load(nii_path)
     func_data = img.get_fdata()
@@ -63,7 +121,13 @@ def load_and_prep_data(
     if tr <= 0 or np.isnan(tr):
         tr = 1.0
 
-    regressor_matrix = np.loadtxt(matrix_path)
+    if matrix_path and matrix_path != '':
+        raw_matrix = np.loadtxt(matrix_path)
+    else:
+        raw_matrix = None
+
+    # Construct matrix automatically if missing
+    regressor_matrix = build_regressor_matrix(func_data, raw_matrix)
 
     # Load mask if provided
     mask_data = (
@@ -110,6 +174,7 @@ class VoxelViewerApp(tk.Tk):
         cvr_data=None,
         lag_data=None,
         fs=1.0,
+        lag_range=None,
         tr=None,
         pixdim=(1.0, 1.0, 1.0),
         mask_data=None,
@@ -125,7 +190,7 @@ class VoxelViewerApp(tk.Tk):
         self.raw_cvr_data = raw_cvr_data if raw_cvr_data is not None else cvr_data
         self.raw_lag_data = raw_lag_data if raw_lag_data is not None else lag_data
         self.mask_data = mask_data
-        self.fs = fs
+        self.fs = fs if fs is not None else 1.0
         self.tr = tr
         self.pixdim = pixdim
 
@@ -137,10 +202,15 @@ class VoxelViewerApp(tk.Tk):
             np.arange(self.nt) * self.tr if self.tr is not None else np.arange(self.nt)
         )
 
-        # Calculate delay parameters for the slider
-        self.half_lags = (self.num_lags - 1) / 2.0
-        self.min_delay_sec = -self.half_lags / self.fs
-        self.max_delay_sec = self.half_lags / self.fs
+        # Calculate slider bounds using setup_slider
+        if lag_range is not None:
+            self.min_delay_sec, self.max_delay_sec = setup_slider(
+                lag_range=lag_range, fs=fs
+            )
+        else:
+            self.half_lags = (self.num_lags - 1) / 2.0
+            self.min_delay_sec = -self.half_lags / self.fs
+            self.max_delay_sec = self.half_lags / self.fs
 
         self.mean_vol = np.mean(func_data, axis=-1)
 
@@ -284,7 +354,8 @@ class VoxelViewerApp(tk.Tk):
         if not file_path:
             return
 
-        self.regressor_matrix = np.loadtxt(file_path)
+        raw_mat = np.loadtxt(file_path)
+        self.regressor_matrix = build_regressor_matrix(self.func_data, raw_mat)
         self.num_lags = self.regressor_matrix.shape[0]
 
         self.half_lags = (self.num_lags - 1) / 2.0
@@ -715,7 +786,11 @@ def _main(argv=None):
         raw_cvr_data,
         raw_lag_data,
     ) = load_and_prep_data(
-        args.nii_file, args.matrix_file, args.cvr, args.lag, args.mask
+        args.nii_file,
+        args.matrix_file,
+        args.cvr,
+        args.lag,
+        args.mask,
     )
 
     mask_data = (
@@ -733,6 +808,7 @@ def _main(argv=None):
         raw_cvr_data=raw_cvr_data,
         raw_lag_data=raw_lag_data,
         fs=args.fs,
+        lag_range=args.lag_range,
         tr=tr,
         pixdim=pixdim,
     )
