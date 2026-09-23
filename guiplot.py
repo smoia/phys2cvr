@@ -10,18 +10,25 @@ from matplotlib.widgets import Slider, TextBox
 from scipy.stats import zscore
 
 
-def load_and_prep_data(nii_path, matrix_path):
+def load_and_prep_data(nii_path, matrix_path, cvr_path=None, lag_path=None):
     img = nib.load(nii_path)
     func_data = img.get_fdata()
     regressor_matrix = np.loadtxt(matrix_path)
-    return func_data, regressor_matrix
+
+    # Optional CVR and Lag Maps
+    cvr_data = nib.load(cvr_path).get_fdata() if cvr_path else None
+    lag_data = nib.load(lag_path).get_fdata() if lag_path else None
+
+    return func_data, regressor_matrix, cvr_data, lag_data
 
 
-def launch_gui(func_data, regressor_matrix, init_coords=None):
+def launch_gui(
+    func_data, regressor_matrix, cvr_data=None, lag_data=None, init_coords=None
+):
     nx, ny, nz, nt = func_data.shape
     max_lag = regressor_matrix.shape[0] - 1
 
-    # Mean functional volume for anatomical slice viewing
+    # Mean anatomical volume
     mean_vol = np.mean(func_data, axis=-1)
 
     # Coordinates
@@ -32,23 +39,41 @@ def launch_gui(func_data, regressor_matrix, init_coords=None):
 
     curr_shift = 0
 
-    # Layout Setup: GridSpec with slices on top, timecourse on bottom
-    fig = plt.figure(figsize=(12, 8))
-    gs = fig.add_gridspec(3, 3, height_ratios=[1.2, 1, 0.45], hspace=0.35)
+    # Dynamic Column Layout
+    has_maps = cvr_data is not None or lag_data is not None
+    num_cols = (
+        3 + (1 if cvr_data is not None else 0) + (1 if lag_data is not None else 0)
+    )
 
+    fig = plt.figure(figsize=(4 * num_cols, 8))
+    gs = fig.add_gridspec(
+        3, num_cols, height_ratios=[1.2, 1, 0.45], hspace=0.35, wspace=0.25
+    )
+
+    # Orthogonal Anatomical Axes
     ax_sag = fig.add_subplot(gs[0, 0])
     ax_cor = fig.add_subplot(gs[0, 1])
     ax_axi = fig.add_subplot(gs[0, 2])
+
+    # Optional Map Axes
+    col_idx = 3
+    ax_cvr = None
+    if cvr_data is not None:
+        ax_cvr = fig.add_subplot(gs[0, col_idx])
+        col_idx += 1
+
+    ax_lag = None
+    if lag_data is not None:
+        ax_lag = fig.add_subplot(gs[0, col_idx])
+
+    # Timecourse Plot Axis
     ax_ts = fig.add_subplot(gs[1, :])
 
-    plt.subplots_adjust(bottom=0.18, left=0.08, right=0.95)
+    plt.subplots_adjust(bottom=0.18, left=0.06, right=0.96)
 
-    # 1. Plot Slices
+    # 1. Plot Anatomical Slices
     img_sag = ax_sag.imshow(
-        mean_vol[curr_x, :, :].T,
-        cmap='gray',
-        origin='lower',
-        aspect='auto',
+        mean_vol[curr_x, :, :].T, cmap='gray', origin='lower', aspect='auto'
     )
     (cross_sag_v,) = ax_sag.plot([curr_y, curr_y], [0, nz - 1], 'r-', lw=1)
     (cross_sag_h,) = ax_sag.plot([0, ny - 1], [curr_z, curr_z], 'r-', lw=1)
@@ -57,10 +82,7 @@ def launch_gui(func_data, regressor_matrix, init_coords=None):
     ax_sag.set_ylabel('Z')
 
     img_cor = ax_cor.imshow(
-        mean_vol[:, curr_y, :].T,
-        cmap='gray',
-        origin='lower',
-        aspect='auto',
+        mean_vol[:, curr_y, :].T, cmap='gray', origin='lower', aspect='auto'
     )
     (cross_cor_v,) = ax_cor.plot([curr_x, curr_x], [0, nz - 1], 'r-', lw=1)
     (cross_cor_h,) = ax_cor.plot([0, nx - 1], [curr_z, curr_z], 'r-', lw=1)
@@ -69,10 +91,7 @@ def launch_gui(func_data, regressor_matrix, init_coords=None):
     ax_cor.set_ylabel('Z')
 
     img_axi = ax_axi.imshow(
-        mean_vol[:, :, curr_z].T,
-        cmap='gray',
-        origin='lower',
-        aspect='auto',
+        mean_vol[:, :, curr_z].T, cmap='gray', origin='lower', aspect='auto'
     )
     (cross_axi_v,) = ax_axi.plot([curr_x, curr_x], [0, ny - 1], 'r-', lw=1)
     (cross_axi_h,) = ax_axi.plot([0, nx - 1], [curr_y, curr_y], 'r-', lw=1)
@@ -80,7 +99,33 @@ def launch_gui(func_data, regressor_matrix, init_coords=None):
     ax_axi.set_xlabel('X')
     ax_axi.set_ylabel('Y')
 
-    # 2. Timecourse Plot Setup
+    # 2. Plot CVR Map (Axial Slice)
+    img_cvr, cross_cvr_v, cross_cvr_h = None, None, None
+    if cvr_data is not None:
+        img_cvr = ax_cvr.imshow(
+            cvr_data[:, :, curr_z].T, cmap='inferno', origin='lower', aspect='auto'
+        )
+        (cross_cvr_v,) = ax_cvr.plot([curr_x, curr_x], [0, ny - 1], 'cyan', lw=1)
+        (cross_cvr_h,) = ax_cvr.plot([0, nx - 1], [curr_y, curr_y], 'cyan', lw=1)
+        fig.colorbar(img_cvr, ax=ax_cvr, fraction=0.046, pad=0.04)
+        ax_cvr.set_title(f'CVR: {cvr_data[curr_x, curr_y, curr_z]:.2f}')
+        ax_cvr.set_xlabel('X')
+        ax_cvr.set_ylabel('Y')
+
+    # 3. Plot Lag Map (Axial Slice)
+    img_lag, cross_lag_v, cross_lag_h = None, None, None
+    if lag_data is not None:
+        img_lag = ax_lag.imshow(
+            lag_data[:, :, curr_z].T, cmap='turbo', origin='lower', aspect='auto'
+        )
+        (cross_lag_v,) = ax_lag.plot([curr_x, curr_x], [0, ny - 1], 'black', lw=1)
+        (cross_lag_h,) = ax_lag.plot([0, nx - 1], [curr_y, curr_y], 'black', lw=1)
+        fig.colorbar(img_lag, ax=ax_lag, fraction=0.046, pad=0.04)
+        ax_lag.set_title(f'Lag: {lag_data[curr_x, curr_y, curr_z]:.2f}s')
+        ax_lag.set_xlabel('X')
+        ax_lag.set_ylabel('Y')
+
+    # 4. Timecourse Plot Setup
     voxel_ts = zscore(func_data[curr_x, curr_y, curr_z, :])
     co2_ts = zscore(regressor_matrix[curr_shift, :])
 
@@ -97,16 +142,10 @@ def launch_gui(func_data, regressor_matrix, init_coords=None):
     ax_ts.legend(loc='upper right')
     ax_ts.grid(True, linestyle=':', alpha=0.6)
 
-    # 3. Widgets Setup
+    # 5. Widgets Setup
     ax_shift = plt.axes([0.2, 0.08, 0.65, 0.03])
     slider_shift = Slider(
-        ax_shift,
-        'CO2 Shift',
-        0,
-        max_lag,
-        valinit=curr_shift,
-        valfmt='%d',
-        valstep=1,
+        ax_shift, 'CO2 Shift', 0, max_lag, valinit=curr_shift, valfmt='%d', valstep=1
     )
 
     ax_box_x = plt.axes([0.2, 0.02, 0.1, 0.03])
@@ -122,7 +161,7 @@ def launch_gui(func_data, regressor_matrix, init_coords=None):
         nonlocal curr_x, curr_y, curr_z, curr_shift
         curr_x, curr_y, curr_z, curr_shift = x, y, z, shift
 
-        # Update Images
+        # Update Slices
         img_sag.set_data(mean_vol[x, :, :].T)
         cross_sag_v.set_xdata([y, y])
         cross_sag_h.set_ydata([z, z])
@@ -138,7 +177,21 @@ def launch_gui(func_data, regressor_matrix, init_coords=None):
         cross_axi_h.set_ydata([y, y])
         ax_axi.set_title(f'Axial (Z={z})')
 
-        # Update Timecourses
+        # Update CVR Map
+        if cvr_data is not None:
+            img_cvr.set_data(cvr_data[:, :, z].T)
+            cross_cvr_v.set_xdata([x, x])
+            cross_cvr_h.set_ydata([y, y])
+            ax_cvr.set_title(f'CVR: {cvr_data[x, y, z]:.2f}')
+
+        # Update Lag Map
+        if lag_data is not None:
+            img_lag.set_data(lag_data[:, :, z].T)
+            cross_lag_v.set_xdata([x, x])
+            cross_lag_h.set_ydata([y, y])
+            ax_lag.set_title(f'Lag: {lag_data[x, y, z]:.2f}s')
+
+        # Update Timecourse
         new_voxel_ts = zscore(func_data[x, y, z, :])
         new_co2_ts = zscore(regressor_matrix[shift, :])
 
@@ -154,7 +207,7 @@ def launch_gui(func_data, regressor_matrix, init_coords=None):
         ax_ts.relim()
         ax_ts.autoscale_view(scalex=False, scaley=True)
 
-        # Sync textboxes without triggering recursive callback
+        # Sync Textboxes
         if update_textboxes:
             text_x.eventson = text_y.eventson = text_z.eventson = False
             text_x.set_val(str(x))
@@ -166,7 +219,13 @@ def launch_gui(func_data, regressor_matrix, init_coords=None):
 
     # Callbacks
     def on_click(event):
-        if event.inaxes not in [ax_sag, ax_cor, ax_axi]:
+        clickable_axes = [ax_sag, ax_cor, ax_axi]
+        if ax_cvr:
+            clickable_axes.append(ax_cvr)
+        if ax_lag:
+            clickable_axes.append(ax_lag)
+
+        if event.inaxes not in clickable_axes:
             return
 
         x, y, z = curr_x, curr_y, curr_z
@@ -174,7 +233,7 @@ def launch_gui(func_data, regressor_matrix, init_coords=None):
             y, z = int(round(event.xdata)), int(round(event.ydata))
         elif event.inaxes == ax_cor:
             x, z = int(round(event.xdata)), int(round(event.ydata))
-        elif event.inaxes == ax_axi:
+        elif event.inaxes in [ax_axi, ax_cvr, ax_lag]:
             x, y = int(round(event.xdata)), int(round(event.ydata))
 
         x, y, z = (
@@ -207,22 +266,27 @@ def launch_gui(func_data, regressor_matrix, init_coords=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Plot voxel timecourses against a lag-shifted regressor matrix.'
+        description='Plot voxel timecourses against a lag-shifted regressor matrix alongside CVR and Lag maps.'
     )
     parser.add_argument('nii_file', help='Path to the 4D fMRI NIfTI file')
     parser.add_argument(
         'matrix_file', help='Path to the regressor matrix text/mat file'
     )
+    parser.add_argument('--cvr', help='Optional path to 3D CVR NIfTI map')
+    parser.add_argument('--lag', help='Optional path to 3D Lag NIfTI map')
     parser.add_argument(
         '--coords',
         '-c',
         nargs=3,
         type=int,
         metavar=('X', 'Y', 'Z'),
-        help='Initial voxel coordinates (e.g., -c 32 32 15)',
+        help='Initial voxel coordinates',
     )
 
     args = parser.parse_args()
 
-    func_data, regressor_matrix = load_and_prep_data(args.nii_file, args.matrix_file)
-    launch_gui(func_data, regressor_matrix, init_coords=args.coords)
+    func_data, regressor_matrix, cvr_data, lag_data = load_and_prep_data(
+        args.nii_file, args.matrix_file, args.cvr, args.lag
+    )
+
+    launch_gui(func_data, regressor_matrix, cvr_data, lag_data, init_coords=args.coords)
