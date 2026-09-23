@@ -15,7 +15,6 @@ def load_and_prep_data(nii_path, matrix_path, cvr_path=None, lag_path=None):
     func_data = img.get_fdata()
     regressor_matrix = np.loadtxt(matrix_path)
 
-    # Optional CVR and Lag Maps
     cvr_data = nib.load(cvr_path).get_fdata() if cvr_path else None
     lag_data = nib.load(lag_path).get_fdata() if lag_path else None
 
@@ -23,24 +22,31 @@ def load_and_prep_data(nii_path, matrix_path, cvr_path=None, lag_path=None):
 
 
 def launch_gui(
-    func_data, regressor_matrix, cvr_data=None, lag_data=None, init_coords=None
+    func_data, regressor_matrix, cvr_data=None, lag_data=None, init_coords=None, fs=1.0
 ):
     nx, ny, nz, nt = func_data.shape
-    max_lag = regressor_matrix.shape[0] - 1
+    num_lags = regressor_matrix.shape[0]
+
+    # Calculate lag range in seconds centered around 0
+    # Half of total lags mapped to negative seconds, half to positive seconds
+    half_lags = (num_lags - 1) / 2.0
+    min_delay_sec = -half_lags / fs
+    max_delay_sec = half_lags / fs
+    sec_per_step = 1.0 / fs
 
     # Mean anatomical volume
     mean_vol = np.mean(func_data, axis=-1)
 
-    # Coordinates
+    # Initial Coordinates
     if init_coords is not None:
         curr_x, curr_y, curr_z = init_coords
     else:
         curr_x, curr_y, curr_z = nx // 2, ny // 2, nz // 2
 
-    curr_shift = 0
+    # Initial shift set to middle index (0 seconds)
+    curr_shift_idx = int(round(half_lags))
 
     # Dynamic Column Layout
-    has_maps = cvr_data is not None or lag_data is not None
     num_cols = (
         3 + (1 if cvr_data is not None else 0) + (1 if lag_data is not None else 0)
     )
@@ -126,14 +132,15 @@ def launch_gui(
         ax_lag.set_ylabel('Y')
 
     # 4. Timecourse Plot Setup
+    init_sec = (curr_shift_idx - half_lags) / fs
     voxel_ts = zscore(func_data[curr_x, curr_y, curr_z, :])
-    co2_ts = zscore(regressor_matrix[curr_shift, :])
+    co2_ts = zscore(regressor_matrix[curr_shift_idx, :])
 
     (line_voxel,) = ax_ts.plot(
         voxel_ts, label=f'Voxel ({curr_x}, {curr_y}, {curr_z})', color='b'
     )
     (line_co2,) = ax_ts.plot(
-        co2_ts, label=f'CO2 Shift ({curr_shift})', color='r', linestyle='--'
+        co2_ts, label=f'CO2 Shift ({init_sec:+.2f}s)', color='r', linestyle='--'
     )
 
     ax_ts.set_title(f'Timecourse Comparison — Voxel ({curr_x}, {curr_y}, {curr_z})')
@@ -142,10 +149,16 @@ def launch_gui(
     ax_ts.legend(loc='upper right')
     ax_ts.grid(True, linestyle=':', alpha=0.6)
 
-    # 5. Widgets Setup
+    # 5. Widgets Setup (Slider in Seconds)
     ax_shift = plt.axes([0.2, 0.08, 0.65, 0.03])
     slider_shift = Slider(
-        ax_shift, 'CO2 Shift', 0, max_lag, valinit=curr_shift, valfmt='%d', valstep=1
+        ax_shift,
+        'CO2 Delay (s)',
+        min_delay_sec,
+        max_delay_sec,
+        valinit=0.0,
+        valstep=sec_per_step,
+        valfmt='%+.2f s',
     )
 
     ax_box_x = plt.axes([0.2, 0.02, 0.1, 0.03])
@@ -157,9 +170,13 @@ def launch_gui(
     text_z = TextBox(ax_box_z, 'Z: ', initial=str(curr_z))
 
     # Master Update Function
-    def update_all(x, y, z, shift, update_textboxes=True):
-        nonlocal curr_x, curr_y, curr_z, curr_shift
-        curr_x, curr_y, curr_z, curr_shift = x, y, z, shift
+    def update_all(x, y, z, shift_sec, update_textboxes=True):
+        nonlocal curr_x, curr_y, curr_z, curr_shift_idx
+        curr_x, curr_y, curr_z = x, y, z
+
+        # Convert delay in seconds back to row index in regressor_matrix
+        shift_idx = int(round(shift_sec * fs + half_lags))
+        curr_shift_idx = np.clip(shift_idx, 0, num_lags - 1)
 
         # Update Slices
         img_sag.set_data(mean_vol[x, :, :].T)
@@ -193,13 +210,15 @@ def launch_gui(
 
         # Update Timecourse
         new_voxel_ts = zscore(func_data[x, y, z, :])
-        new_co2_ts = zscore(regressor_matrix[shift, :])
+        new_co2_ts = zscore(regressor_matrix[curr_shift_idx, :])
+
+        actual_sec = (curr_shift_idx - half_lags) / fs
 
         line_voxel.set_ydata(new_voxel_ts)
         line_voxel.set_label(f'Voxel ({x}, {y}, {z})')
 
         line_co2.set_ydata(new_co2_ts)
-        line_co2.set_label(f'CO2 Shift ({shift})')
+        line_co2.set_label(f'CO2 Shift ({actual_sec:+.2f}s)')
 
         ax_ts.set_title(f'Timecourse Comparison — Voxel ({x}, {y}, {z})')
         ax_ts.legend(loc='upper right')
@@ -241,19 +260,19 @@ def launch_gui(
             np.clip(y, 0, ny - 1),
             np.clip(z, 0, nz - 1),
         )
-        update_all(x, y, z, curr_shift)
+        update_all(x, y, z, slider_shift.val)
 
     def on_textbox_submit(_=None):
         try:
             x = np.clip(int(text_x.text), 0, nx - 1)
             y = np.clip(int(text_y.text), 0, ny - 1)
             z = np.clip(int(text_z.text), 0, nz - 1)
-            update_all(x, y, z, curr_shift, update_textboxes=False)
+            update_all(x, y, z, slider_shift.val, update_textboxes=False)
         except ValueError:
             pass
 
-    def on_slider_change(val):
-        update_all(curr_x, curr_y, curr_z, int(val))
+    def on_slider_change(val_sec):
+        update_all(curr_x, curr_y, curr_z, val_sec)
 
     fig.canvas.mpl_connect('button_press_event', on_click)
     slider_shift.on_changed(on_slider_change)
@@ -275,6 +294,12 @@ if __name__ == '__main__':
     parser.add_argument('--cvr', help='Optional path to 3D CVR NIfTI map')
     parser.add_argument('--lag', help='Optional path to 3D Lag NIfTI map')
     parser.add_argument(
+        '--fs',
+        type=float,
+        default=1.0,
+        help='Sampling frequency of the regressor matrix in Hz (default: 1.0)',
+    )
+    parser.add_argument(
         '--coords',
         '-c',
         nargs=3,
@@ -289,4 +314,11 @@ if __name__ == '__main__':
         args.nii_file, args.matrix_file, args.cvr, args.lag
     )
 
-    launch_gui(func_data, regressor_matrix, cvr_data, lag_data, init_coords=args.coords)
+    launch_gui(
+        func_data,
+        regressor_matrix,
+        cvr_data,
+        lag_data,
+        init_coords=args.coords,
+        fs=args.fs,
+    )
