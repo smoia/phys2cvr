@@ -1,3 +1,15 @@
+# 0.32.0 (Thu Sep 24 2026)
+
+#### 🚀 Enhancement
+
+- Add option to parallelise Lagged-GLM runs (and compute maps at the speed of light - or near that)! [#170](https://github.com/smoia/phys2cvr/pull/170) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.31.0 (Thu Sep 24 2026)
 
 #### 💻 Refactored
