@@ -77,23 +77,21 @@ def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
     if n_shifts is None:
         n_shifts = co2.shape[0] - (func.shape[0] + offset) + 1
         LGR.info(f'Using all possible shifts of regressor for Xcorr, i.e. {n_shifts}')
-    else:
-        if n_shifts + offset + func.shape[0] > co2.shape[0]:
-            LGR.warning(
-                f'The specified number of shifts ({n_shifts}) is too high for the '
-                f'length of the regressor ({co2.shape[0]}).'
-            )
-            n_shifts = co2.shape[0] - (func.shape[0] + offset) + 1
-            LGR.warning(f'Using {n_shifts} shifts instead.')
+    elif n_shifts + offset + func.shape[0] > co2.shape[0]:
+        LGR.warning(
+            f'The specified number of shifts ({n_shifts}) is too high for the '
+            f'length of the regressor ({co2.shape[0]}).'
+        )
+        n_shifts = co2.shape[0] - (func.shape[0] + offset) + 1
+        LGR.warning(f'Using {n_shifts} shifts instead.')
 
     sco2 = swv(co2, func.shape[0], axis=-1)[offset : n_shifts + offset]
 
     xcorr = np.dot(zscore(sco2, axis=-1), zscore(func)) / func.shape[0]
 
-    if abs_xcorr:
-        return np.abs(xcorr).max(), np.abs(xcorr).argmax() + offset, xcorr
-    else:
-        return xcorr.max(), xcorr.argmax() + offset, xcorr
+    max_xcorr_idx = np.abs(xcorr).argmax() if abs_xcorr else xcorr.argmax()
+
+    return xcorr[max_xcorr_idx], max_xcorr_idx + offset, xcorr
 
 
 def ols(Ymat, Xmat, r2model='full', residuals=False, demean=False):
@@ -176,8 +174,10 @@ def ols(Ymat, Xmat, r2model='full', residuals=False, demean=False):
 
     try:
         betas, RSS, _, _ = np.linalg.lstsq(Xmat, Ymat, rcond=None)
-        if not RSS.any():
-            RSS = np.zeros(betas.shape[1])
+        if RSS.size == 0:
+            # Fallback for rank-deficient or exact fit matrices
+            residuals_mat = Ymat - (Xmat @ betas)
+            RSS = np.sum(residuals_mat**2, axis=0)
     except np.linalg.LinAlgError:
         raise ValueError(
             'The given matrices might not be oriented correctly. Try to transpose the '
@@ -195,18 +195,22 @@ def ols(Ymat, Xmat, r2model='full', residuals=False, demean=False):
     # RSS = sum{[mdata - (X * betas)]^2}
     # sigma = RSS / Degrees_of_Freedom
     # RSS = np.sum(np.power(Ymat.T - np.dot(Xmat, betas), 2), axis=0)
-    sigma = RSS / df
-    sigma = sigma[..., np.newaxis]
+    sigma = (RSS / df)[np.newaxis, :]
+
+    # Efficient diagonal calculation of inverse covariance matrix (X^T X)^(-1)
+    xtx_inv = np.linalg.pinv(Xmat.T @ Xmat)
 
     # Copmute std of betas:
     # C = (mat^T * mat)_ii^(-1)
     # std(betas) = sqrt(sigma * C)
-    C = np.diag(np.linalg.pinv(np.dot(Xmat.T, Xmat)))
-    C = C[..., np.newaxis]
-    std_betas = np.sqrt(np.outer(C, sigma))
-    tstats = betas / std_betas
-    tstats[np.isneginf(tstats)] = -9999
-    tstats[np.isposinf(tstats)] = 9999
+    C = np.diag(xtx_inv)[:, np.newaxis]
+
+    std_betas = np.sqrt(C @ sigma)
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        tstats = betas / std_betas
+
+    np.nan_to_num(tstats, copy=False, posinf=9999.0, neginf=-9999.0)
 
     if r2model not in R2MODEL:
         raise ValueError(f'{r2model} not supported. Options: {R2MODEL}')
@@ -297,8 +301,9 @@ def regression(
         If `denoise_mat` and `regr` do not have at least one common dimension.
     """
     if mask is None:
-        mask = np.ones(data.shape[:-1])
-    mask = mask.astype(bool)
+        mask = np.ones(data.shape[:-1], dtype=bool)
+    else:
+        mask = mask.astype(bool, copy=False)
 
     Ymat = data[mask]
 
@@ -347,10 +352,6 @@ def regression(
     betas, tstats, r_square = ols(
         Ymat.T, Xmat, r2model=r2model, residuals=False, demean=False
     )
-
-    if debug:
-        # debug should export betas, tstats, r_square
-        pass
 
     # Assign betas, Rsquare and tstats to new volume
     bout = np.zeros(mask.shape)
