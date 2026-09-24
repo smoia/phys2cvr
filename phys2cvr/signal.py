@@ -9,13 +9,12 @@ LGR :
 """
 
 import logging
-from copy import deepcopy
 from pathlib import Path, PosixPath
 
 import numpy as np
 import scipy.interpolate as spint
 import scipy.stats as sct
-from scipy.signal import butter, filtfilt
+from scipy.signal import butter, sosfiltfilt
 
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
@@ -39,10 +38,9 @@ def spc(ts):
         Signal percentage change version of the input ts.
     """
     m = ts.mean(axis=-1)[..., np.newaxis]
-    md = deepcopy(m)
-    md[md == 0] = 1
+    md = np.where(m == 0, 1.0, m)
     ts = (ts - m) / md
-    ts[np.isnan(ts)] = 0
+    np.nan_to_num(ts, copy=False, nan=0.0)
     return ts
 
 
@@ -114,11 +112,11 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9, axis=-1):
     filt_data : np.ndarray
         Bandpass-filtered data.
     """
-    nyq = (1 / tr) / 2
+    nyq = 0.5 / tr
     low = lowcut / nyq
     high = highcut / nyq
-    a, b = butter(int(order), [low, high], btype='band')
-    return filtfilt(a, b, data, axis=axis)
+    a, b = butter(int(order), [low, high], btype='band', output='sos')
+    return sosfiltfilt(a, b, data, axis=axis)
 
 
 def endtidal_interpolation(signal, peaks, axis=-1):
@@ -140,8 +138,8 @@ def endtidal_interpolation(signal, peaks, axis=-1):
         The end tidal interpolation of the signal
 
     """
-    peaks = np.sort(np.unique(peaks))
-    nx = np.arange(signal.size)
+    peaks = np.unique(peaks)
+    nx = np.arange(signal.shape[axis])
     f = spint.interp1d(peaks, signal[peaks], fill_value='extrapolate', axis=axis)
     return f(nx)
 
@@ -193,15 +191,14 @@ def convolve_signal(signal, freq, response_function='hrf', mode='full'):
             'Convolution on data that has more than 1 dimension is not supported yet.'
         )
     # Check if RF is a string representing a path or a Nonetype
-    if type(response_function) is str:
-        if Path(response_function).exists():
-            response_function = Path(response_function)
+    if isinstance(response_function, (str, Path)):
+        rf_path = Path(response_function)
+        if rf_path.exists():
+            response_function = rf_path
             LGR.debug(f'{response_function} is a valid file')
-        else:
-            response_function = response_function.lower()
-            response_function = (
-                None if response_function == 'none' else response_function
-            )
+        elif isinstance(response_function, str):
+            rf_str = response_function.lower()
+            response_function = None if rf_str == 'none' else rf_str
 
     if type(response_function) in [list, np.ndarray]:
         # Check if RF is or should be a 1darray-like
