@@ -84,7 +84,7 @@ def load_nifti_get_mask(fname, is_mask=False, dim=3):
         data = img.get_fdata()
 
     data = utils.check_nifti_dim(fname, data, dim=dim)
-    mask = (data != 0) if is_mask else data.any(axis=-1).squeeze()
+    mask = data != 0 if is_mask else np.any(data != 0, axis=-1).squeeze()
 
     return data, mask, img
 
@@ -123,9 +123,11 @@ def load_txt(fname, shape=None):
         '': ' ',
     }
 
-    mtx = np.genfromtxt(fname, delimiter=delimiter_map.get(ext))
+    kwargs = {'delimiter': delimiter_map.get(ext)}
+    if ext == '.mcdat':
+        kwargs['usecols'] = range(1, 7)
 
-    mtx = mtx[:, 1:7] if ext == '.mcdat' else mtx
+    mtx = np.genfromtxt(fname, **kwargs)
 
     return utils.check_array_dim(fname, mtx, shape)
 
@@ -303,10 +305,8 @@ def export_regressor(
     # Local import to avoid circularity
     from .signal import resample_signal_samples  # noqa: ABS101
 
-    regressors_matrix = resample_signal_samples(regressors_matrix, ntp, axis=axis)
-    regressors_demeaned = regressors_matrix - regressors_matrix.mean(
-        axis=axis, keepdims=True
-    )
+    regressors_demeaned = resample_signal_samples(regressors_matrix, ntp, axis=axis)
+    regressors_demeaned -= regressors_matrix.mean(axis=axis, keepdims=True)
     np.savetxt(f'{outprefix}_{suffix}{ext}', regressors_demeaned, fmt='%.6f')
     return regressors_demeaned
 

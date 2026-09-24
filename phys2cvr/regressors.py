@@ -43,20 +43,10 @@ def create_legendre(degree, length):
     legendre : np.ndarray
         A `degree`*`length` array which includes all the polynomials up to order `degree`.
     """
-
-    def _bonnet(d, x):
-        """Use Bonnet method to create Leg polys."""
-        if d == 0:
-            return np.ones_like(x)
-        if d == 1:
-            return x
-        return ((2 * d - 1) * x * _bonnet(d - 1, x) - (d - 1) * _bonnet(d - 2, x)) / d
-
     x = np.linspace(-1, 1, length)
-    legendre = np.empty((length, degree + 1), dtype='float32')
-    for n in range(degree + 1):
-        legendre[:, n] = _bonnet(n, x)
-    return legendre
+    c = np.eye(degree + 1)
+
+    return np.polynomial.legendre.legval(x, c).T
 
 
 def compute_petco2hrf(
@@ -109,7 +99,7 @@ def compute_petco2hrf(
         )
 
         # Demean and export
-        petco2 = petco2 - petco2.mean()
+        petco2 -= petco2.mean()
         np.savetxt(f'{outprefix}_petco2.1D', petco2, fmt='%.18f')
     elif comp_endtidal and pidx is None:
         raise ValueError(
@@ -315,7 +305,9 @@ def create_fine_shift_regressors(
     neg_idx = optshift - pos_shifts + lpad - 1
     pos_idx = optshift + neg_shifts + lpad - 1
     # select the right windows the other way round
-    petco2hrf_lagged = swv(petco2hrf, func_upsamp_size)[pos_idx:neg_idx:-1].copy()
+    petco2hrf_lagged = np.ascontiguousarray(
+        swv(petco2hrf, func_upsamp_size)[pos_idx:neg_idx:-1]
+    )
 
     petco2hrf_lagged = export_regressor(
         petco2hrf_lagged, func_size, outprefix, 'shifts', ext

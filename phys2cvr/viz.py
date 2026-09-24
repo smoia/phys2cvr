@@ -72,16 +72,22 @@ def plot_two_timeseries(
     ts1 = zs(ts1) if zscore else ts1
     ts2 = zs(ts2) if zscore else ts2
 
-    plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
+    name1 = ts1_name or 'Timeseries 1'
+    name2 = ts2_name or 'Timeseries 2'
+
+    fig, ax = plt.subplots(figsize=FIGSIZE, dpi=SET_DPI)
+
     time_axis = _time_axis(ts1, freq)
-    plt.plot(time_axis, ts1, '-')
+    ax.plot(time_axis, ts1, '-')
     time_axis = _time_axis(ts2, freq)
-    plt.plot(time_axis, ts2, '-')
-    plt.title(f'{ts1_name} vs {ts2_name}')
-    plt.legend([ts1_name, ts2_name])
-    plt.tight_layout()
-    plt.savefig(outname, dpi=SET_DPI)
-    plt.close()
+    ax.plot(time_axis, ts2, '-')
+    ax.set_title(f'{name1} vs {name2}')
+    ax.legend([name1, name2])
+
+    fig.tight_layout()
+    fig.savefig(outname, dpi=SET_DPI)
+
+    plt.close(fig)
 
 
 def plot_xcorr(xcorr, outprefix, freq=None):
@@ -99,15 +105,21 @@ def plot_xcorr(xcorr, outprefix, freq=None):
     """
     time_axis = _time_axis(xcorr, freq)
 
-    plt.figure(figsize=FIGSIZE, dpi=SET_DPI)
-    plt.plot(time_axis, xcorr)
-    plt.plot(time_axis[xcorr.argmax()], xcorr[xcorr.argmax()], 'd')
-    plt.plot(time_axis[np.abs(xcorr).argmax()], xcorr[np.abs(xcorr).argmax()], 'x')
-    plt.legend(['Cross correlation value', 'Max Xcorr', 'Max absolute Xcorr'])
-    plt.title('Cross correlation and optimal shift')
-    plt.tight_layout()
-    plt.savefig(f'{outprefix}_optshift.png', dpi=SET_DPI)
-    plt.close()
+    idx_max = xcorr.argmax()
+    idx_absmax = np.abs(xcorr).argmax()
+
+    fig, ax = plt.subplots(figsize=FIGSIZE, dpi=SET_DPI)
+
+    ax.plot(time_axis, xcorr)
+    ax.plot(time_axis[idx_max], xcorr[idx_max], 'd')
+    ax.plot(time_axis[idx_absmax], xcorr[idx_absmax], 'x')
+    ax.set_title('Cross correlation and optimal shift')
+    ax.legend(['Cross correlation value', 'Max Xcorr', 'Max absolute Xcorr'])
+
+    fig.tight_layout()
+    fig.savefig(f'{outprefix}_optshift.png', dpi=SET_DPI)
+
+    plt.close(fig)
 
 
 """
