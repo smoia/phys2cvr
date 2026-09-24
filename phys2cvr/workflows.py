@@ -16,8 +16,9 @@ from copy import deepcopy
 
 import nibabel as nib
 import numpy as np
+from tqdm import tqdm
 
-from phys2cvr import _version, io, signal, stats, utils
+from phys2cvr import _version, blocks, io, signal, stats, utils
 from phys2cvr.cli.run import _check_opt_conf, _get_parser
 from phys2cvr.regressors import (
     compute_petco2hrf,
@@ -62,6 +63,7 @@ def phys2cvr(
     regr_dir=None,
     comp_endtidal=True,
     response_function='hrf',
+    n_jobs=1,
     quiet=False,
     debug=False,
 ):
@@ -208,6 +210,12 @@ def phys2cvr(
         If file, loads it.
         For `rrf` and `crf`, `phys2denoise` must be installed (see extra installs).
         See `signal.compute_petco2hrf` for details.
+    n_jobs : int, optional
+        Number of jobs to use to run the L-GLM in parallel. Requires joblib and tqdm
+        to be installed. If 0 or less, consider a third of the available processors to
+        schedule jobs. Default is 1, that will not parallelise anything (and will not
+        require joblib or tqdm).
+        Default: 1
     quiet : bool, optional
         Return to screen only warnings and errors.
         Default: False
@@ -340,7 +348,7 @@ def phys2cvr(
             func_avg = io.load_array(fname_func)
             LGR.info(f'Loading {fname_func}')
             if apply_filter:
-                LGR.info('Applying butterworth filter to {fname_func}')
+                LGR.info(f'Applying butterworth filter to {fname_func}')
                 func_avg = signal.filter_signal(
                     func_avg, tr, lowcut, highcut, butter_order
                 )
@@ -637,6 +645,17 @@ def phys2cvr(
 
         if lagged_regression and regr_shifts is not None and (lag_max and lag_step):
             # If user specified a lag map, run regression based on it (see "Load lag map")
+
+            total_cores = os.cpu_count() or 1
+            if n_jobs != 1:
+                from joblib import delayed
+                from tqdm_joblib import ParallelPbar
+
+                if n_jobs < 1:
+                    n_jobs = max(1, int(np.floor(0.30 * total_cores)))
+                else:
+                    n_jobs = min(n_jobs, total_cores)
+
             if lag_map is not None:
                 LGR.info(
                     f'Running lagged CVR estimation with lag map {lag_map}! '
@@ -652,23 +671,52 @@ def phys2cvr(
                 beta = np.empty_like(lag, dtype='float32')
                 tstat = np.empty_like(lag, dtype='float32')
 
-                for n, i in enumerate(lag_idx_list):
-                    LGR.info(f'Perform L-GLM number {n + 1} of {len(lag_idx_list)}')
-                    regr = regr_shifts[(i * step), :, np.newaxis]
+                LGR.info(f'Performing {len(lag_idx_list)} L-GLMs')
 
-                    x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
+                if n_jobs > 1:
+                    LGR.info(f'Running {n_jobs} parallel jobs!')
 
-                    (beta[lag_idx == i], tstat[lag_idx == i], _) = stats.regression(
-                        func[lag_idx == i],
-                        regr,
-                        denoise_matrix,
-                        orthogonalised_matrix,
-                        extra_matrix,
-                        mask[lag_idx == i],
-                        r2model,
-                        debug,
-                        x1D,
+                    results = ParallelPbar('L-GLMs', position=0)(n_jobs=n_jobs)(
+                        delayed(blocks._glm_lagmap)(
+                            i,
+                            step,
+                            regr_shifts,
+                            outdir,
+                            func,
+                            denoise_matrix,
+                            orthogonalised_matrix,
+                            extra_matrix,
+                            mask,
+                            r2model,
+                            debug,
+                            lag_idx,
+                        )
+                        for i in lag_idx_list
                     )
+
+                    for idx_mask, b, t in results:
+                        beta[idx_mask] = b
+                        tstat[idx_mask] = t
+
+                else:
+                    LGR.debug('No parallelisation invoked.')
+
+                    for i in tqdm(lag_idx_list, total=len(lag_idx_list), desc='L-GLMs'):
+                        regr = regr_shifts[(i * step), :, np.newaxis]
+
+                        x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
+
+                        (beta[lag_idx == i], tstat[lag_idx == i], _) = stats.regression(
+                            func[lag_idx == i],
+                            regr,
+                            denoise_matrix,
+                            orthogonalised_matrix,
+                            extra_matrix,
+                            mask[lag_idx == i],
+                            r2model,
+                            debug,
+                            x1D,
+                        )
 
             else:
                 LGR.info(
@@ -676,19 +724,13 @@ def phys2cvr(
                     '(might take a while...)'
                 )
 
-                if legacy:
-                    nrep_neg = int(abs(lag_min) * freq)
-                    nrep_pos = int(abs(lag_max) * freq)
-                    nrep = nrep_neg + nrep_pos
-                else:
-                    nrep_neg = int(abs(lag_min) * freq)
-                    nrep_pos = int(abs(lag_max) * freq)
-                    nrep = nrep_neg + nrep_pos + 1
+                nrep_neg = int(abs(lag_min) * freq)
+                nrep_pos = int(abs(lag_max) * freq)
+                nrep = nrep_neg + nrep_pos
+                nrep = nrep if legacy else nrep + 1
+
                 # Check the number of repetitions first
-                if lag_step:
-                    step = int(lag_step * freq)
-                else:
-                    step = 1
+                step = int(lag_step * freq)
                 lag_range = list(range(0, nrep, step))
                 # Prepare empty matrices
                 r_square_all = np.zeros(
@@ -701,26 +743,54 @@ def phys2cvr(
                     list(func.shape[:3]) + [len(lag_range)], dtype='float32'
                 )
 
-                for n, i in enumerate(lag_range):
-                    LGR.info(f'Perform L-GLM number {n + 1} of {len(lag_range)}')
-                    regr = regr_shifts[i, :, np.newaxis]
+                LGR.info(f'Performing {len(lag_range)} L-GLMs')
 
-                    x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
-                    (
-                        beta_all[:, :, :, n],
-                        tstat_all[:, :, :, n],
-                        r_square_all[:, :, :, n],
-                    ) = stats.regression(
-                        func,
-                        regr,
-                        denoise_matrix,
-                        orthogonalised_matrix,
-                        extra_matrix,
-                        mask,
-                        r2model,
-                        debug,
-                        x1D,
+                if n_jobs > 1:
+                    LGR.info(f'Running {n_jobs} parallel jobs!')
+
+                    results = ParallelPbar('L-GLMs', position=0)(n_jobs=n_jobs)(
+                        delayed(blocks._l_glm_range)(
+                            n,
+                            i,
+                            regr_shifts,
+                            outdir,
+                            func,
+                            denoise_matrix,
+                            orthogonalised_matrix,
+                            extra_matrix,
+                            mask,
+                            r2model,
+                            debug,
+                        )
+                        for n, i in enumerate(lag_range)
                     )
+
+                    for n, b, t, r2 in results:
+                        beta_all[:, :, :, n] = b
+                        tstat_all[:, :, :, n] = t
+                        r_square_all[:, :, :, n] = r2
+
+                else:
+                    LGR.debug('No parallelisation invoked.')
+                    for n, i in tqdm(enumerate(lag_range), total=len(lag_range)):
+                        regr = regr_shifts[i, :, np.newaxis]
+
+                        x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
+                        (
+                            beta_all[:, :, :, n],
+                            tstat_all[:, :, :, n],
+                            r_square_all[:, :, :, n],
+                        ) = stats.regression(
+                            func,
+                            regr,
+                            denoise_matrix,
+                            orthogonalised_matrix,
+                            extra_matrix,
+                            mask,
+                            r2model,
+                            debug,
+                            x1D,
+                        )
 
                 if debug:
                     LGR.debug('Export all betas, tstats, and R^2 volumes.')

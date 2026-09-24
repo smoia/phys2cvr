@@ -21,7 +21,12 @@ def _get_parser():
             '%(prog)s, a tool to compute Cerebrovascular Reactivity maps and their '
             'lags.\n%(prog)s is compatible with different designs and techniques to '
             'estimate CVR maps. It can also be used to generate regressors to run the '
-            'estimation with other software.\n'
+            'estimation with other software, or to simply run lagged-GLMs analyses '
+            'with other data!\n\n'
+            '%(prog)s has a few optional dependencies for extra features, including '
+            'reading matlab files, using CRF/RRF, or parallelising the L-GLM runs. \n'
+            'You can install all via `pip install phys2cvr[all]`. Check the '
+            'documentation to see the full list of extra features.\n'
             f'Version {__version__}'
         ),
         add_help=False,
@@ -303,7 +308,8 @@ def _get_parser():
         const='rrf',
         help=(
             'Use a RRF (Respiratory Response Function) to convolve the signal of '
-            'interest. Requires phys2denoise to be installed.'
+            'interest. Requires phys2denoise to be installed (`pip install '
+            'phys2cvr[responses]`).'
         ),
         default='hrf',
     )
@@ -315,7 +321,7 @@ def _get_parser():
         const='crf',
         help=(
             'Use a CRF (Cardiac Response Function) to convolve the signal of interest. '
-            'Requires phys2denoise to be installed.'
+            'Requires phys2denoise to be installed (`pip install phys2cvr[responses]`).'
         ),
         default='hrf',
     )
@@ -608,6 +614,20 @@ def _get_parser():
     )
 
     optional = parser.add_argument_group('Other Optional Arguments')
+    optional.add_argument(
+        '-j',
+        '--n_jobs',
+        dest='n_jobs',
+        type=int,
+        help=(
+            'Number of jobs to use to run the L-GLM in parallel. Requires joblib and '
+            'tqdm_joblib to be installed (`pip install phys2cvr[parallel]`). '
+            'If 0 or less, a third of the available processors will be used to schedule '
+            'jobs. Default is 1, that will not parallelise anything (and will not '
+            'require extra dependencies).'
+        ),
+        default=1,
+    )
     optional.add_argument(
         '-debug',
         '--debug',
