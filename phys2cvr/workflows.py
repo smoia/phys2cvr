@@ -373,11 +373,11 @@ def phys2cvr(
             _, mask, _ = io.load_nifti_get_mask(fname_mask, is_mask=True)
             if func.shape[:3] != mask.shape:
                 raise ValueError(f'{fname_mask} and {fname_func} have different sizes!')
-            mask = mask * dmask
+            mask &= dmask
             LGR.info(
                 f'Masking {os.path.basename(fname_func)} using {os.path.basename(fname_mask)}'
             )
-            func = func * mask[..., np.newaxis]
+            func[~mask] = 0
             roiref = os.path.basename(fname_mask)
         else:
             mask = dmask
@@ -393,7 +393,7 @@ def phys2cvr(
             _, roi, _ = io.load_nifti_get_mask(fname_roi, is_mask=True)
             if func.shape[:3] != roi.shape:
                 raise ValueError(f'{fname_roi} and {fname_func} have different sizes!')
-            roi = roi * mask
+            roi &= mask
             roiref = os.path.basename(fname_roi)
         else:
             roi = mask
@@ -577,38 +577,32 @@ def phys2cvr(
         denoise_matrix = create_legendre(l_degree, regr.size)
 
         # Read in eventual denoising factors
-        if denoise_matrix_file:
-            denoise_matrix_file = utils.if_declared_force_type(
-                denoise_matrix_file, 'list', 'denoise_matrix_file'
+        denoise_matrix = (
+            utils.load_and_stack_matrices(
+                denoise_matrix_file,
+                base_matrix=denoise_matrix,
+                label='confounding factor',
             )
-            for matrix in denoise_matrix_file:
-                LGR.info(f'Read confounding factor from {matrix}')
-                conf = io.load_array(matrix)
-                denoise_matrix = np.hstack([denoise_matrix, conf])
+            if denoise_matrix_file
+            else denoise_matrix
+        )
+
         # Read in eventual extra factors
-        if extra_matrix_file:
-            extra_matrix_file = utils.if_declared_force_type(
-                extra_matrix_file, 'list', 'extra_matrix_file'
+        extra_matrix = (
+            utils.load_and_stack_matrices(
+                extra_matrix_file, label='extra factor for orthogonalisation'
             )
-            matlist = []
-            for matrix in extra_matrix_file:
-                LGR.info(f'Read extra factor for orthogonalisation from {matrix}')
-                matlist += [io.load_array(matrix)]
-            extra_matrix = np.hstack(matlist)
-        else:
-            extra_matrix = None
+            if extra_matrix_file
+            else None
+        )
         # Read in eventual orthogonalisable factors
-        if orthogonalised_matrix_file:
-            orthogonalised_matrix_file = utils.if_declared_force_type(
-                orthogonalised_matrix_file, 'list', 'orthogonalised_matrix_file'
+        orthogonalised_matrix = (
+            utils.load_and_stack_matrices(
+                orthogonalised_matrix_file, label='confounding factor'
             )
-            matlist = []
-            for matrix in orthogonalised_matrix_file:
-                LGR.info(f'Read confounding factor from {matrix}')
-                matlist += [io.load_array(matrix)]
-            orthogonalised_matrix = np.hstack(matlist)
-        else:
-            orthogonalised_matrix = None
+            if orthogonalised_matrix_file
+            else None
+        )
 
         LGR.info('Compute simple CVR estimation (bulk shift only)')
         x1D = os.path.join(outdir, 'mat', 'mat_simple.1D')
