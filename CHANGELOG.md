@@ -1,3 +1,15 @@
+# 0.31.0 (Thu Sep 24 2026)
+
+#### 💻 Refactored
+
+- Minor internal refactoring of codebase [#169](https://github.com/smoia/phys2cvr/pull/169) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.30.1 (Thu Sep 24 2026)
 
 #### 🐛 Bug Fix
