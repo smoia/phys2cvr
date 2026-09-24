@@ -46,7 +46,7 @@ def if_declared_force_type(var, dtype, varname='an input variable', silent=False
     NotImplementedError
         If dtype is not 'int', 'float', 'str', or 'list'
     """
-    if not var:
+    if var is None or var == '':
         return var
 
     converters = {
@@ -94,24 +94,23 @@ def check_ext(all_ext, fname, scan=False, remove=False):
         ext : str
             If both ``remove`` and ``has_ext`` are True, returns also found extension.
     """
-    all_ext = if_declared_force_type(all_ext, 'list', silent=True)
+    all_ext = set(if_declared_force_type(all_ext, 'list', silent=True))
     ext = ''.join(Path(fname).suffixes)
     LGR.debug(f'{fname} ends with extension {ext}')
 
     has_ext = ext.lower() in all_ext
 
     if not has_ext and scan:
-        all_ext = (
-            all_ext + [e.upper() for e in all_ext] + [e.capitalize() for e in all_ext]
-        )
-        for ext in all_ext:
-            if exists(f'{fname}{ext}'):
-                fname = f'{fname}{ext}'
-                LGR.warning(f'Found {fname}{ext}, using it as input henceforth')
+        for ext_candidate in all_ext:
+            candidate_path = Path(f'{fname}{ext_candidate}')
+            if candidate_path.exists():
+                fname = str(candidate_path)
+                ext = ext_candidate
+                LGR.warning(f'Found {fname}, using it as input henceforth')
                 has_ext = True
                 break
 
-    ext = '' if not has_ext else ext
+    ext = ext if has_ext else ''
 
     obj_return = [has_ext]
 
@@ -159,8 +158,8 @@ def check_nifti_dim(fname, data, dim=4):
 
     if data.ndim > dim:
         LGR.warning(f'{fname} has more than {dim} dimensions. Removing D > {dim}.')
-        for ax in range(dim, data.ndim):
-            data = np.delete(data, np.s_[1:], axis=ax)
+        slc = [slice(None)] * dim + [0] * (data.ndim - dim)
+        data = data[tuple(slc)]
 
     return np.squeeze(data)
 
@@ -219,6 +218,41 @@ def check_array_dim(fname, data, shape=None):
     return data
 
 
+def load_and_stack_matrices(matrix_files, base_matrix=None, label=None):
+    """Load and stack (nuisance) matrices.
+
+    Parameters
+    ----------
+    matrix_files : list of str or path.Path-like objects
+        Path(s) to files containing the matrix to load.
+    base_matrix : np.ndarray or None
+        Matrix to stack the loaded matrix with. Optional.
+    label : None or str
+        Type of data tha is being loaded.
+
+    Returns
+    -------
+    np.ndarray
+        Stacked loaded matrices
+
+    """
+    # Local import to avoid circularity
+    from .io import load_array  # noqa: ABS101
+
+    if not matrix_files:
+        return base_matrix
+
+    matrix_files = if_declared_force_type(matrix_files, 'list', silent=True)
+    loaded = [base_matrix] if base_matrix is not None else []
+
+    label = 'data' if label is None else label
+    for mat_path in matrix_files:
+        LGR.info(f'Read {label} from {mat_path}')
+        loaded.append(load_array(mat_path))
+
+    return np.hstack(loaded) if len(loaded) > 1 else loaded[0]
+
+
 def save_bash_call(fname, outdir):
     """
     Save the bash call into file `p2d_call.sh`.
@@ -232,17 +266,19 @@ def save_bash_call(fname, outdir):
     """
     arg_str = ' '.join(sys.argv[1:])
     call_str = f'phys2cvr {arg_str}'
-    if outdir:
-        outdir = os.path.abspath(outdir)
-    else:
-        outdir = os.path.join(os.path.split(fname)[0], 'phys2cvr')
-    log_path = os.path.join(outdir, 'logs')
-    os.makedirs(log_path, exist_ok=True)
+
+    outdir = Path(outdir).resolve() if outdir else Path(fname).parent / 'phys2cvr'
+
+    log_path = outdir / 'logs'
+    log_path.mkdir(parents=True, exist_ok=True)
+
     isotime = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
     _, fname, _ = check_ext('.nii.gz', os.path.basename(fname), remove=True)
-    f = open(os.path.join(log_path, f'p2c_call_{fname}_{isotime}.sh'), 'a')
-    f.write(f'#!bin/bash \n{call_str}')
-    f.close()
+
+    script_file = log_path / f'p2c_call_{fname}_{isotime}.sh'
+
+    with open(script_file, 'a', encoding='utf-8') as f:
+        f.write(f'#!bin/bash \n{call_str}')
 
 
 """
