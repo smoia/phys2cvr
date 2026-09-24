@@ -1,3 +1,15 @@
+# 0.30.1 (Thu Sep 24 2026)
+
+#### 🐛 Bug Fix
+
+- Fix OLS function's poor handling of rank deficient matrices that caused R² to hit 1 (thus setting lags at their minimum) and refactor stats [#168](https://github.com/smoia/phys2cvr/pull/168) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.30.0 (Tue Sep 22 2026)
 
 #### 🚀 Enhancement
