@@ -317,21 +317,24 @@ def phys2cvr(
     lag_min = utils.if_declared_force_type(lag_min, 'float', 'lag_min')
     lag_step = utils.if_declared_force_type(lag_step, 'float', 'lag_step')
     l_degree = utils.if_declared_force_type(l_degree, 'int', 'l_degree')
-    if lag_max is not None and lag_min is None:
-        if lag_max > 0:
-            lag_min = -lag_max
-        else:
+
+    if lag_max is not None:
+        if lag_min is None:
+            if lag_max > 0:
+                lag_min = -lag_max
+            else:
+                raise ValueError(
+                    'Given maximum lag is 0 or negative, but no minimum lag was provided. Halting execution.'
+                )
+        elif lag_min >= lag_max:
             raise ValueError(
-                'Given maximum lag is 0 or negative, but no minimum lag was provided. Halting execution.'
+                f'Invalid lag range: lag_min ({lag_min}) >= lag_max ({lag_max}). Please provide a range where lag_min < lag_max.'
             )
-    if lag_max is None and lag_min is not None:
+    elif lag_min is not None:
         raise ValueError(
             'A minimum lag was provided without providing a maximum lag. Please rerun providing both or none.'
         )
-    if lag_max is not None and lag_min >= lag_max:
-        raise ValueError(
-            f'Invalid lag range: lag_min ({lag_min}) >= lag_max ({lag_max}). Please provide a range where lag_min < lag_max.'
-        )
+
     if l_degree < 0:
         raise ValueError(
             'The specified order of the Legendre polynomials must be >= 0.'
@@ -668,8 +671,8 @@ def phys2cvr(
                 lag_idx_list = np.unique(lag_idx)
 
                 # Prepare empty matrices
-                beta = np.empty_like(lag, dtype='float32')
-                tstat = np.empty_like(lag, dtype='float32')
+                beta = np.zeros_like(lag, dtype='float32')
+                tstat = np.zeros_like(lag, dtype='float32')
 
                 LGR.info(f'Performing {len(lag_idx_list)} L-GLMs')
 
@@ -677,7 +680,7 @@ def phys2cvr(
                     LGR.info(f'Running {n_jobs} parallel jobs!')
 
                     results = ParallelPbar('L-GLMs', position=0)(n_jobs=n_jobs)(
-                        delayed(blocks._glm_lagmap)(
+                        delayed(blocks._l_glm_lagmap)(
                             i,
                             step,
                             regr_shifts,
@@ -773,23 +776,23 @@ def phys2cvr(
                 else:
                     LGR.debug('No parallelisation invoked.')
                     for n, i in tqdm(enumerate(lag_range), total=len(lag_range)):
-                        regr = regr_shifts[i, :, np.newaxis]
-
-                        x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
                         (
+                            _,
                             beta_all[:, :, :, n],
                             tstat_all[:, :, :, n],
                             r_square_all[:, :, :, n],
-                        ) = stats.regression(
+                        ) = blocks._l_glm_range(
+                            n,
+                            i,
+                            regr_shifts,
+                            outdir,
                             func,
-                            regr,
                             denoise_matrix,
                             orthogonalised_matrix,
                             extra_matrix,
                             mask,
                             r2model,
                             debug,
-                            x1D,
                         )
 
                 if debug:
