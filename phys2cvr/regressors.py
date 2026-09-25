@@ -49,6 +49,70 @@ def create_legendre(degree, length):
     return np.polynomial.legendre.legval(x, c).T
 
 
+def fourier_basis(
+    trial_len,
+    total_duration,
+    order=3,
+    sample_interval=0.01,
+):
+    """
+    Generate Fourier series harmonics (sine and cosine pairs) up to order `order`.
+
+    Parameters
+    ----------
+    trial_len : float
+        Breath-hold trial length in seconds, necessary to compute fundamental angular frequency w0.
+    total_duration : float
+        Duration of functional data + lag range in seconds.
+    order : int, optional
+        Highest order (M) of desired Fourier harmonics. Default is 3.
+    sample_interval : float, optional
+        Sampling interval in seconds. Default is 0.01s (100 Hz).
+
+    Returns
+    -------
+    fourier_mat : np.ndarray
+        Array of shape `(total_samples, 2 * order)` containing pairs of
+        [sin(m * w0 * t), cos(m * w0 * t)] for m = 1, ..., order.
+
+    Raises
+    ------
+    ValueError
+        If oder, trial_len, or sample_interval < 1
+
+    Notes
+    -----
+    Implements Pinto et al. 2016's sinusoidal regressors, except order 1 is equivalent
+    to what in the paper is order 0.
+    """
+    if order <= 0:
+        raise ValueError(f'Fourier order must be greater than 0, got {order}.')
+    if trial_len <= 0:
+        raise ValueError(f'trial_len must be greater than 0, got {trial_len}.')
+    if sample_interval <= 0:
+        raise ValueError(
+            f'sample_interval must be greater than 0, got {sample_interval}.'
+        )
+
+    freq = 1.0 / sample_interval
+    total_samples = int(np.round(total_duration * freq))
+
+    # Time vector t
+    t = np.linspace(0, total_duration, total_samples, endpoint=False, dtype=np.float32)
+
+    # Fundamental angular frequency based on breath-hold trial length
+    w0 = (2 * np.pi) / trial_len
+
+    # Initialize basis matrix: shape (total_samples, 2 * order)
+    fourier_mat = np.empty((total_samples, 2 * order), dtype=np.float32)
+
+    for m in range(1, order + 1):
+        fourier_mat[:, 2 * (m - 1)] = np.sin(m * w0 * t)
+        fourier_mat[:, 2 * (m - 1) + 1] = np.cos(m * w0 * t)
+
+    return fourier_mat
+
+
 def compute_petco2hrf(
     co2, pidx, freq, outprefix, comp_endtidal=True, response_function='hfr', mode='full'
 ):
