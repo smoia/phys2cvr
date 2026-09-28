@@ -46,7 +46,7 @@ def _time_axis(array, freq=None):
         return np.arange(0, array.size)
 
 
-def plot_two_timeseries(
+def plot_timeseries(
     ts1, ts2, outname, ts1_name=None, ts2_name=None, freq=None, zscore=False
 ):
     """
@@ -69,8 +69,8 @@ def plot_two_timeseries(
     zscore : bool, optional
         If True, zscore timeseries before plot. Default is False.
     """
-    ts1 = zs(ts1) if zscore else ts1
-    ts2 = zs(ts2) if zscore else ts2
+    ts1 = zs(np.squeeze(ts1), axis=0) if zscore else ts1
+    ts2 = zs(np.squeeze(ts2), axis=0) if zscore else ts2
 
     name1 = ts1_name or 'Timeseries 1'
     name2 = ts2_name or 'Timeseries 2'
@@ -78,11 +78,19 @@ def plot_two_timeseries(
     fig, ax = plt.subplots(figsize=FIGSIZE, dpi=SET_DPI)
 
     time_axis = _time_axis(ts1, freq)
-    ax.plot(time_axis, ts1, '-')
+
+    # Plot ts1 feature(s)
+    if ts1.ndim == 1:
+        ax.plot(time_axis, ts1, '-', label=name1)
+    else:
+        for idx in range(ts1.shape[1]):
+            lbl = f'{name1} (feat {idx + 1})'
+            ax.plot(time_axis, ts1[:, idx], '-', label=lbl)
+
     time_axis = _time_axis(ts2, freq)
     ax.plot(time_axis, ts2, '-')
     ax.set_title(f'{name1} vs {name2}')
-    ax.legend([name1, name2])
+    ax.legend()
 
     fig.tight_layout()
     fig.savefig(outname, dpi=SET_DPI)

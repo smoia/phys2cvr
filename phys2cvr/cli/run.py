@@ -117,7 +117,7 @@ def _get_parser():
             'Complete path (absolute or relative) and name of the file containing CO2 '
             'signal (or equivalent physiological trace to compute the regressor). This '
             'file can be a 1D txt-like file, a .mat file, or a .phys file from '
-            'peakdet.\n If nothing is specified, the average timeseries of the mask '
+            'peakdet.\n If nothing is specified, the average timeseries of the roi '
             'will be used as regressor.'
         ),
         default=None,
@@ -154,8 +154,8 @@ def _get_parser():
         help=(
             "Implements Pinto et al. 2016's Fourier basis set model up to order N. "
             'Note that order 1 here is what in the paper is defined as order 0, '
-            "i.e. to follow the paper's recommendations, order 3 needs to be "
-            'specified. If -co2 is specified, that takes precedence. '
+            "i.e. to follow the paper's recommendations, specify order 3.\n"
+            'If a -co2 file is specified, that will take precedence.'
             'Requires -tlen to be specified.'
         ),
         default=None,
@@ -633,10 +633,11 @@ def _get_parser():
         action='store_const',
         const='fourier-set',
         help=(
-            'Estimate CVR using a set of Fouier bases up to 3rd order, as used in:'
+            'Estimate CVR using a set of Fourier bases up to 3rd order, as used in:'
             '\nJ. Pinto, et al., "Fourier modeling of the BOLD response to a '
             'breath-hold task: Optimization and reproducibility" (2016), NeuroImage.\n'
-            "Same as setting --fo 3 -co2 '' -skip_lagreg"
+            "Same as setting --fourier_order 3 -co2 '' -norf -skip_endtidal -noxcorr "
+            '-skip_lagreg'
         ),
         default=None,
     )
@@ -646,8 +647,9 @@ def _get_parser():
         action='store_const',
         const='fourier-set-lag',
         help=(
-            'Like "fourier-set", but use a L-GLM instead.\nSame as setting --fo 3 '
-            "-co2 '' --lag-max 9 --lag-step 0.3"
+            'Like "fourier-set", but use a L-GLM instead.\nSame as setting '
+            "--fourier_order 3 -co2 '' -norf -skip_endtidal -noxcorr --lag-max 9 "
+            '--lag-step 0.3'
         ),
         default=None,
     )
@@ -726,7 +728,7 @@ def _check_opt_conf(parser):
             parser.lag_max = 9
             parser.lag_step = 0.3
             parser.lagged_regression = True
-            parser.comp_petco2hrf = True
+            parser.comp_endtidal = True
             parser.apply_filter = False
             parser.legacy = True
             parser.r2model = 'full'
@@ -734,12 +736,12 @@ def _check_opt_conf(parser):
             parser.lag_max = 20
             parser.lag_step = 0.3
             parser.lagged_regression = True
-            parser.comp_petco2hrf = True
+            parser.comp_endtidal = True
             parser.apply_filter = False
             parser.skip_xcorr = True
             parser.r2model = 'full'
         elif parser.workflow_config == 'baltimore':
-            parser.comp_petco2hrf = False
+            parser.comp_endtidal = False
             parser.apply_filter = True
             parser.lowcut = 0.02
             parser.highcut = 0.04
@@ -748,12 +750,29 @@ def _check_opt_conf(parser):
         elif parser.workflow_config == 'baltimore-lag':
             parser.lag_max = 9
             parser.lag_step = 0.3
-            parser.comp_petco2hrf = False
+            parser.comp_endtidal = False
             parser.apply_filter = True
             parser.lowcut = 0.02
             parser.highcut = 0.04
             parser.fname_co2 = None
             parser.lagged_regression = True
+        elif parser.workflow_config == 'fourier-set':
+            parser.fourier_order = 3
+            parser.skip_xcorr = True
+            parser.response_function = None
+            parser.comp_endtidal = False
+            parser.fname_co2 = None
+            parser.lagged_regression = False
+        elif parser.workflow_config == 'fourier-set-lag':
+            parser.lag_max = 9
+            parser.lag_step = 0.3
+            parser.fourier_order = 3
+            parser.skip_xcorr = True
+            parser.response_function = None
+            parser.comp_endtidal = False
+            parser.fname_co2 = None
+            parser.lagged_regression = True
+        # !#
         else:
             raise NotImplementedError(
                 f'{parser.workflow_config} is not configured. '
