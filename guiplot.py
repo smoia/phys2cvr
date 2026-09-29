@@ -53,7 +53,7 @@ def build_regressor_matrix(
     """
     if regressor_matrix is None:
         # Initialize or generate matrix when no existing input is supplied
-        regressor_matrix = np.column_stack([data, np.ones_like(data)])
+        regressor_matrix = np.ones_like(data)
 
     return regressor_matrix
 
@@ -506,7 +506,7 @@ class VoxelViewerApp(tk.Tk):
             + (1 if self.lag_data is not None else 0)
         )
 
-        self.fig = plt.figure(figsize=(4 * num_cols, 7), tight_layout=True)
+        self.fig = plt.figure(figsize=(4 * num_cols, 7), layout='constrained')
         gs = self.fig.add_gridspec(
             2, num_cols, height_ratios=[1.2, 1], hspace=0.3, wspace=0.25
         )
@@ -687,7 +687,17 @@ class VoxelViewerApp(tk.Tk):
 
         # Plot full voxel and regressor timecourses against time in seconds
         full_voxel_ts = zscore(self.func_data[x, y, z, :])
-        full_co2_ts = zscore(self.regressor_matrix[shift_idx, :])
+        raw_co2 = np.squeeze(self.regressor_matrix[shift_idx, :])
+
+        # Truncate or resample regressor to match timepoints length self.nt
+        if len(raw_co2) != self.nt:
+            reg_time = np.linspace(0, self.time[-1], len(raw_co2))
+            full_co2_ts = zscore(np.interp(self.time, reg_time, raw_co2))
+        else:
+            full_co2_ts = zscore(raw_co2)
+
+        self.line_voxel.set_data(self.time, full_voxel_ts)
+        self.line_voxel.set_label(f'Voxel ({x}, {y}, {z})')
 
         self.line_voxel.set_data(self.time, full_voxel_ts)
         self.line_voxel.set_label(f'Voxel ({x}, {y}, {z})')
