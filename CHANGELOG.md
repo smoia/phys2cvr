@@ -1,3 +1,15 @@
+# 0.33.0 (Tue Sep 29 2026)
+
+#### 💥 Breaking Change during development
+
+- Implement Pinto et al. 2016's sinusoidal regressors CVR estimation approach (Breaking changes to the API but not to the CLI) [#171](https://github.com/smoia/phys2cvr/pull/171) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.32.0 (Thu Sep 24 2026)
 
 #### 🚀 Enhancement
