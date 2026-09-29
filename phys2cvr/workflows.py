@@ -24,6 +24,7 @@ from phys2cvr.regressors import (
     compute_petco2hrf,
     create_legendre,
     create_physio_regressor,
+    fourier_basis,
 )
 
 LGR = logging.getLogger(__name__)
@@ -39,6 +40,7 @@ def phys2cvr(
     outdir=None,
     freq=None,
     tr=None,
+    fourier_order=None,
     trial_len=None,
     n_trials=None,
     abs_xcorr=False,
@@ -47,7 +49,7 @@ def phys2cvr(
     lowcut=0.02,
     butter_order=9,
     apply_filter=False,
-    run_regression=False,
+    run_regression=True,
     lagged_regression=True,
     r2model='full',
     lag_max=None,
@@ -103,14 +105,24 @@ def phys2cvr(
         Default: the directory where `fname_func` is.
     freq : str, int, or float, optional
         Sample frequency of the CO2 regressor. Required if CO2 input is TXT file.
-        If declared with peakdet file, it will overwrite the file frequency.
+        If declared in conjunction with a peakdet file (as -co2), it will overwrite
+        the file frequency.
     tr : str, int, or float, optional
         TR of the timeseries. Required if input is TXT file.
-        If declared with nifti file, it will overwrite the file TR.
-    trial_len : str or int, optional
-        Length of each single trial for tasks that have more than one
-        (E.g. BreathHold, CO2 challenges, ...)
-        Used to improve cross correlation estimation.
+        If declared in conjunction with a nifti file (as -i), it will overwrite
+        the file TR.
+    fourier_order : None or int, optional
+        If not None, run Pinto et al. 2016's fourier-bases-based analysis.
+        Use to specify the highest order (M) of desired Fourier harmonics.
+        REQUIRES trial_len to be specified.
+        Note that order 1 here corresponds to order 0 in the paper, so to follow the
+        paper's recommendations, set fourier_order=3.
+        Default is None.
+    trial_len : str or float, optional
+        Length of each single respiratory trial in a task (E.g. BreathHold,
+        Cued Deep Breathing, CO2 challenges, ...). Used to improve cross correlation
+        estimation or to compute the fourier bases set. If fourier_order is specified,
+        this needs to be specified as well.
         Default: None
     n_trials : str or int, optional
         Number of trials in the task.
@@ -227,6 +239,8 @@ def phys2cvr(
     ------
     ValueError
         - If the order of Legendre Polynomials is < 0.
+        - If fourier_order was set without setting tlen as well.
+        - If fourier_order < 1.
         - If a wrong R^2 model was specified.
         - If functional nifti file is not at least 4D.
         - If mask was specified but it has different dimensions than the
@@ -309,7 +323,8 @@ def phys2cvr(
     # Check that all input values have right type
     tr = utils.if_declared_force_type(tr, 'float', 'tr')
     freq = utils.if_declared_force_type(freq, 'float', 'freq')
-    trial_len = utils.if_declared_force_type(trial_len, 'int', 'trial_len')
+    fourier_order = utils.if_declared_force_type(fourier_order, 'int', 'fourier_order')
+    trial_len = utils.if_declared_force_type(trial_len, 'float', 'trial_len')
     n_trials = utils.if_declared_force_type(n_trials, 'int', 'n_trials')
     highcut = utils.if_declared_force_type(highcut, 'float', 'highcut')
     lowcut = utils.if_declared_force_type(lowcut, 'float', 'lowcut')
@@ -317,21 +332,24 @@ def phys2cvr(
     lag_min = utils.if_declared_force_type(lag_min, 'float', 'lag_min')
     lag_step = utils.if_declared_force_type(lag_step, 'float', 'lag_step')
     l_degree = utils.if_declared_force_type(l_degree, 'int', 'l_degree')
-    if lag_max is not None and lag_min is None:
-        if lag_max > 0:
-            lag_min = -lag_max
-        else:
+
+    if lag_max is not None:
+        if lag_min is None:
+            if lag_max > 0:
+                lag_min = -lag_max
+            else:
+                raise ValueError(
+                    'Given maximum lag is 0 or negative, but no minimum lag was provided. Halting execution.'
+                )
+        elif lag_min >= lag_max:
             raise ValueError(
-                'Given maximum lag is 0 or negative, but no minimum lag was provided. Halting execution.'
+                f'Invalid lag range: lag_min ({lag_min}) >= lag_max ({lag_max}). Please provide a range where lag_min < lag_max.'
             )
-    if lag_max is None and lag_min is not None:
+    elif lag_min is not None:
         raise ValueError(
             'A minimum lag was provided without providing a maximum lag. Please rerun providing both or none.'
         )
-    if lag_max is not None and lag_min >= lag_max:
-        raise ValueError(
-            f'Invalid lag range: lag_min ({lag_min}) >= lag_max ({lag_max}). Please provide a range where lag_min < lag_max.'
-        )
+
     if l_degree < 0:
         raise ValueError(
             'The specified order of the Legendre polynomials must be >= 0.'
@@ -418,36 +436,73 @@ def phys2cvr(
 
     LGR.info('Load physiological data')
     if fname_co2 is None:
-        LGR.info(f'Computing "CVR" (approximation) maps using {fname_func} only')
-        if func_is_1d:
-            LGR.warning('Using an average signal only, solution might be unoptimal.')
-
-            if apply_filter is None:
-                LGR.warning(
-                    'No filter applied to the input average! You know '
-                    'what you are doing, right?'
+        if fourier_order is not None:
+            if trial_len is None:
+                raise ValueError(
+                    'A Fourier-bases-based analysis was set up, but no respiratory '
+                    'trial length was provided. Please run phys2cvr again specifying '
+                    'it using the `-tlen` flag and and its argument.'
+                )
+            if fourier_order < 1:
+                raise ValueError(
+                    f'The Fourier order must be >= 1, but it was specified as {fourier_order}'
                 )
 
-        # Get the SPC of the average rather than the average of the SPC
-        # The former is more robust to intrinsic data noise than the latter
-        petco2hrf = signal.spc(func_avg)
+            LGR.info(
+                f'Computing CVR maps using a Fourier bases set of {fourier_order}.'
+            )
+            if freq is None:
+                freq = 1 / tr
+                LGR.warning(
+                    f'No frequency for the fourier bases was provided, setting it to 1/TR (i.e. {freq}Hz)'
+                )
 
-        # Reassign fname_co2 to fname_func for later use
-        _, basename_co2, _ = utils.check_ext(
-            io.EXT_ALL, f'avg_{os.path.basename(fname_func)}', scan=True, remove=True
-        )
+            petco2hrf = fourier_basis(
+                trial_len,
+                func_avg.shape[-1] * tr + lag_max + abs(lag_min),
+                order=fourier_order,
+                sample_interval=freq,
+            )
+            comp_endtidal = False
+            response_function = None
+            skip_xcorr = True
 
-        outprefix = os.path.join(outdir, basename_co2)
-
-        # If freq was declared, upsample the average GM to that.
-        # Otherwise, set freq to inverse of TR.
-        if freq is None:
-            freq = 1 / tr
-            LGR.info(f'No frequency declared, using 1/tr ({freq}Hz)')
         else:
-            LGR.info(f'Resampling the average fMRI timeseries at {freq}Hz')
-            upsamp_tps = int(np.round(petco2hrf.shape[-1] * tr * freq))
-            petco2hrf = signal.resample_signal_samples(petco2hrf, upsamp_tps)
+            LGR.info(f'Computing "CVR" (approximation) maps using {fname_func} only')
+            if func_is_1d:
+                LGR.warning(
+                    'Using an average signal only, solution might be unoptimal.'
+                )
+
+                if apply_filter is None:
+                    LGR.warning(
+                        'No filter applied to the input average! You know '
+                        'what you are doing, right?'
+                    )
+
+            # Get the SPC of the average rather than the average of the SPC
+            # The former is more robust to intrinsic data noise than the latter
+            petco2hrf = signal.spc(func_avg)
+
+            # Reassign fname_co2 to fname_func for later use
+            _, basename_co2, _ = utils.check_ext(
+                io.EXT_ALL,
+                f'avg_{os.path.basename(fname_func)}',
+                scan=True,
+                remove=True,
+            )
+
+            outprefix = os.path.join(outdir, basename_co2)
+
+            # If freq was declared, upsample the average GM to that.
+            # Otherwise, set freq to inverse of TR.
+            if freq is None:
+                freq = 1 / tr
+                LGR.info(f'No frequency declared, using 1/tr ({freq}Hz)')
+            else:
+                LGR.info(f'Resampling the average fMRI timeseries at {freq}Hz')
+                upsamp_tps = int(np.round(petco2hrf.shape[-1] * tr * freq))
+                petco2hrf = signal.resample_signal_samples(petco2hrf, upsamp_tps)
     else:
         co2_is_phys, _ = utils.check_ext('.phys', fname_co2)
         co2_is_1d, _ = utils.check_ext(io.EXT_ARRAY, fname_co2)
@@ -668,8 +723,8 @@ def phys2cvr(
                 lag_idx_list = np.unique(lag_idx)
 
                 # Prepare empty matrices
-                beta = np.empty_like(lag, dtype='float32')
-                tstat = np.empty_like(lag, dtype='float32')
+                beta = np.zeros_like(lag, dtype='float32')
+                tstat = np.zeros_like(lag, dtype='float32')
 
                 LGR.info(f'Performing {len(lag_idx_list)} L-GLMs')
 
@@ -677,7 +732,7 @@ def phys2cvr(
                     LGR.info(f'Running {n_jobs} parallel jobs!')
 
                     results = ParallelPbar('L-GLMs', position=0)(n_jobs=n_jobs)(
-                        delayed(blocks._glm_lagmap)(
+                        delayed(blocks._l_glm_lagmap)(
                             i,
                             step,
                             regr_shifts,
@@ -773,23 +828,23 @@ def phys2cvr(
                 else:
                     LGR.debug('No parallelisation invoked.')
                     for n, i in tqdm(enumerate(lag_range), total=len(lag_range)):
-                        regr = regr_shifts[i, :, np.newaxis]
-
-                        x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
                         (
+                            _,
                             beta_all[:, :, :, n],
                             tstat_all[:, :, :, n],
                             r_square_all[:, :, :, n],
-                        ) = stats.regression(
+                        ) = blocks._l_glm_range(
+                            n,
+                            i,
+                            regr_shifts,
+                            outdir,
                             func,
-                            regr,
                             denoise_matrix,
                             orthogonalised_matrix,
                             extra_matrix,
                             mask,
                             r2model,
                             debug,
-                            x1D,
                         )
 
                 if debug:

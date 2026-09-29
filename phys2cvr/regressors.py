@@ -21,7 +21,7 @@ from phys2cvr.signal import (
     resample_signal_freqs,
 )
 from phys2cvr.stats import x_corr
-from phys2cvr.viz import plot_two_timeseries, plot_xcorr
+from phys2cvr.viz import plot_timeseries, plot_xcorr
 
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
@@ -47,6 +47,72 @@ def create_legendre(degree, length):
     c = np.eye(degree + 1)
 
     return np.polynomial.legendre.legval(x, c).T
+
+
+def fourier_basis(
+    trial_len,
+    total_duration,
+    order=3,
+    sample_interval=0.01,
+):
+    """
+    Generate Fourier series harmonics (sine and cosine pairs) up to order `order`.
+
+    Parameters
+    ----------
+    trial_len : float
+        (Complete) Respiratory trial duration in seconds, necessary to compute fundamental angular frequency w0.
+    total_duration : float
+        Duration of functional data + lag range in seconds.
+    order : int, optional
+        Highest order (M) of desired Fourier harmonics. Default is 3.
+    sample_interval : float, optional
+        Sampling interval in seconds. Default is 0.01s (100 Hz).
+
+    Returns
+    -------
+    fourier_mat : np.ndarray
+        Array of shape `(total_samples, 2 * order)` containing pairs of
+        [sin(m * w0 * t), cos(m * w0 * t)] for m = 1, ..., order.
+
+    Raises
+    ------
+    ValueError
+        If oder, trial_len, or sample_interval < 1
+
+    Notes
+    -----
+    Implements Pinto et al. 2016's sinusoidal regressors, except order 1 is equivalent
+    to what in the paper is order 0.
+    """
+    if order <= 0:
+        raise ValueError(f'Fourier order must be greater than 0, got {order}.')
+    if trial_len <= 0:
+        raise ValueError(
+            f'The specified respiratory trial duration must be greater than 0, got {trial_len}.'
+        )
+    if sample_interval <= 0:
+        raise ValueError(
+            f'sample_interval must be greater than 0, got {sample_interval}.'
+        )
+
+    freq = 1.0 / sample_interval
+    total_samples = int(np.round(total_duration * freq))
+
+    # Time vector t
+    t = np.linspace(0, total_duration, total_samples, endpoint=False, dtype=np.float32)
+
+    # Fundamental angular frequency based on breath-hold trial length
+    w0 = (2 * np.pi) / trial_len
+
+    # Initialize basis matrix: shape (total_samples, 2 * order)
+    fourier_mat = np.empty((total_samples, 2 * order), dtype=np.float32)
+
+    for m in range(1, order + 1):
+        fourier_mat[:, 2 * (m - 1)] = np.sin(m * w0 * t)
+        fourier_mat[:, 2 * (m - 1) + 1] = np.cos(m * w0 * t)
+
+    return fourier_mat
 
 
 def compute_petco2hrf(
@@ -94,7 +160,7 @@ def compute_petco2hrf(
         petco2 = endtidal_interpolation(co2, pidx, axis=-1)
 
         # Plot PetCO2 vs CO2
-        plot_two_timeseries(
+        plot_timeseries(
             petco2, co2, f'{outprefix}_co2_vs_petco2.png', 'PetCO2', 'CO2', freq
         )
 
@@ -115,7 +181,7 @@ def compute_petco2hrf(
     # Plot convolved PetCO2 vs PetCO2
     if response_function not in [None, 'none', 'None', 'NONE']:
         petco2hrf = convolve_signal(petco2, freq, response_function, mode)
-        plot_two_timeseries(
+        plot_timeseries(
             petco2hrf,
             petco2,
             f'{outprefix}_petco2_vs_petco2hrf.png',
@@ -267,23 +333,40 @@ def create_fine_shift_regressors(
     -------
     petco2hrf_lagged : np.ndarray
         The shifted versions of the regressor of interest.
+
+    Raises
+    ------
+    ValueError
+        - If lag_min is not specified and lag_max is <= 0
+        - If lag_min is specified but lag_max is not
+        - If lag_min is specified but >= lag_max
+    NotImplementedError
+        - If petco2hrf.ndim > 2
     """
     if lag_max is not None and lag_min is None:
         if lag_max > 0:
             lag_min = -lag_max
         else:
             raise ValueError(
-                'Given maximum lag is 0 or negative, but no minimum lag was provided. Halting execution.'
+                'Given maximum lag is 0 or negative, but no minimum lag was provided. '
+                'Halting execution.'
             )
 
     if lag_max is None and lag_min is not None:
         raise ValueError(
-            'A minimum lag was provided without providing a maximum lag. Please rerun providing both or none.'
+            'A minimum lag was provided without providing a maximum lag. '
+            'Please rerun providing both or none.'
         )
 
     if lag_max is not None and lag_min >= lag_max:
         raise ValueError(
-            f'Invalid lag range: lag_min ({lag_min}) >= lag_max ({lag_max}). Please provide a range where lag_min < lag_max.'
+            f'Invalid lag range: lag_min ({lag_min}) >= lag_max ({lag_max}). '
+            'Please provide a range where lag_min < lag_max.'
+        )
+    if petco2hrf.ndim > 2:
+        raise NotImplementedError(
+            f'Provided regressor has {petco2hrf.ndim} dimensions. phys2cvr supports up '
+            'to 2 dimensions.'
         )
 
     outdir, base = os.path.split(outprefix)
@@ -299,15 +382,25 @@ def create_fine_shift_regressors(
     rpad = max(0, int(func_upsamp_size + optshift + neg_shifts - petco2hrf.shape[0]))
     lpad = max(0, int(pos_shifts - optshift + 1))
 
-    petco2hrf = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
+    if petco2hrf.ndim == 1:
+        pad_width = (int(lpad), int(rpad))
+    else:
+        pad_width = ((int(lpad), int(rpad)), (0, 0))
+
+    petco2hrf = np.pad(petco2hrf, pad_width, 'mean')
 
     # Create sliding window view into petco2hrf, -1 because of reversed indexing
     neg_idx = optshift - pos_shifts + lpad - 1
     pos_idx = optshift + neg_shifts + lpad - 1
+
     # select the right windows the other way round
-    petco2hrf_lagged = np.ascontiguousarray(
-        swv(petco2hrf, func_upsamp_size)[pos_idx:neg_idx:-1]
+    petco2hrf_lagged = swv(petco2hrf, func_upsamp_size, axis=0)[pos_idx:neg_idx:-1]
+
+    petco2hrf_lagged = (
+        petco2hrf_lagged if petco2hrf.ndim == 1 else np.swapaxes(petco2hrf_lagged, 1, 2)
     )
+
+    petco2hrf_lagged = np.ascontiguousarray(petco2hrf_lagged)
 
     petco2hrf_lagged = export_regressor(
         petco2hrf_lagged, func_size, outprefix, 'shifts', ext
@@ -398,7 +491,7 @@ def create_physio_regressor(
     petco2hrf_shift = petco2hrf[optshift : optshift + func_upsampled.shape[0]]
 
     # Plot (shifted) regressor vs average ROI signal.
-    plot_two_timeseries(
+    plot_timeseries(
         petco2hrf_shift,
         func_upsampled,
         f'{outprefix}_petco2hrf_vs_avgroi.png',

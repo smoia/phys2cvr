@@ -116,7 +116,7 @@ phys2cvr package
    :template: function.rst
    :toctree: generated/
 
-   plot_two_timeseries
+   plot_timeseries
    plot_xcorr
 
 :mod:`phys2cvr.utils` - Utility functions
