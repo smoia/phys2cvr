@@ -53,7 +53,7 @@ def fourier_basis(
     trial_len,
     total_duration,
     order=3,
-    sample_interval=0.01,
+    freq=100,
 ):
     """
     Generate Fourier series harmonics (sine and cosine pairs) up to order `order`.
@@ -66,8 +66,8 @@ def fourier_basis(
         Duration of functional data + lag range in seconds.
     order : int, optional
         Highest order (M) of desired Fourier harmonics. Default is 3.
-    sample_interval : float, optional
-        Sampling interval in seconds. Default is 0.01s (100 Hz).
+    freq : float, optional
+        Sampling frequency in Hz. Default is 100 Hz.
 
     Returns
     -------
@@ -91,12 +91,9 @@ def fourier_basis(
         raise ValueError(
             f'The specified respiratory trial duration must be greater than 0, got {trial_len}.'
         )
-    if sample_interval <= 0:
-        raise ValueError(
-            f'sample_interval must be greater than 0, got {sample_interval}.'
-        )
+    if freq <= 0:
+        raise ValueError(f'sample_interval must be greater than 0, got {freq}.')
 
-    freq = 1.0 / sample_interval
     total_samples = int(np.round(total_duration * freq))
 
     # Time vector t
@@ -403,7 +400,7 @@ def create_fine_shift_regressors(
     petco2hrf_lagged = np.ascontiguousarray(petco2hrf_lagged)
 
     petco2hrf_lagged = export_regressor(
-        petco2hrf_lagged, func_size, outprefix, 'shifts', ext
+        petco2hrf_lagged, func_size, outprefix, 'shifts', ext, axis=1
     )
     return petco2hrf_lagged
 
@@ -481,9 +478,11 @@ def create_physio_regressor(
     func_upsampled = resample_signal_freqs(func_avg, 1 / tr, freq)
 
     if skip_xcorr:
+        ts_name = 'Regressor'
         LGR.info('Skipping Bulk Shift Computation')
         optshift = 0
     else:
+        ts_name = 'Optimally shifted regressor'
         optshift = compute_bulk_shift(
             func_upsampled, petco2hrf, freq, outprefix, trial_len, n_trials, abs_xcorr
         )
@@ -494,15 +493,32 @@ def create_physio_regressor(
     plot_timeseries(
         petco2hrf_shift,
         func_upsampled,
-        f'{outprefix}_petco2hrf_vs_avgroi.png',
-        'Optimally shifted regressor',
+        f'{outprefix}_regressors_vs_avgroi.png',
+        ts_name,
         'Average ROI signal',
         freq,
         zscore=True,
     )
+    if petco2hrf_shift.ndim > 1:
+        plot_timeseries(
+            petco2hrf_shift.mean(axis=1),
+            func_upsampled,
+            f'{outprefix}_regressors_avg_vs_avgroi.png',
+            f'Averaged {ts_name}s',
+            'Average ROI signal',
+            freq,
+            zscore=True,
+        )
 
+    split_export = True if np.squeeze(petco2hrf_shift).ndim > 1 else False
     petco2hrf_demean = export_regressor(
-        petco2hrf_shift, func_avg.shape[-1], outprefix, 'petco2hrf_simple', ext
+        petco2hrf_shift,
+        func_avg.shape[-1],
+        outprefix,
+        'petco2hrf_simple',
+        ext,
+        axis=0,
+        split=split_export,
     )
 
     # Initialise the shifts first.

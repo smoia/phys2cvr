@@ -23,7 +23,7 @@ def _l_glm_lagmap(
     lag_idx,
 ):
     """Worker function for running GLM per unique lag index."""
-    regr = regr_shifts[(i * step), :, np.newaxis]
+    regr = regr_shifts[(i * step), ...]
     x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
     idx_mask = lag_idx == i
 
@@ -55,7 +55,7 @@ def _l_glm_range(
     debug,
 ):
     """Worker function for running GLM across full volume per lag range iteration."""
-    regr = regr_shifts[i, :, np.newaxis]
+    regr = regr_shifts[i, ...]
     x1D = os.path.join(outdir, 'mat', f'mat_{i:04g}.1D')
 
     b, t, r2 = stats.regression(

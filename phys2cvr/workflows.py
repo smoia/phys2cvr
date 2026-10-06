@@ -461,11 +461,13 @@ def phys2cvr(
                 trial_len,
                 func_avg.shape[-1] * tr + lag_max + abs(lag_min),
                 order=fourier_order,
-                sample_interval=freq,
+                freq=freq,
             )
             comp_endtidal = False
             response_function = None
             skip_xcorr = True
+
+            outprefix = os.path.join(outdir, f'fourier-{fourier_order}')
 
         else:
             LGR.info(f'Computing "CVR" (approximation) maps using {fname_func} only')
@@ -637,7 +639,7 @@ def phys2cvr(
 
         # Generate polynomial regressors (at least average) and assign them to denoise_matrix
         LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
-        denoise_matrix = create_legendre(l_degree, regr.size)
+        denoise_matrix = create_legendre(l_degree, regr.shape[0])
 
         # Read in eventual denoising factors
         denoise_matrix = (
@@ -700,6 +702,13 @@ def phys2cvr(
 
         if lagged_regression and regr_shifts is not None and (lag_max and lag_step):
             # If user specified a lag map, run regression based on it (see "Load lag map")
+
+            if lag_step < 1 / freq:
+                LGR.warning(
+                    f'Provided lag step {lag_step} is less than the regressor frequency '
+                    f'allows. Setting it to the sampling interval {1 / freq}.'
+                )
+                lag_step = 1 / freq
 
             total_cores = os.cpu_count() or 1
             if n_jobs != 1:
