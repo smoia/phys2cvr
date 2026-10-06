@@ -478,9 +478,11 @@ def create_physio_regressor(
     func_upsampled = resample_signal_freqs(func_avg, 1 / tr, freq)
 
     if skip_xcorr:
+        ts_name = 'Regressor'
         LGR.info('Skipping Bulk Shift Computation')
         optshift = 0
     else:
+        ts_name = 'Optimally shifted regressor'
         optshift = compute_bulk_shift(
             func_upsampled, petco2hrf, freq, outprefix, trial_len, n_trials, abs_xcorr
         )
@@ -491,12 +493,22 @@ def create_physio_regressor(
     plot_timeseries(
         petco2hrf_shift,
         func_upsampled,
-        f'{outprefix}_petco2hrf_vs_avgroi.png',
-        'Optimally shifted regressor',
+        f'{outprefix}_regressors_vs_avgroi.png',
+        ts_name,
         'Average ROI signal',
         freq,
         zscore=True,
     )
+    if petco2hrf_shift.ndim > 1:
+        plot_timeseries(
+            petco2hrf_shift.mean(axis=1),
+            func_upsampled,
+            f'{outprefix}_regressors_avg_vs_avgroi.png',
+            f'Averaged {ts_name}s',
+            'Average ROI signal',
+            freq,
+            zscore=True,
+        )
 
     split_export = True if np.squeeze(petco2hrf_shift).ndim > 1 else False
     petco2hrf_demean = export_regressor(
