@@ -53,7 +53,7 @@ def fourier_basis(
     trial_len,
     total_duration,
     order=3,
-    sample_interval=0.01,
+    freq=100,
 ):
     """
     Generate Fourier series harmonics (sine and cosine pairs) up to order `order`.
@@ -66,8 +66,8 @@ def fourier_basis(
         Duration of functional data + lag range in seconds.
     order : int, optional
         Highest order (M) of desired Fourier harmonics. Default is 3.
-    sample_interval : float, optional
-        Sampling interval in seconds. Default is 0.01s (100 Hz).
+    freq : float, optional
+        Sampling frequency in Hz. Default is 100 Hz.
 
     Returns
     -------
@@ -91,12 +91,9 @@ def fourier_basis(
         raise ValueError(
             f'The specified respiratory trial duration must be greater than 0, got {trial_len}.'
         )
-    if sample_interval <= 0:
-        raise ValueError(
-            f'sample_interval must be greater than 0, got {sample_interval}.'
-        )
+    if freq <= 0:
+        raise ValueError(f'sample_interval must be greater than 0, got {freq}.')
 
-    freq = 1.0 / sample_interval
     total_samples = int(np.round(total_duration * freq))
 
     # Time vector t
