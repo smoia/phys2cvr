@@ -365,6 +365,7 @@ def regression(
         # Stack mat
         # Note: Xmat is not currently demeaned within this function, so inputs
         # should already be demeaned
+        regr = regr if regr.ndim == 2 else regr[..., np.newaxis]
         Xmat = np.hstack([denoise_mat, regr])
 
         if ortho_mat is not None:

@@ -703,6 +703,13 @@ def phys2cvr(
         if lagged_regression and regr_shifts is not None and (lag_max and lag_step):
             # If user specified a lag map, run regression based on it (see "Load lag map")
 
+            if lag_step < 1 / freq:
+                LGR.warning(
+                    f'Provided lag step {lag_step} is less than the regressor frequency '
+                    f'allows. Setting it to the sampling interval {1 / freq}.'
+                )
+                lag_step = 1 / freq
+
             total_cores = os.cpu_count() or 1
             if n_jobs != 1:
                 from joblib import delayed
