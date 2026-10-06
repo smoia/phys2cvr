@@ -352,7 +352,7 @@ def regression(
     else:
         mask = mask.astype(bool, copy=False)
 
-    Ymat = data[mask]
+    Ymat = data[mask].T
 
     if denoise_mat is not None:
         if regr.shape[0] != denoise_mat.shape[0]:
@@ -397,7 +397,7 @@ def regression(
         np.savetxt(x1D, Xmat, fmt='%.6f')
 
     betas, tstats, r_square = ols(
-        Ymat.T, Xmat, r2model=r2model, residuals=False, demean=False
+        Ymat, Xmat, r2model=r2model, residuals=False, demean=False
     )
 
     # Assign betas, Rsquare and tstats to new volumes
