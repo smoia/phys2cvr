@@ -400,7 +400,7 @@ def create_fine_shift_regressors(
     petco2hrf_lagged = np.ascontiguousarray(petco2hrf_lagged)
 
     petco2hrf_lagged = export_regressor(
-        petco2hrf_lagged, func_size, outprefix, 'shifts', ext
+        petco2hrf_lagged, func_size, outprefix, 'shifts', ext, axis=1
     )
     return petco2hrf_lagged
 
@@ -498,8 +498,15 @@ def create_physio_regressor(
         zscore=True,
     )
 
+    split_export = True if np.squeeze(petco2hrf_shift).ndim > 1 else False
     petco2hrf_demean = export_regressor(
-        petco2hrf_shift, func_avg.shape[-1], outprefix, 'petco2hrf_simple', ext
+        petco2hrf_shift,
+        func_avg.shape[-1],
+        outprefix,
+        'petco2hrf_simple',
+        ext,
+        axis=0,
+        split=split_export,
     )
 
     # Initialise the shifts first.
