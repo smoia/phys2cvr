@@ -637,7 +637,7 @@ def phys2cvr(
 
         # Generate polynomial regressors (at least average) and assign them to denoise_matrix
         LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
-        denoise_matrix = create_legendre(l_degree, regr.size)
+        denoise_matrix = create_legendre(l_degree, regr.shape[0])
 
         # Read in eventual denoising factors
         denoise_matrix = (
