@@ -461,11 +461,13 @@ def phys2cvr(
                 trial_len,
                 func_avg.shape[-1] * tr + lag_max + abs(lag_min),
                 order=fourier_order,
-                sample_interval=freq,
+                freq=freq,
             )
             comp_endtidal = False
             response_function = None
             skip_xcorr = True
+
+            outprefix = os.path.join(outdir, f'fourier-{fourier_order}')
 
         else:
             LGR.info(f'Computing "CVR" (approximation) maps using {fname_func} only')
