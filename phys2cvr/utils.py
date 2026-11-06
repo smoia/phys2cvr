@@ -12,7 +12,6 @@ import datetime
 import logging
 import os
 import sys
-from os.path import exists
 from pathlib import Path
 
 import numpy as np

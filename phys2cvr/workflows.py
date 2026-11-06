@@ -24,6 +24,7 @@ from phys2cvr.regressors import (
     compute_petco2hrf,
     create_legendre,
     create_physio_regressor,
+    fourier_basis,
 )
 
 LGR = logging.getLogger(__name__)
@@ -39,6 +40,7 @@ def phys2cvr(
     outdir=None,
     freq=None,
     tr=None,
+    fourier_order=None,
     trial_len=None,
     n_trials=None,
     abs_xcorr=False,
@@ -47,7 +49,7 @@ def phys2cvr(
     lowcut=0.02,
     butter_order=9,
     apply_filter=False,
-    run_regression=False,
+    run_regression=True,
     lagged_regression=True,
     r2model='full',
     lag_max=None,
@@ -103,14 +105,24 @@ def phys2cvr(
         Default: the directory where `fname_func` is.
     freq : str, int, or float, optional
         Sample frequency of the CO2 regressor. Required if CO2 input is TXT file.
-        If declared with peakdet file, it will overwrite the file frequency.
+        If declared in conjunction with a peakdet file (as -co2), it will overwrite
+        the file frequency.
     tr : str, int, or float, optional
         TR of the timeseries. Required if input is TXT file.
-        If declared with nifti file, it will overwrite the file TR.
-    trial_len : str or int, optional
-        Length of each single trial for tasks that have more than one
-        (E.g. BreathHold, CO2 challenges, ...)
-        Used to improve cross correlation estimation.
+        If declared in conjunction with a nifti file (as -i), it will overwrite
+        the file TR.
+    fourier_order : None or int, optional
+        If not None, run Pinto et al. 2016's fourier-bases-based analysis.
+        Use to specify the highest order (M) of desired Fourier harmonics.
+        REQUIRES trial_len to be specified.
+        Note that order 1 here corresponds to order 0 in the paper, so to follow the
+        paper's recommendations, set fourier_order=3.
+        Default is None.
+    trial_len : str or float, optional
+        Length of each single respiratory trial in a task (E.g. BreathHold,
+        Cued Deep Breathing, CO2 challenges, ...). Used to improve cross correlation
+        estimation or to compute the fourier bases set. If fourier_order is specified,
+        this needs to be specified as well.
         Default: None
     n_trials : str or int, optional
         Number of trials in the task.
@@ -227,6 +239,8 @@ def phys2cvr(
     ------
     ValueError
         - If the order of Legendre Polynomials is < 0.
+        - If fourier_order was set without setting tlen as well.
+        - If fourier_order < 1.
         - If a wrong R^2 model was specified.
         - If functional nifti file is not at least 4D.
         - If mask was specified but it has different dimensions than the
@@ -309,7 +323,8 @@ def phys2cvr(
     # Check that all input values have right type
     tr = utils.if_declared_force_type(tr, 'float', 'tr')
     freq = utils.if_declared_force_type(freq, 'float', 'freq')
-    trial_len = utils.if_declared_force_type(trial_len, 'int', 'trial_len')
+    fourier_order = utils.if_declared_force_type(fourier_order, 'int', 'fourier_order')
+    trial_len = utils.if_declared_force_type(trial_len, 'float', 'trial_len')
     n_trials = utils.if_declared_force_type(n_trials, 'int', 'n_trials')
     highcut = utils.if_declared_force_type(highcut, 'float', 'highcut')
     lowcut = utils.if_declared_force_type(lowcut, 'float', 'lowcut')

@@ -117,7 +117,7 @@ def _get_parser():
             'Complete path (absolute or relative) and name of the file containing CO2 '
             'signal (or equivalent physiological trace to compute the regressor). This '
             'file can be a 1D txt-like file, a .mat file, or a .phys file from '
-            'peakdet.\n If nothing is specified, the average timeseries of the mask '
+            'peakdet.\n If nothing is specified, the average timeseries of the roi '
             'will be used as regressor.'
         ),
         default=None,
@@ -143,6 +143,20 @@ def _get_parser():
         help=(
             'Frequency of the physiological trace. Required if the latter is not passed '
             'as a .phys file.\nUse this option to overwrite the frequency of a .phys file.'
+        ),
+        default=None,
+    )
+    opt_phys.add_argument(
+        '-fo',
+        '--fourier-order',
+        dest='fourier_order',
+        type=int,
+        help=(
+            "Implements Pinto et al. 2016's Fourier basis set model up to order N. "
+            'Note that order 1 here is what in the paper is defined as order 0, '
+            "i.e. to follow the paper's recommendations, specify order 3.\n"
+            'If a -co2 file is specified, that will take precedence.'
+            'Requires -tlen to be specified.'
         ),
         default=None,
     )
@@ -487,9 +501,11 @@ def _get_parser():
         dest='lag_max',
         type=float,
         help=(
-            'Maximum (i.e. latest) lag to consider during lag regression, expressed in seconds. '
-            'If `-lmin` is not specified, the opposite of the maximum lag will be considered the minimum (i.e. earliest) lag.\n'
-            'E.g., -lm 9 -ls .3 means [-9, +9] (61 regressors) and -lmin -6 -lm 9 -ls .3 means [-6, +9] (51 regressors) . '
+            'Maximum (i.e. latest) lag to consider during lag regression, expressed in '
+            'seconds. If `-lmin` is not specified, the opposite of the maximum lag will '
+            'be considered the minimum (i.e. earliest) lag.\n'
+            'E.g., -lm 9 -ls .3 means [-9, +9] (61 regressors) and -lmin -6 -lm 9 '
+            '-ls .3 means [-6, +9] (51 regressors). '
         ),
         default=None,
     )
@@ -499,8 +515,10 @@ def _get_parser():
         dest='lag_min',
         type=float,
         help=(
-            'Minimum (i.e. earliest) lag to consider during lag regression, expressed in seconds. '
-            'If not specified and `lmax` is positive, it will be the opposite value of `lmax`, so the considered lag range will be symmetric around the coarse temporal realignment.\n'
+            'Minimum (i.e. earliest) lag to consider during lag regression, expressed '
+            'in seconds. If not specified and `lmax` is positive, it will be the '
+            'opposite value of `lmax`, so the considered lag range will be symmetric '
+            'around the coarse temporal realignment.\n'
             'Use this to specify asymmetric lag ranges. E.g., -lmin -6 -lm 9 -ls .3 '
             'means [-6, +9] (51 regressors).'
         ),
@@ -511,10 +529,7 @@ def _get_parser():
         '--lag-step',
         dest='lag_step',
         type=float,
-        help=(
-            'Lag step to consider during lagged regression in seconds. Default is 0.3 '
-            'seconds.'
-        ),
+        help=('Lag step to consider during lagged regression in seconds.'),
         default=None,
     )
     opt_lreg.add_argument(
@@ -608,7 +623,33 @@ def _get_parser():
         help=(
             'Like "baltimore", but use a L-GLM instead.\nSame as setting --apply-filter '
             '-hf 0.04 -lf 0.02 '
-            "-skip_conv -co2 '' "
+            "-skip_conv -co2 '' --lag-max 9 --lag-step 0.3"
+        ),
+        default=None,
+    )
+    opt_conf.add_argument(
+        '--fourier-set',
+        dest='workflow_config',
+        action='store_const',
+        const='fourier-set',
+        help=(
+            'Estimate CVR using a set of Fourier bases up to 3rd order, as used in:'
+            '\nJ. Pinto, et al., "Fourier modeling of the BOLD response to a '
+            'breath-hold task: Optimization and reproducibility" (2016), NeuroImage.\n'
+            "Same as setting --fourier_order 3 -co2 '' -norf -skip_endtidal -noxcorr "
+            '-skip_lagreg'
+        ),
+        default=None,
+    )
+    opt_conf.add_argument(
+        '--fourier-set-lag',
+        dest='workflow_config',
+        action='store_const',
+        const='fourier-set-lag',
+        help=(
+            'Like "fourier-set", but use a L-GLM instead.\nSame as setting '
+            "--fourier_order 3 -co2 '' -norf -skip_endtidal -noxcorr --lag-max 9 "
+            '--lag-step 0.3'
         ),
         default=None,
     )
@@ -687,7 +728,7 @@ def _check_opt_conf(parser):
             parser.lag_max = 9
             parser.lag_step = 0.3
             parser.lagged_regression = True
-            parser.comp_petco2hrf = True
+            parser.comp_endtidal = True
             parser.apply_filter = False
             parser.legacy = True
             parser.r2model = 'full'
@@ -695,24 +736,43 @@ def _check_opt_conf(parser):
             parser.lag_max = 20
             parser.lag_step = 0.3
             parser.lagged_regression = True
-            parser.comp_petco2hrf = True
+            parser.comp_endtidal = True
             parser.apply_filter = False
             parser.skip_xcorr = True
             parser.r2model = 'full'
         elif parser.workflow_config == 'baltimore':
-            parser.comp_petco2hrf = False
+            parser.comp_endtidal = False
             parser.apply_filter = True
             parser.lowcut = 0.02
             parser.highcut = 0.04
             parser.fname_co2 = None
             parser.lagged_regression = False
         elif parser.workflow_config == 'baltimore-lag':
-            parser.comp_petco2hrf = False
+            parser.lag_max = 9
+            parser.lag_step = 0.3
+            parser.comp_endtidal = False
             parser.apply_filter = True
             parser.lowcut = 0.02
             parser.highcut = 0.04
             parser.fname_co2 = None
             parser.lagged_regression = True
+        elif parser.workflow_config == 'fourier-set':
+            parser.fourier_order = 3
+            parser.skip_xcorr = True
+            parser.response_function = None
+            parser.comp_endtidal = False
+            parser.fname_co2 = None
+            parser.lagged_regression = False
+        elif parser.workflow_config == 'fourier-set-lag':
+            parser.lag_max = 9
+            parser.lag_step = 0.3
+            parser.fourier_order = 3
+            parser.skip_xcorr = True
+            parser.response_function = None
+            parser.comp_endtidal = False
+            parser.fname_co2 = None
+            parser.lagged_regression = True
+        # !#
         else:
             raise NotImplementedError(
                 f'{parser.workflow_config} is not configured. '
