@@ -434,7 +434,7 @@ def phys2cvr(
             LGR.info(f'Obtaining filtered average signal in {roiref}')
             func_avg = signal.filter_signal(func_avg, tr, lowcut, highcut, butter_order)
 
-    LGR.info('Load physiological data')
+    # Deal with "physiological" data
     if fname_co2 is None:
         # Check if freq and/or lag step were declared.
         resample_func = True
@@ -518,6 +518,7 @@ def phys2cvr(
                 upsamp_tps = int(np.round(petco2hrf.shape[-1] * tr * freq))
                 petco2hrf = signal.resample_signal_samples(petco2hrf, upsamp_tps)
     else:
+        LGR.info('Load physiological data')
         co2_is_phys, _ = utils.check_ext('.phys', fname_co2)
         co2_is_1d, _ = utils.check_ext(io.EXT_ARRAY, fname_co2)
 
