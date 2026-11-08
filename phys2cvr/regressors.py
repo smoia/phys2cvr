@@ -92,7 +92,7 @@ def fourier_basis(
             f'The specified respiratory trial duration must be greater than 0, got {trial_len}.'
         )
     if freq <= 0:
-        raise ValueError(f'sample_interval must be greater than 0, got {freq}.')
+        raise ValueError(f'Sampling frequency must be greater than 0, got {freq}.')
 
     total_samples = int(np.round(total_duration * freq))
 
