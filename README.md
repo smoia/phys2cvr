@@ -45,13 +45,19 @@ Please cite the following paper(s) too:
 If you are using the `--brightspin` configuration option:
 >Moia, S., Termenon, M., Uruñuela, E., Chen, G., Stickland, R. C., Bright, M. G., & Caballero-Gaudes, C. (2021). ICA-based denoising strategies in breath-hold induced cerebrovascular reactivity mapping with multi echo BOLD fMRI. NeuroImage, 233, 117914. https://doi.org/10.1016/j.neuroimage.2021.117914
 
-If you are using the `--brightspin-clinical` configuration option:
->Stickland, R. C., Zvolanek, K. M., Moia, S., Ayyagari, A., & Bright, M. G. (2021). A practical modification to a resting state fMRI protocol for improved characterization of cerebrovascular function. Supplementary Material. Neuroimage.
+If you are using the ``--brightspin-clinical`` configuration option:
+>Stickland, R. C., Zvolanek, K. M., Moia, S., Ayyagari, A., & Bright, M. G. (2021). A practical modification to a resting state fMRI protocol for improved characterization of cerebrovascular function. Neuroimage, 239, 118306. https://doi.org/10.1016/j.neuroimage.2021.118306
 
 If you are using the `--baltimore-lag` configuration option:
->Liu, P., Li, Y., Pinho, M., Park, D. C., Welch, B. G., & Lu, H. (2017). Cerebrovascular reactivity mapping without gas challenges. NeuroImage, 146(November 2016), 320–326. https://doi.org/10.1016/j.neuroimage.2016.11.054
+>Liu, P., Li, Y., Pinho, M., Park, D. C., Welch, B. G., & Lu, H. (2017). Cerebrovascular reactivity mapping without gas challenges. NeuroImage, 146, 320–326. https://doi.org/10.1016/j.neuroimage.2016.11.054
 
 If you are using the `--baltimore` configuration option, please cite only the Zenodo DOI and the last listed paper.
+
+If you are using the ``--fourier-set-lag`` configuration option:
+>Pinto, J., Jorge, J., Sousa, I., Vilela, P., & Figueiredo, P. (2016). Fourier modeling of the BOLD response to a breath-hold task: Optimization and reproducibility.    NeuroImage, 135, 223-231. https://doi.org/10.1016/j.neuroimage.2016.02.037
+
+If you are using the ``--fourier-set`` configuration option, please cite only the Zenodo DOI and this last paper.
+
 
 Installation
 ------------
