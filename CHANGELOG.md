@@ -1,4 +1,4 @@
-# 0.33.0 (Sun Nov 08 2026)
+# 0.34.0 (Sun Nov 08 2026)
 
 #### 💥 Breaking Change during development
 
