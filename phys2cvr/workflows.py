@@ -436,6 +436,26 @@ def phys2cvr(
 
     LGR.info('Load physiological data')
     if fname_co2 is None:
+        # Check if freq and/or lag step were declared.
+        resample_func = True
+        if freq is None:
+            if lag_step is None or lag_step >= tr:
+                freq = 1 / tr
+                resample_func = False
+                LGR.warning(
+                    'No regressor frequency was provided, setting it to 1/TR (i.e. '
+                    f'1/{tr} = {freq}Hz)'
+                )
+            elif lag_step < tr:
+                # In this case, we need more samples!
+                freq = 1 / lag_step
+                resample_func = False
+                LGR.warning(
+                    'No regressor frequency was provided and lag step < TR. '
+                    f'Setting freq to 1/ls (i.e. 1/{lag_step} = {freq}Hz) '
+                    'to get enough samples in the regressors for the lagged regression.'
+                )
+
         if fourier_order is not None:
             if trial_len is None:
                 raise ValueError(
@@ -451,11 +471,6 @@ def phys2cvr(
             LGR.info(
                 f'Computing CVR maps using a Fourier bases set of {fourier_order}.'
             )
-            if freq is None:
-                freq = 1 / tr
-                LGR.warning(
-                    f'No frequency for the fourier bases was provided, setting it to 1/TR (i.e. {freq}Hz)'
-                )
 
             petco2hrf = fourier_basis(
                 trial_len,
@@ -498,10 +513,7 @@ def phys2cvr(
 
             # If freq was declared, upsample the average GM to that.
             # Otherwise, set freq to inverse of TR.
-            if freq is None:
-                freq = 1 / tr
-                LGR.info(f'No frequency declared, using 1/tr ({freq}Hz)')
-            else:
+            if resample_func:
                 LGR.info(f'Resampling the average fMRI timeseries at {freq}Hz')
                 upsamp_tps = int(np.round(petco2hrf.shape[-1] * tr * freq))
                 petco2hrf = signal.resample_signal_samples(petco2hrf, upsamp_tps)
@@ -792,6 +804,11 @@ def phys2cvr(
 
                 # Check the number of repetitions first
                 step = int(lag_step * freq)
+
+                LGR.warning(
+                    f'{nrep} {nrep_neg} {nrep_pos} {regr_shifts.shape} {petco2hrf.shape} {freq} {step}'
+                )
+
                 lag_range = list(range(0, nrep, step))
                 # Prepare empty matrices
                 r_square_all = np.zeros(
