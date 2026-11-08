@@ -21,8 +21,7 @@ phys2cvr
 
 A python-based tool to generate regressor for and/or estimate CVR maps and their lag.
 
-**The project is currently under development stage alpha**. Any
-suggestion/bug report is welcome! Feel free to open an issue.
+Any suggestion/bug report is welcome! Feel free to open an issue.
 
 This project follows the
 `all-contributors <https://github.com/all-contributors/all-contributors>`__
