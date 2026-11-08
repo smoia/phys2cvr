@@ -45,6 +45,48 @@ def test_x_corr():
     assert idx == 1
 
 
+def test_compute_fstat():
+    """Test F-stat calculation against a known linear model setup."""
+    np.random.seed(42)
+    n_samples = 100
+    n_voxels = 5
+
+    # Target regressors (u_cols = 2)
+    x_target = np.random.randn(n_samples, 2)
+    # Denoising regressor (1 column)
+    x_denoise = np.random.randn(n_samples, 1)
+
+    # Full design matrix X
+    x_full = np.hstack([x_denoise, x_target])
+
+    # Construct synthetic data Y where target regressors have real signal
+    true_betas = np.array([[0.5], [2.0], [-1.5]])  # 1 denoise + 2 target
+    noise = np.random.randn(n_samples, n_voxels) * 0.5
+    y = x_full @ true_betas + noise
+
+    f_stat = stats.compute_fstat(y=y, x_full=x_full, u_cols=2)
+
+    assert f_stat.shape == (n_voxels,)
+    assert np.all(f_stat > 0)
+
+    # Y is pure noise independent of x_target
+    y = np.random.randn(n_samples, n_voxels)
+
+    f_stat = stats.compute_fstat(y=y, x_full=x_full, u_cols=2)
+
+    # Average F-statistic under null hypothesis should be around 1.0
+    assert np.isclose(np.mean(f_stat), 1.0, atol=0.1)
+
+    y = x_full @ np.array([[1.0], [2.0], [3.0]])
+    y = np.repeat(y, n_voxels, axis=1)
+
+    f_stat = stats.compute_fstat(y=y, x_full=x_full, u_cols=2)
+
+    # Should safely return 0.0 (via nan_to_num) rather than NaN or Inf
+    assert not np.any(np.isnan(f_stat))
+    assert not np.any(np.isinf(f_stat))
+
+
 def test_ols():
     Y = np.array([1, 2, 3, 4], float)
     X = np.column_stack([np.ones(4), np.arange(4)])
