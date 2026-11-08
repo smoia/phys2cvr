@@ -1,3 +1,24 @@
+# 0.33.0 (Sun Nov 08 2026)
+
+#### 💥 Breaking Change during development
+
+- Implement Pinto et al. 2016's sinusoidal regressors CVR estimation approach (Breaking changes to the API but not to the CLI) [#171](https://github.com/smoia/phys2cvr/pull/171) ([@smoia](https://github.com/smoia))
+
+#### 📝 Documentation
+
+- Fix Fourier Bases implementation [#174](https://github.com/smoia/phys2cvr/pull/174) ([@smoia](https://github.com/smoia))
+
+#### 🏠 Internal
+
+- [pre-commit.ci] pre-commit autoupdate [#172](https://github.com/smoia/phys2cvr/pull/172) ([@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.33.0 (Tue Sep 29 2026)
 
 #### 💥 Breaking Change during development
