@@ -362,15 +362,25 @@ def create_fine_shift_regressors(
     rpad = max(0, int(func_upsamp_size + optshift + neg_shifts - petco2hrf.shape[0]))
     lpad = max(0, int(pos_shifts - optshift + 1))
 
-    petco2hrf = np.pad(petco2hrf, (int(lpad), int(rpad)), 'mean')
+    if petco2hrf.ndim == 1:
+        pad_width = (int(lpad), int(rpad))
+    else:
+        pad_width = ((int(lpad), int(rpad)), (0, 0))
+
+    petco2hrf = np.pad(petco2hrf, pad_width, 'mean')
 
     # Create sliding window view into petco2hrf, -1 because of reversed indexing
     neg_idx = optshift - pos_shifts + lpad - 1
     pos_idx = optshift + neg_shifts + lpad - 1
+
     # select the right windows the other way round
-    petco2hrf_lagged = np.ascontiguousarray(
-        swv(petco2hrf, func_upsamp_size)[pos_idx:neg_idx:-1]
+    petco2hrf_lagged = swv(petco2hrf, func_upsamp_size, axis=0)[pos_idx:neg_idx:-1]
+
+    petco2hrf_lagged = (
+        petco2hrf_lagged if petco2hrf.ndim == 1 else np.swapaxes(petco2hrf_lagged, 1, 2)
     )
+
+    petco2hrf_lagged = np.ascontiguousarray(petco2hrf_lagged)
 
     petco2hrf_lagged = export_regressor(
         petco2hrf_lagged, func_size, outprefix, 'shifts', ext, axis=1
