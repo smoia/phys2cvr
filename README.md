@@ -1,5 +1,9 @@
 <a name="readme"></a>
-<!-- <img alt="Phys2BIDS" src="https://github.com/physiopy/phys2bids/blob/master/docs/_static/phys2bids_logo1280×640.png" height="150"> -->
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/smoia/phys2cvr/blob/master/logos/logo2_alt.png">
+  <img alt="Phys2CVR" src="https://github.com/smoia/phys2cvr/blob/master/logos/logo2.png" height="200">
+</picture>
 
 phys2cvr
 ========
