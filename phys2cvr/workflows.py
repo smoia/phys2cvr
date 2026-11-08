@@ -634,11 +634,15 @@ def phys2cvr(
         if scale_factor is None:
             LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
         else:
+            # Scale beta by scale factor while exporting (useful to transform V in mmHg)
             beta = beta / float(scale_factor)
-        # Scale beta by scale factor while exporting (useful to transform V in mmHg)
+
+        # If there is more than one signal of interest, export F-stats rather than T-stats.
+        statsname = 'fstat' if regr.ndim > 1 and regr.shape[-1] > 1 else 'tstat'
+
         LGR.info('Export CVR and T-stat of simple regression')
         io.export_nifti(beta, oimg, f'{fname_out_func}_cvr_simple{fname_ext}')
-        io.export_nifti(tstat, oimg, f'{fname_out_func}_tstat_simple{fname_ext}')
+        io.export_nifti(tstat, oimg, f'{fname_out_func}_{statsname}_simple{fname_ext}')
 
         if debug:
             LGR.debug('Export R^2 volume of simple regression')
@@ -810,7 +814,9 @@ def phys2cvr(
                         f'{fname_out_func}_r_square_all{fname_ext}',
                     )
                     io.export_nifti(
-                        tstat_all, oimg_all, f'{fname_out_func}_tstat_all{fname_ext}'
+                        tstat_all,
+                        oimg_all,
+                        f'{fname_out_func}_{statsname}_all{fname_ext}',
                     )
                     io.export_nifti(
                         beta_all, oimg_all, f'{fname_out_func}_beta_all{fname_ext}'
@@ -837,7 +843,7 @@ def phys2cvr(
                 beta = beta / float(scale_factor)
 
             io.export_nifti(beta, oimg, f'{fname_out_func}_cvr{fname_ext}')
-            io.export_nifti(tstat, oimg, f'{fname_out_func}_tstat{fname_ext}')
+            io.export_nifti(tstat, oimg, f'{fname_out_func}_{statsname}{fname_ext}')
             if not lag_map:
                 io.export_nifti(lag, oimg, f'{fname_out_func}_lag{fname_ext}')
                 io.export_nifti(lag_rel, oimg, f'{fname_out_func}_lag_mkrel{fname_ext}')

@@ -94,6 +94,65 @@ def x_corr(func, co2, n_shifts=None, offset=0, abs_xcorr=False):
     return xcorr[max_xcorr_idx], max_xcorr_idx + offset, xcorr
 
 
+def compute_fstat(Ymat, Xmat, u_cols):
+    """
+    Compute joint F-statistic for the last `u_cols` regressors in Xmat.
+
+    Parameters
+    ----------
+    Ymat : np.ndarray
+        Data matrix of shape (n_voxels, n_timepoints).
+    Xmat : np.ndarray
+        Full design matrix of shape (n_timepoints, n_predictors).
+    u_cols : int
+        Number of target regressors (last `u_cols` columns of Xmat).
+
+    Returns
+    -------
+    f_stat : np.ndarray
+        F-statistic map across voxels, shape (n_voxels,).
+    """
+    LGR.debug(f' Ymat shape: {Ymat.shape};    Xmat shape: {Xmat.shape}')
+
+    # Transpose Ymat so that it's n_timepoints, n_voxels
+    if Ymat.shape[0] != Xmat.shape[0]:
+        if Ymat.shape[1] == Xmat.shape[0]:
+            Ymat = Ymat.T
+        else:
+            raise ValueError(
+                f'Provided matrices are incompatible with shapes Ymat:{Ymat.shape} and '
+                f'Xmat:{Xmat.shape} (or Xmat needs to be transposed).'
+            )
+
+    Xmat_nuisance = Xmat[:, :-u_cols]
+
+    dof_error = Xmat_nuisance.shape[0] - Xmat_nuisance.shape[1]
+
+    # Residual sum of squares for Full Model
+    betas, _, _, _ = np.linalg.lstsq(Xmat, Ymat, rcond=None)
+    residuals = Ymat - (Xmat @ betas)
+    RSS = np.sum(residuals**2, axis=0)
+
+    # Residual sum of squares for Reduced Model
+    if Xmat_nuisance.shape[1] > 0:
+        betas, _, _, _ = np.linalg.lstsq(Xmat_nuisance, Ymat, rcond=None)
+        residuals = Ymat - (Xmat_nuisance @ betas)
+        RSS_nuisance = np.sum(residuals**2, axis=0)
+    else:
+        # If no reduced model regressors exist, reduced SSR is total sum of squares (TSS)
+        Ymat_demean = Ymat - np.mean(Ymat, axis=0, keepdims=True)
+        RSS_nuisance = np.sum(Ymat_demean**2, axis=0)
+
+    # Guard against division by zero
+    RSS_safe = np.where(RSS == 0, np.nan, RSS)
+
+    # Calculate F-statistic
+    f_stat = ((RSS_nuisance - RSS) / u_cols) / (RSS_safe / dof_error)
+    f_stat = np.nan_to_num(f_stat, nan=0.0)
+
+    return f_stat
+
+
 def ols(Ymat, Xmat, r2model='full', residuals=False, demean=False):
     """
     Perform Ordinary Least Squares (OLS) regression.
@@ -353,14 +412,31 @@ def regression(
         Ymat.T, Xmat, r2model=r2model, residuals=False, demean=False
     )
 
-    # Assign betas, Rsquare and tstats to new volume
+    # Assign betas, Rsquare and tstats to new volumes
     bout = np.zeros(mask.shape)
     tout = np.zeros(mask.shape)
     rout = np.zeros(mask.shape)
 
-    bout[mask] = betas[-1, :]
-    tout[mask] = tstats[-1, :]
+    # Compute joint betas and F-stats if regr.ndim > 1
     rout[mask] = r_square
+
+    if regr.ndim > 1 and regr.shape[-1] > 1:
+        LGR.warning(
+            'More than one co-shifting timeseries of interest has been declared. '
+            'Reporting F-stats rather than T-stats.'
+        )
+        regr_cols = regr.shape[1]
+
+        regr_betas = betas[-regr_cols:, :]
+
+        # Composite Beta amplitude map (Root-Sum-of-Squares)
+        bout[mask] = np.sqrt(np.sum(regr_betas**2, axis=0))
+
+        # Fstat of the regressors
+        tout[mask] = compute_fstat(Ymat, Xmat, u_cols=regr_cols)
+    else:
+        bout[mask] = betas[-1, :]
+        tout[mask] = tstats[-1, :]
 
     return bout, tout, rout
 
