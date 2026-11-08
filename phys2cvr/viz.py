@@ -69,8 +69,8 @@ def plot_timeseries(
     zscore : bool, optional
         If True, zscore timeseries before plot. Default is False.
     """
-    ts1 = zs(np.squeeze(ts1), axis=0) if zscore else ts1
-    ts2 = zs(np.squeeze(ts2), axis=0) if zscore else ts2
+    ts1 = zs(np.squeeze(ts1), axis=0) if zscore else np.asarray(ts1)
+    ts2 = zs(np.squeeze(ts2), axis=0) if zscore else np.asarray(ts2)
 
     name1 = ts1_name or 'Timeseries 1'
     name2 = ts2_name or 'Timeseries 2'
@@ -81,14 +81,18 @@ def plot_timeseries(
 
     # Plot ts1 feature(s)
     if ts1.ndim == 1:
-        ax.plot(time_axis, ts1, '-', label=name1)
+        lw1 = 1.5
+        lw2 = 1.5
+        ax.plot(time_axis, ts1, '-', label=name1, linewidth=lw1)
     else:
+        lw1 = 1
+        lw2 = 2
         for idx in range(ts1.shape[1]):
             lbl = f'{name1} (feat {idx + 1})'
-            ax.plot(time_axis, ts1[:, idx], '-', label=lbl)
+            ax.plot(time_axis, ts1[:, idx], '-', label=lbl, linewidth=lw1)
 
     time_axis = _time_axis(ts2, freq)
-    ax.plot(time_axis, ts2, '-')
+    ax.plot(time_axis, ts2, '-', label=name2, linewidth=lw2)
     ax.set_title(f'{name1} vs {name2}')
     ax.legend()
 

@@ -276,7 +276,13 @@ def load_physio(fname):
 
 
 def export_regressor(
-    regressors_matrix, ntp, outprefix, suffix='petco2hrf', ext='.1D', axis=-1
+    regressors_matrix,
+    ntp,
+    outprefix,
+    suffix='petco2hrf',
+    ext='.1D',
+    axis=-1,
+    split=False,
 ):
     """
     Export generated regressors for fMRI analysis.
@@ -295,19 +301,41 @@ def export_regressor(
         The extension of the output file.
     axis : int, optional
         The axis along which to perform the operation. Default is -1.
+    split: bool, optional
+        Split export across last axis. Default not to (False).
 
     Returns
     -------
     regressors_demeaned : np.ndarray
         Interpolated and demeaned version of `regressors_matrix` in the sampling of the
         fMRI data.
+
+    Raises
+    ------
+    NotImplementedError
+        If regressors_marix ndim > 3
     """
     # Local import to avoid circularity
     from .signal import resample_signal_samples  # noqa: ABS101
 
+    if np.squeeze(regressors_matrix).ndim > 3:
+        raise NotImplementedError(
+            'Export of matrices with more than 3 dimensions is not supported.'
+        )
+
     regressors_demeaned = resample_signal_samples(regressors_matrix, ntp, axis=axis)
     regressors_demeaned -= regressors_matrix.mean(axis=axis, keepdims=True)
-    np.savetxt(f'{outprefix}_{suffix}{ext}', regressors_demeaned, fmt='%.6f')
+
+    if split or regressors_demeaned.ndim == 3:
+        for i in range(regressors_demeaned.shape[-1]):
+            np.savetxt(
+                f'{outprefix}_{suffix}_{i + 1}{ext}',
+                regressors_demeaned[..., i],
+                fmt='%.6f',
+            )
+    else:
+        np.savetxt(f'{outprefix}_{suffix}{ext}', regressors_demeaned, fmt='%.6f')
+
     return regressors_demeaned
 
 

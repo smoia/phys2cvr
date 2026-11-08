@@ -101,7 +101,7 @@ def compute_fstat(Ymat, Xmat, u_cols):
     Parameters
     ----------
     Ymat : np.ndarray
-        Data matrix of shape (n_timepoints, n_voxels).
+        Data matrix of shape (n_voxels, n_timepoints).
     Xmat : np.ndarray
         Full design matrix of shape (n_timepoints, n_predictors).
     u_cols : int
@@ -112,9 +112,21 @@ def compute_fstat(Ymat, Xmat, u_cols):
     f_stat : np.ndarray
         F-statistic map across voxels, shape (n_voxels,).
     """
-    dof_error = Ymat.shape[0] - Xmat.shape[1]
+    LGR.debug(f' Ymat shape: {Ymat.shape};    Xmat shape: {Xmat.shape}')
+
+    # Transpose Ymat so that it's n_timepoints, n_voxels
+    if Ymat.shape[0] != Xmat.shape[0]:
+        if Ymat.shape[1] == Xmat.shape[0]:
+            Ymat = Ymat.T
+        else:
+            raise ValueError(
+                f'Provided matrices are incompatible with shapes Ymat:{Ymat.shape} and '
+                f'Xmat:{Xmat.shape} (or Xmat needs to be transposed).'
+            )
 
     Xmat_nuisance = Xmat[:, :-u_cols]
+
+    dof_error = Xmat_nuisance.shape[0] - Xmat_nuisance.shape[1]
 
     # Residual sum of squares for Full Model
     betas, _, _, _ = np.linalg.lstsq(Xmat, Ymat, rcond=None)
@@ -408,7 +420,11 @@ def regression(
     # Compute joint betas and F-stats if regr.ndim > 1
     rout[mask] = r_square
 
-    if regr.ndim > 1:
+    if regr.ndim > 1 and regr.shape[-1] > 1:
+        LGR.warning(
+            'More than one co-shifting timeseries of interest has been declared. '
+            'Reporting F-stats rather than T-stats.'
+        )
         regr_cols = regr.shape[1]
 
         regr_betas = betas[-regr_cols:, :]

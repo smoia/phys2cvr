@@ -434,8 +434,28 @@ def phys2cvr(
             LGR.info(f'Obtaining filtered average signal in {roiref}')
             func_avg = signal.filter_signal(func_avg, tr, lowcut, highcut, butter_order)
 
-    LGR.info('Load physiological data')
+    # Deal with "physiological" data
     if fname_co2 is None:
+        # Check if freq and/or lag step were declared.
+        resample_func = True
+        if freq is None:
+            if lag_step is None or lag_step >= tr:
+                freq = 1 / tr
+                resample_func = False
+                LGR.warning(
+                    'No regressor frequency was provided, setting it to 1/TR (i.e. '
+                    f'1/{tr} = {freq}Hz)'
+                )
+            elif lag_step < tr:
+                # In this case, we need more samples!
+                freq = 1 / lag_step
+                resample_func = False
+                LGR.warning(
+                    'No regressor frequency was provided and lag step < TR. '
+                    f'Setting freq to 1/ls (i.e. 1/{lag_step} = {freq}Hz) '
+                    'to get enough samples in the regressors for the lagged regression.'
+                )
+
         if fourier_order is not None:
             if trial_len is None:
                 raise ValueError(
@@ -451,21 +471,18 @@ def phys2cvr(
             LGR.info(
                 f'Computing CVR maps using a Fourier bases set of {fourier_order}.'
             )
-            if freq is None:
-                freq = 1 / tr
-                LGR.warning(
-                    f'No frequency for the fourier bases was provided, setting it to 1/TR (i.e. {freq}Hz)'
-                )
 
             petco2hrf = fourier_basis(
                 trial_len,
                 func_avg.shape[-1] * tr + lag_max + abs(lag_min),
                 order=fourier_order,
-                sample_interval=freq,
+                freq=freq,
             )
             comp_endtidal = False
             response_function = None
             skip_xcorr = True
+
+            outprefix = os.path.join(outdir, f'fourier-{fourier_order}')
 
         else:
             LGR.info(f'Computing "CVR" (approximation) maps using {fname_func} only')
@@ -496,14 +513,12 @@ def phys2cvr(
 
             # If freq was declared, upsample the average GM to that.
             # Otherwise, set freq to inverse of TR.
-            if freq is None:
-                freq = 1 / tr
-                LGR.info(f'No frequency declared, using 1/tr ({freq}Hz)')
-            else:
+            if resample_func:
                 LGR.info(f'Resampling the average fMRI timeseries at {freq}Hz')
                 upsamp_tps = int(np.round(petco2hrf.shape[-1] * tr * freq))
                 petco2hrf = signal.resample_signal_samples(petco2hrf, upsamp_tps)
     else:
+        LGR.info('Load physiological data')
         co2_is_phys, _ = utils.check_ext('.phys', fname_co2)
         co2_is_1d, _ = utils.check_ext(io.EXT_ARRAY, fname_co2)
 
@@ -637,7 +652,7 @@ def phys2cvr(
 
         # Generate polynomial regressors (at least average) and assign them to denoise_matrix
         LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
-        denoise_matrix = create_legendre(l_degree, regr.size)
+        denoise_matrix = create_legendre(l_degree, regr.shape[0])
 
         # Read in eventual denoising factors
         denoise_matrix = (
@@ -686,11 +701,15 @@ def phys2cvr(
         if scale_factor is None:
             LGR.warning('Remember: CVR might not be in %BOLD/mmHg!')
         else:
+            # Scale beta by scale factor while exporting (useful to transform V in mmHg)
             beta = beta / float(scale_factor)
-        # Scale beta by scale factor while exporting (useful to transform V in mmHg)
+
+        # If there is more than one signal of interest, export F-stats rather than T-stats.
+        statsname = 'fstat' if regr.ndim > 1 and regr.shape[-1] > 1 else 'tstat'
+
         LGR.info('Export CVR and T-stat of simple regression')
         io.export_nifti(beta, oimg, f'{fname_out_func}_cvr_simple{fname_ext}')
-        io.export_nifti(tstat, oimg, f'{fname_out_func}_tstat_simple{fname_ext}')
+        io.export_nifti(tstat, oimg, f'{fname_out_func}_{statsname}_simple{fname_ext}')
 
         if debug:
             LGR.debug('Export R^2 volume of simple regression')
@@ -786,6 +805,11 @@ def phys2cvr(
 
                 # Check the number of repetitions first
                 step = int(lag_step * freq)
+
+                LGR.warning(
+                    f'{nrep} {nrep_neg} {nrep_pos} {regr_shifts.shape} {petco2hrf.shape} {freq} {step}'
+                )
+
                 lag_range = list(range(0, nrep, step))
                 # Prepare empty matrices
                 r_square_all = np.zeros(
@@ -862,7 +886,9 @@ def phys2cvr(
                         f'{fname_out_func}_r_square_all{fname_ext}',
                     )
                     io.export_nifti(
-                        tstat_all, oimg_all, f'{fname_out_func}_tstat_all{fname_ext}'
+                        tstat_all,
+                        oimg_all,
+                        f'{fname_out_func}_{statsname}_all{fname_ext}',
                     )
                     io.export_nifti(
                         beta_all, oimg_all, f'{fname_out_func}_beta_all{fname_ext}'
@@ -889,7 +915,7 @@ def phys2cvr(
                 beta = beta / float(scale_factor)
 
             io.export_nifti(beta, oimg, f'{fname_out_func}_cvr{fname_ext}')
-            io.export_nifti(tstat, oimg, f'{fname_out_func}_tstat{fname_ext}')
+            io.export_nifti(tstat, oimg, f'{fname_out_func}_{statsname}{fname_ext}')
             if not lag_map:
                 io.export_nifti(lag, oimg, f'{fname_out_func}_lag{fname_ext}')
                 io.export_nifti(lag_rel, oimg, f'{fname_out_func}_lag_mkrel{fname_ext}')
