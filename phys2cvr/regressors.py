@@ -330,23 +330,40 @@ def create_fine_shift_regressors(
     -------
     petco2hrf_lagged : np.ndarray
         The shifted versions of the regressor of interest.
+
+    Raises
+    ------
+    ValueError
+        - If lag_min is not specified and lag_max is <= 0
+        - If lag_min is specified but lag_max is not
+        - If lag_min is specified but >= lag_max
+    NotImplementedError
+        - If petco2hrf.ndim > 2
     """
     if lag_max is not None and lag_min is None:
         if lag_max > 0:
             lag_min = -lag_max
         else:
             raise ValueError(
-                'Given maximum lag is 0 or negative, but no minimum lag was provided. Halting execution.'
+                'Given maximum lag is 0 or negative, but no minimum lag was provided. '
+                'Halting execution.'
             )
 
     if lag_max is None and lag_min is not None:
         raise ValueError(
-            'A minimum lag was provided without providing a maximum lag. Please rerun providing both or none.'
+            'A minimum lag was provided without providing a maximum lag. '
+            'Please rerun providing both or none.'
         )
 
     if lag_max is not None and lag_min >= lag_max:
         raise ValueError(
-            f'Invalid lag range: lag_min ({lag_min}) >= lag_max ({lag_max}). Please provide a range where lag_min < lag_max.'
+            f'Invalid lag range: lag_min ({lag_min}) >= lag_max ({lag_max}). '
+            'Please provide a range where lag_min < lag_max.'
+        )
+    if petco2hrf.ndim > 2:
+        raise NotImplementedError(
+            f'Provided regressor has {petco2hrf.ndim} dimensions. phys2cvr supports up '
+            'to 2 dimensions.'
         )
 
     outdir, base = os.path.split(outprefix)

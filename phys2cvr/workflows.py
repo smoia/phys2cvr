@@ -436,36 +436,75 @@ def phys2cvr(
 
     LGR.info('Load physiological data')
     if fname_co2 is None:
-        LGR.info(f'Computing "CVR" (approximation) maps using {fname_func} only')
-        if func_is_1d:
-            LGR.warning('Using an average signal only, solution might be unoptimal.')
-
-            if apply_filter is None:
-                LGR.warning(
-                    'No filter applied to the input average! You know '
-                    'what you are doing, right?'
+        if fourier_order is not None:
+            if trial_len is None:
+                raise ValueError(
+                    'A Fourier-bases-based analysis was set up, but no respiratory '
+                    'trial length was provided. Please run phys2cvr again specifying '
+                    'it using the `-tlen` flag and and its argument.'
+                )
+            if fourier_order < 1:
+                raise ValueError(
+                    f'The Fourier order must be >= 1, but it was specified as {fourier_order}'
                 )
 
-        # Get the SPC of the average rather than the average of the SPC
-        # The former is more robust to intrinsic data noise than the latter
-        petco2hrf = signal.spc(func_avg)
+            LGR.info(
+                f'Computing CVR maps using a Fourier bases set of {fourier_order}.'
+            )
+            if freq is None:
+                freq = 1 / tr
+                LGR.warning(
+                    f'No frequency for the fourier bases was provided, setting it to 1/TR (i.e. {freq}Hz)'
+                )
 
-        # Reassign fname_co2 to fname_func for later use
-        _, basename_co2, _ = utils.check_ext(
-            io.EXT_ALL, f'avg_{os.path.basename(fname_func)}', scan=True, remove=True
-        )
+            petco2hrf = fourier_basis(
+                trial_len,
+                func_avg.shape[-1] * tr + lag_max + abs(lag_min),
+                order=fourier_order,
+                freq=freq,
+            )
+            comp_endtidal = False
+            response_function = None
+            skip_xcorr = True
 
-        outprefix = os.path.join(outdir, basename_co2)
+            outprefix = os.path.join(outdir, f'fourier-{fourier_order}')
 
-        # If freq was declared, upsample the average GM to that.
-        # Otherwise, set freq to inverse of TR.
-        if freq is None:
-            freq = 1 / tr
-            LGR.info(f'No frequency declared, using 1/tr ({freq}Hz)')
         else:
-            LGR.info(f'Resampling the average fMRI timeseries at {freq}Hz')
-            upsamp_tps = int(np.round(petco2hrf.shape[-1] * tr * freq))
-            petco2hrf = signal.resample_signal_samples(petco2hrf, upsamp_tps)
+            LGR.info(f'Computing "CVR" (approximation) maps using {fname_func} only')
+            if func_is_1d:
+                LGR.warning(
+                    'Using an average signal only, solution might be unoptimal.'
+                )
+
+                if apply_filter is None:
+                    LGR.warning(
+                        'No filter applied to the input average! You know '
+                        'what you are doing, right?'
+                    )
+
+            # Get the SPC of the average rather than the average of the SPC
+            # The former is more robust to intrinsic data noise than the latter
+            petco2hrf = signal.spc(func_avg)
+
+            # Reassign fname_co2 to fname_func for later use
+            _, basename_co2, _ = utils.check_ext(
+                io.EXT_ALL,
+                f'avg_{os.path.basename(fname_func)}',
+                scan=True,
+                remove=True,
+            )
+
+            outprefix = os.path.join(outdir, basename_co2)
+
+            # If freq was declared, upsample the average GM to that.
+            # Otherwise, set freq to inverse of TR.
+            if freq is None:
+                freq = 1 / tr
+                LGR.info(f'No frequency declared, using 1/tr ({freq}Hz)')
+            else:
+                LGR.info(f'Resampling the average fMRI timeseries at {freq}Hz')
+                upsamp_tps = int(np.round(petco2hrf.shape[-1] * tr * freq))
+                petco2hrf = signal.resample_signal_samples(petco2hrf, upsamp_tps)
     else:
         co2_is_phys, _ = utils.check_ext('.phys', fname_co2)
         co2_is_1d, _ = utils.check_ext(io.EXT_ARRAY, fname_co2)
@@ -600,7 +639,7 @@ def phys2cvr(
 
         # Generate polynomial regressors (at least average) and assign them to denoise_matrix
         LGR.info(f'Compute Legendre polynomials up to order {l_degree}')
-        denoise_matrix = create_legendre(l_degree, regr.size)
+        denoise_matrix = create_legendre(l_degree, regr.shape[0])
 
         # Read in eventual denoising factors
         denoise_matrix = (
