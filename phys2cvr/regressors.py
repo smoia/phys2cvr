@@ -21,7 +21,7 @@ from phys2cvr.signal import (
     resample_signal_freqs,
 )
 from phys2cvr.stats import x_corr
-from phys2cvr.viz import plot_two_timeseries, plot_xcorr
+from phys2cvr.viz import plot_timeseries, plot_xcorr
 
 LGR = logging.getLogger(__name__)
 LGR.setLevel(logging.INFO)
@@ -157,7 +157,7 @@ def compute_petco2hrf(
         petco2 = endtidal_interpolation(co2, pidx, axis=-1)
 
         # Plot PetCO2 vs CO2
-        plot_two_timeseries(
+        plot_timeseries(
             petco2, co2, f'{outprefix}_co2_vs_petco2.png', 'PetCO2', 'CO2', freq
         )
 
@@ -178,7 +178,7 @@ def compute_petco2hrf(
     # Plot convolved PetCO2 vs PetCO2
     if response_function not in [None, 'none', 'None', 'NONE']:
         petco2hrf = convolve_signal(petco2, freq, response_function, mode)
-        plot_two_timeseries(
+        plot_timeseries(
             petco2hrf,
             petco2,
             f'{outprefix}_petco2_vs_petco2hrf.png',
@@ -451,9 +451,11 @@ def create_physio_regressor(
     func_upsampled = resample_signal_freqs(func_avg, 1 / tr, freq)
 
     if skip_xcorr:
+        ts_name = 'Regressor'
         LGR.info('Skipping Bulk Shift Computation')
         optshift = 0
     else:
+        ts_name = 'Optimally shifted regressor'
         optshift = compute_bulk_shift(
             func_upsampled, petco2hrf, freq, outprefix, trial_len, n_trials, abs_xcorr
         )
@@ -461,15 +463,25 @@ def create_physio_regressor(
     petco2hrf_shift = petco2hrf[optshift : optshift + func_upsampled.shape[0]]
 
     # Plot (shifted) regressor vs average ROI signal.
-    plot_two_timeseries(
+    plot_timeseries(
         petco2hrf_shift,
         func_upsampled,
-        f'{outprefix}_petco2hrf_vs_avgroi.png',
-        'Optimally shifted regressor',
+        f'{outprefix}_regressors_vs_avgroi.png',
+        ts_name,
         'Average ROI signal',
         freq,
         zscore=True,
     )
+    if petco2hrf_shift.ndim > 1:
+        plot_timeseries(
+            petco2hrf_shift.mean(axis=1),
+            func_upsampled,
+            f'{outprefix}_regressors_avg_vs_avgroi.png',
+            f'Averaged {ts_name}s',
+            'Average ROI signal',
+            freq,
+            zscore=True,
+        )
 
     petco2hrf_demean = export_regressor(
         petco2hrf_shift, func_avg.shape[-1], outprefix, 'petco2hrf_simple', ext
