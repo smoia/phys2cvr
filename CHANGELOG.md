@@ -1,3 +1,15 @@
+# 0.34.1 (Tue Nov 10 2026)
+
+#### 🐛 Bug Fix
+
+- Fix handling of files with more dots than just the extensions [#175](https://github.com/smoia/phys2cvr/pull/175) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.34.0 (Sun Nov 08 2026)
 
 #### 💥 Breaking Change during development
