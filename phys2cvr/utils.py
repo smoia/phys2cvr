@@ -93,14 +93,26 @@ def check_ext(all_ext, fname, scan=False, remove=False):
         ext : str
             If both ``remove`` and ``has_ext`` are True, returns also found extension.
     """
-    all_ext = set(if_declared_force_type(all_ext, 'list', silent=True))
-    ext = ''.join(Path(fname).suffixes)
+    all_ext = if_declared_force_type(all_ext, 'list', silent=True)
+    # Sort extensions by length descending to match compound extensions first (e.g., .nii.gz before .gz)
+    sorted_exts = sorted(all_ext, key=len, reverse=True)
+
+    fname = str(fname)
+    fname_lower = str(fname).lower()
+
+    ext = ''
+    has_ext = False
+    for e in sorted_exts:
+        if fname_lower.endswith(e.lower()):
+            # Extract the extension matching the correct casing from the original string
+            ext = fname[-len(e) :]
+            has_ext = True
+            break
+
     LGR.debug(f'{fname} ends with extension {ext}')
 
-    has_ext = ext.lower() in all_ext
-
     if not has_ext and scan:
-        for ext_candidate in all_ext:
+        for ext_candidate in sorted_exts:
             candidate_path = Path(f'{fname}{ext_candidate}')
             if candidate_path.exists():
                 fname = str(candidate_path)
@@ -108,8 +120,6 @@ def check_ext(all_ext, fname, scan=False, remove=False):
                 LGR.warning(f'Found {fname}, using it as input henceforth')
                 has_ext = True
                 break
-
-    ext = ext if has_ext else ''
 
     obj_return = [has_ext]
 
