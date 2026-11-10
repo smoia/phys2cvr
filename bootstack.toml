@@ -1,0 +1,8 @@
+[app]
+name = "phys2cvr"
+id = "org.physiopy.phys2cvr"
+entry = "guiplot.py"
+template = "basic"
+
+[layout]
+default_container = "grid"
