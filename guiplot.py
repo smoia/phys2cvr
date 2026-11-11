@@ -178,7 +178,12 @@ class VoxelViewer:
 
         with bs.App(
             title=f'fMRI Voxel & Regressor Viewer, phys2cvr v{__version__}',
+            theme='catppuccin-dark',
+            dark_theme='catppuccin-dark',
+            light_theme='catppuccin-light',
+            remember_window_state=True,
             size=(1200, 850),
+            min_size=(1200, 850),
         ) as app:
             with app.add_toolbar() as bar:
                 with bar.add_menu('File') as menu:
