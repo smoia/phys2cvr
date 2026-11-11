@@ -184,8 +184,8 @@ def check_array_dim(fname, data, shape=None):
         The name of the file representing ``data``.
     data : np.ndarray
         The data which dimensionality needs to be checked.
-    shape : None | ``'square'`` | ``'rectangle'``
-        Shape of matrix, if empty, skip shape check.
+    shape : None | ``'square'`` | ``'rectangle'`` | ``'prerectangle'``
+        Shape of matrix, if empty, skip shape check. prerectangle is functionally np.atleast_2d
 
     Returns
     -------
@@ -207,22 +207,29 @@ def check_array_dim(fname, data, shape=None):
 
     if data.size == 0:
         raise ValueError(f'{fname} is empty!')
-    if data.ndim > 2:
+    elif data.ndim > 2:
         raise NotImplementedError(
             f'Only matrices up to 2D are supported, but given matrix is {data.ndim}D.'
         )
-
-    if shape is not None:
-        if data.ndim == 1 and shape == 'rectangle':
-            data = data[..., np.newaxis]
-            LGR.warning(
-                f'Rectangular matrix required, but {fname} is a vector. '
-                'Adding empty dimension.'
-            )
-        if shape == 'square' and data.shape[0] != data.shape[1]:
-            raise ValueError(
-                f'Square matrix required, but {fname} matrix has shape {data.shape}.'
-            )
+    elif shape is None:
+        pass
+    elif shape == 'rectangle' and data.ndim == 1:
+        data = data[..., np.newaxis]
+        LGR.warning(
+            f'Rectangular matrix required, but {fname} is a vector. '
+            'Appending empty dimension.'
+        )
+    elif shape == 'prerectangle' and data.ndim == 1:
+        # It's basically np.atleast_2d
+        data = data[np.newaxis, ...]
+        LGR.warning(
+            f'Rectangular matrix required, but {fname} is a vector. '
+            'Prepending empty dimension.'
+        )
+    elif shape == 'square' and data.shape[0] != data.shape[1]:
+        raise ValueError(
+            f'Square matrix required, but {fname} matrix has shape {data.shape}.'
+        )
 
     return data
 
