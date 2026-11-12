@@ -6,6 +6,7 @@ import logging
 import sys
 
 import bootstack as bs
+from bootstack.widgets.sidebar_toggle import SidebarToggle
 
 from phys2cvr import __version__
 from phys2cvr.gui.pages.voxelviewer import VoxelViewer
@@ -49,13 +50,23 @@ def build_app(viewer):
         size=(1200, 850),
         min_size=(1200, 850),
     ) as shell:
-        with shell.add_toolbar() as bar:
-            with bar.add_menu('File') as menu:
-                menu.add_action('Exit', shortcut='Mod+Q', on_click=shell.close)
-            bar.add_spacer()
-            bar.add_theme_toggle()
+        # --- Status bar -----------------------------------------------------
+        ssb = shell.statusbar
+        SidebarToggle(
+            shell=shell,
+            collapse='compact',
+            icon='layout-sidebar',
+            expand_icon='layout-sidebar',
+            collapse_icon='layout-sidebar-inset',
+            parent=ssb,
+        )
+        ssb.add_text(f'phys2cvr v{__version__}')
+        ssb.add_spacer()
+        bs.ThemeToggle(parent=ssb)
+
+        # --- Pages ----------------------------------------------------------
         with shell.page_nav() as nav:
-            with nav.add_page('viewer', text='Voxel viewer', icon='activity'):
+            with nav.add_page('viewer', text='Voxel viewer', icon='clipboard2-pulse'):
                 viewer.build()
         shell.navigate('viewer')
     return shell
