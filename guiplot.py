@@ -7,17 +7,25 @@ import sys
 
 import bootstack as bs
 import matplotlib as mpl
-import nibabel as nib
 import numpy as np
 from matplotlib.figure import Figure
 from scipy.stats import zscore
 
 from phys2cvr import __version__
+from phys2cvr.io import EXT_ARRAY, EXT_NIMG, load_array, load_nifti_get_mask
+from phys2cvr.utils import estimate_lag_range
 
 logger = logging.getLogger(__name__)
 
-NIFTI_TYPES = [('NIfTI files', '*.nii *.nii.gz'), ('All files', '*.*')]
-MATRIX_TYPES = [('Text/Mat files', '*.txt *.mat *.1D'), ('All files', '*.*')]
+NIFTI_TYPES = [
+    ('NIfTI files', ' '.join(f'*{ext}' for ext in EXT_NIMG)),
+    ('All files', '*.*'),
+]
+
+ARRAY_TYPES = [
+    ('Array files', ' '.join(f'*{ext}' for ext in EXT_ARRAY)),
+    ('All files', '*.*'),
+]
 
 
 def _get_parser():
@@ -61,15 +69,15 @@ def _get_parser():
     return parser
 
 
-def load_nifti(path):
+def load_timeseries(path):
     """Load a NIfTI file and return data, spatial voxel sizes and TR (seconds)."""
-    img = nib.load(path)
+    data, _, img = load_nifti_get_mask(path)
     zooms = img.header.get_zooms()
     pixdim = tuple(zooms[:3]) if len(zooms) >= 3 else (1.0, 1.0, 1.0)
     tr = float(zooms[3]) if len(zooms) > 3 else 1.0
     if tr <= 0 or np.isnan(tr):
         tr = 1.0
-    return img.get_fdata(), pixdim, tr
+    return data, pixdim, tr
 
 
 def load_matrix(path):
@@ -84,14 +92,17 @@ class VoxelViewer:
         self.fs = fs if fs else 1.0
         self.lag_range = lag_range
 
-        self.func_data = None
+        self.timeseries = None
+        self.data_types = [
+            'meanvol',
+            'mask',
+            'cvr',
+            'lag',
+            'raw_cvr',
+            'raw_lag',
+        ]
+        self.data = {k: None for k in self.data_types}
         self.regressor_matrix = None
-        self.raw_cvr_data = None
-        self.raw_lag_data = None
-        self.cvr_data = None
-        self.lag_data = None
-        self.mask_data = None
-        self.mean_vol = None
         self.pixdim = (1.0, 1.0, 1.0)
         self.tr = 1.0
         self.time = np.arange(1.0)
@@ -101,63 +112,65 @@ class VoxelViewer:
         self.curr_shift_sec = 0.0
         self.min_delay_sec = -1.0
         self.max_delay_sec = 1.0
+        self.lag_units = 's'
         self._syncing = False
         self.axes = {}
 
     # ----- data handling -----
 
     def set_timeseries(self, path):
-        data, pixdim, tr = load_nifti(path)
-        if data.ndim != 4:
-            raise ValueError('The timeseries must be a 4D NIfTI file.')
-        self.func_data, self.pixdim, self.tr = data, pixdim, tr
-        self.nx, self.ny, self.nz, self.nt = data.shape
+        self.timeseries, self.pixdim, self.tr = load_timeseries(path)
+        self.nx, self.ny, self.nz, self.nt = self.timeserie.shape
         self.time = np.arange(self.nt) * self.tr
-        self.mean_vol = np.mean(data, axis=-1)
+        self.data['meanvol'] = np.mean(self.timeserie, axis=-1)
         self.curr = [self.nx // 2, self.ny // 2, self.nz // 2]
         self._apply_mask()
 
     def set_regressors(self, path):
-        self.regressor_matrix = load_matrix(path)
+        self.regressor_matrix = load_array(path, shape='prerectangle')
 
     def set_cvr(self, path):
-        self.raw_cvr_data = nib.load(path).get_fdata()
-        self._apply_mask()
+        self.data['raw_cvr'], _, _ = load_nifti_get_mask(path)
+        self._apply_mask(['cvr'])
 
     def set_lag(self, path):
-        self.raw_lag_data = nib.load(path).get_fdata()
-        self._apply_mask()
+        self.data['raw_lag'], _, _ = load_nifti_get_mask(path)
+        self._apply_mask(['lag'])
+        _, lag_max, lag_min = estimate_lag_range(self.data['lag'], path)
+        self.lag_range = [lag_max, lag_min]
+        self._update_delay_range()
 
     def set_mask(self, path):
-        self.mask_data = nib.load(path).get_fdata().astype(bool)
+        _, self.data['mask'], _ = load_nifti_get_mask(path, is_mask=True)
         self._apply_mask()
 
-    def _apply_mask(self):
+    def _apply_mask(self, data_types=('cvr', 'lag')):
         """Mask copies of the raw maps, so that masks never compound."""
-        self.cvr_data = self._masked(self.raw_cvr_data)
-        self.lag_data = self._masked(self.raw_lag_data)
+        for k in data_types:
+            self.data[k] = (
+                self.data[f'raw_{k}']
+                if None in (self.data[f'raw_{k}'], self.data['mask'])
+                else self._masked(self.data[f'raw_{k}'])
+            )
 
     def _masked(self, raw):
-        if raw is None:
-            return None
         data = raw.copy()
-        if self.mask_data is not None and self.mask_data.shape == data.shape:
-            data[~self.mask_data] = np.nan
+        data[~self.data['mask']] = np.nan
         return data
 
     def _update_delay_range(self):
         """Slider bounds, in seconds; regressor rows span the whole range."""
         if self.lag_range is not None:
             self.min_delay_sec, self.max_delay_sec = self.lag_range
+            self.lag_units = 's'
         elif self.regressor_matrix is not None:
             half_lags = (self.regressor_matrix.shape[0] - 1) / 2.0
             self.min_delay_sec = -half_lags / self.fs
             self.max_delay_sec = half_lags / self.fs
+            self.lag_units = 'idx'
         else:
             self.min_delay_sec, self.max_delay_sec = -1.0, 1.0
-
-        if self.max_delay_sec <= self.min_delay_sec:
-            self.max_delay_sec = self.min_delay_sec + 1.0 / self.fs
+            self.lag_units = 'idx'
 
         self.slider.min_value = self.min_delay_sec
         self.slider.max_value = self.max_delay_sec
@@ -199,7 +212,7 @@ class VoxelViewer:
                         'Load regressors',
                         on_click=loader(
                             'Select Regressor Matrix File',
-                            MATRIX_TYPES,
+                            ARRAY_TYPES,
                             self.set_regressors,
                         ),
                     )
@@ -235,14 +248,14 @@ class VoxelViewer:
                 self.y_field = bs.NumberField(0, label='Y', min_value=0, width=6)
                 self.z_field = bs.NumberField(0, label='Z', min_value=0, width=6)
                 with bs.Column(grow=True, horizontal='stretch'):
-                    bs.Label('CO2 Delay (seconds)', font='caption')
+                    bs.Label(f'CO2 Delay ({self.lag_units})', font='caption')
                     self.slider = bs.Slider(
                         0.0,
                         min_value=self.min_delay_sec,
                         max_value=self.max_delay_sec,
                         horizontal='stretch',
                     )
-                self.delay_label = bs.Label('+0.00 s', width=10)
+                self.delay_label = bs.Label(f'+0.00 {self.lag_units}', width=10)
 
         for field in (self.x_field, self.y_field, self.z_field):
             field.on_change(lambda e: self._on_coord_change())
@@ -264,7 +277,7 @@ class VoxelViewer:
     def refresh(self):
         """Rebuild the figure and sync controls after the data changed."""
         self._update_delay_range()
-        if self.func_data is None:
+        if self.timeseries is None:
             self.axes = {}
             self.chart.figure = Figure()
             return
@@ -283,7 +296,7 @@ class VoxelViewer:
         self._move_to(*self.curr)
 
     def init_plots(self):
-        num_cols = 3 + (self.cvr_data is not None) + (self.lag_data is not None)
+        num_cols = 3 + (self.data['cvr'] is not None) + (self.data['lag'] is not None)
 
         fig = Figure(figsize=(4 * num_cols, 7), layout='constrained')
         gs = fig.add_gridspec(2, num_cols, height_ratios=[1.2, 1])
@@ -314,8 +327,8 @@ class VoxelViewer:
 
         col = 3
         for name, data, cmap_name, color in (
-            ('cvr', self.cvr_data, 'inferno', 'cyan'),
-            ('lag', self.lag_data, 'viridis_r', 'red'),
+            ('cvr', self.data['cvr'], 'inferno', 'cyan'),
+            ('lag', self.data['lag'], 'viridis_r', 'red'),
         ):
             if data is None:
                 continue
@@ -345,13 +358,13 @@ class VoxelViewer:
         ax = self.axes
 
         views = {
-            'sag': (self.mean_vol[x], y, z, f'Sagittal (X={x})'),
-            'cor': (self.mean_vol[:, y], x, z, f'Coronal (Y={y})'),
-            'axi': (self.mean_vol[:, :, z], x, y, f'Axial (Z={z})'),
+            'sag': (self.data['meanvol'][x], y, z, f'Sagittal (X={x})'),
+            'cor': (self.data['meanvol'][:, y], x, z, f'Coronal (Y={y})'),
+            'axi': (self.data['meanvol'][:, :, z], x, y, f'Axial (Z={z})'),
         }
         for name, data, label, fmt in (
-            ('cvr', self.cvr_data, 'CVR', '{:.2f}'),
-            ('lag', self.lag_data, 'Lag', '{:.2f}s'),
+            ('cvr', self.data['cvr'], 'CVR', '{:.2f}'),
+            ('lag', self.data['lag'], 'Lag', '{:.2f}s'),
         ):
             if data is not None:
                 val = data[x, y, z]
@@ -371,7 +384,7 @@ class VoxelViewer:
             ax[name].set_title(title)
 
         ts_ax = ax['ts']
-        self.line_voxel.set_data(self.time, zscore(self.func_data[x, y, z, :]))
+        self.line_voxel.set_data(self.time, zscore(self.timeseries[x, y, z, :]))
         self.line_voxel.set_label(f'Voxel ({x}, {y}, {z})')
 
         actual_sec = shift_sec
@@ -381,7 +394,7 @@ class VoxelViewer:
                 reg_time = np.linspace(0, self.time[-1], len(raw_co2))
                 raw_co2 = np.interp(self.time, reg_time, raw_co2)
             self.line_co2.set_data(self.time, zscore(raw_co2))
-            self.line_co2.set_label(f'CO2 Shift ({actual_sec:+.2f}s)')
+            self.line_co2.set_label(f'CO2 Shift ({actual_sec:+.2f}{self.lag_units})')
         else:
             self.line_co2.set_data([], [])
             self.line_co2.set_label('_nolegend_')
@@ -400,7 +413,7 @@ class VoxelViewer:
             self.slider.value = float(
                 np.clip(actual_sec, self.min_delay_sec, self.max_delay_sec)
             )
-            self.delay_label.text = f'{actual_sec:+.2f} s'
+            self.delay_label.text = f'{actual_sec:+.2f} {self.lag_units}'
         finally:
             self._syncing = False
 
@@ -414,8 +427,8 @@ class VoxelViewer:
         y = int(np.clip(y, 0, self.ny - 1))
         z = int(np.clip(z, 0, self.nz - 1))
         shift = self.curr_shift_sec
-        if self.lag_data is not None and not np.isnan(self.lag_data[x, y, z]):
-            shift = float(self.lag_data[x, y, z])
+        if self.data['lag'] is not None and not np.isnan(self.data['lag'][x, y, z]):
+            shift = float(self.data['lag'][x, y, z])
         self.update_all(x, y, z, shift)
 
     def on_canvas_click(self, event):
@@ -435,7 +448,7 @@ class VoxelViewer:
         self._move_to(x, y, z)
 
     def _on_coord_change(self):
-        if self._syncing or self.func_data is None:
+        if self._syncing or self.timeseries is None:
             return
         values = [f.value for f in (self.x_field, self.y_field, self.z_field)]
         if any(v is None for v in values):
@@ -443,13 +456,22 @@ class VoxelViewer:
         self._move_to(*values)
 
     def _on_slider_move(self):
-        if self._syncing or self.func_data is None:
+        if self._syncing or self.timeseries is None:
             return
         self.update_all(*self.curr, float(self.slider.value))
 
 
 def _main(argv=None):
     args = _get_parser().parse_args(argv)
+
+    if args.lag_range is not None:
+        if args.lag_range[0] == args.lag_range[1]:
+            raise ValueError(
+                'Specified lag range extremes are the same. Provide two different '
+                'values or leave blank for automatic estimation.'
+            )
+        elif args.lag_range[0] > args.lag_range[1]:
+            raise ValueError('Specified minimum lag range is higher than maximum.')
 
     viewer = VoxelViewer(fs=args.fs, lag_range=args.lag_range)
     app = viewer.build()
