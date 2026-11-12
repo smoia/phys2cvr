@@ -577,29 +577,9 @@ def phys2cvr(
         # Read lag_step and lag_max from file (or try to)
         lag = lag * mask
 
-        lag_list = np.unique(lag[mask])
-
-        if lag_step is None:
-            # np.unique sorts results already
-            lag_step = np.unique(np.round(lag_list[1:] - lag_list[:-1], 3))
-            if lag_step.size > 1:
-                # Check if extra steps found are multiple of the first within numerical tolerance
-                if not np.isclose(np.mod(lag_step, lag_step[0]), 0).all():
-                    raise ValueError(
-                        f'phys2cvr found different delta lags in {lag_map}: {lag_step}'
-                    )
-            lag_step = lag_step[0]
-
-            LGR.warning(f'phys2cvr detected a delta lag of {lag_step} seconds')
-        else:
-            LGR.warning(f'Forcing delta lag to be {lag_step}')
-
-        if lag_max is None:
-            lag_max = np.asarray(lag_list).max()
-            lag_min = np.asarray(lag_list).min()
-            LGR.warning(f'phys2cvr detected a lag range of [{lag_min}, {lag_max}]')
-        else:
-            LGR.warning(f'Forcing lag range to be [{lag_min}, {lag_max}]')
+        lag_step, lag_max, lag_min = utils.estimate_lag_range(
+            lag, lag_map, lag_step, lag_max, lag_min
+        )
 
     # If a regressor dir is specified, try load the data,
     # If failing or otherwise, compute the regressors.
@@ -718,8 +698,6 @@ def phys2cvr(
             )
 
         if lagged_regression and regr_shifts is not None and (lag_max and lag_step):
-            # If user specified a lag map, run regression based on it (see "Load lag map")
-
             total_cores = os.cpu_count() or 1
             if n_jobs != 1:
                 from joblib import delayed
@@ -730,6 +708,7 @@ def phys2cvr(
                 else:
                     n_jobs = min(n_jobs, total_cores)
 
+            # If user specified a lag map, run regression based on it (see "Load lag map")
             if lag_map is not None:
                 LGR.info(
                     f'Running lagged CVR estimation with lag map {lag_map}! '
@@ -738,7 +717,7 @@ def phys2cvr(
 
                 step = int(lag_step * freq)
 
-                lag_idx = np.round((lag - lag_min) * freq / step).astype(int)
+                lag_idx = np.round((lag - lag_min) / lag_step).astype(int)
                 lag_idx_list = np.unique(lag_idx)
 
                 # Prepare empty matrices

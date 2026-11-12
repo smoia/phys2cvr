@@ -269,6 +269,58 @@ def load_and_stack_matrices(matrix_files, base_matrix=None, label=None):
     return np.hstack(loaded) if len(loaded) > 1 else loaded[0]
 
 
+def estimate_lag_range(lag, lag_map, lag_step=None, lag_max=None, lag_min=None):
+    """
+    Estimate lag range parameters from a lag map.
+
+    Parameters
+    ----------
+    lag : np.ndarray
+        Numpy array containing lag data
+    lag_map : str or path
+        Lag map file
+    lag_step : float or None
+        The desired lag step, None to estimate it (default), value to overwrite it.
+    lag_max : float or None
+        The desired max lag, None to estimate it (default), value to overwrite it.
+    lag_min : float or None
+        The desired min lag, None to estimate it (default), value to overwrite it.
+
+    Returns
+    -------
+    lag_step, lag_max, lag_min : float
+    """
+    lag_list = np.unique(lag)
+
+    if lag_step is None:
+        # np.unique sorts results already
+        lag_step = np.unique(np.round(lag_list[1:] - lag_list[:-1], 3))
+        if lag_step.size > 1:
+            # Check if extra steps found are multiple of the first within numerical tolerance
+            if not np.isclose(np.mod(lag_step, lag_step[0]), 0).all():
+                raise ValueError(
+                    f'phys2cvr found different delta lags in {lag_map}: {lag_step}'
+                )
+        lag_step = lag_step[0]
+
+        LGR.warning(f'phys2cvr detected a delta lag of {lag_step} seconds')
+    else:
+        LGR.warning(f'Forcing delta lag to be {lag_step}')
+
+    if lag_max is None:
+        lag_max = lag_list.max()
+        LGR.warning(f'phys2cvr detected a lag max of {lag_max}s')
+    else:
+        LGR.warning(f'Forcing lag range to be [{lag_min}, {lag_max}]')
+    if lag_min is None:
+        lag_min = lag_list.min()
+        LGR.warning(f'phys2cvr detected a lag min of {lag_min}s')
+    else:
+        LGR.warning(f'Forcing lag range to be [{lag_min}, {lag_max}]')
+
+    return lag_step, lag_max, lag_min
+
+
 def save_bash_call(fname, outdir):
     """
     Save the bash call into file `p2d_call.sh`.
