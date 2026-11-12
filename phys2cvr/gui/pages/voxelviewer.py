@@ -250,13 +250,23 @@ class VoxelViewer:
 
     def init_plots(self):
         """Create the anatomical, map and timecourse plots."""
-        num_cols = 3 + (self.data['cvr'] is not None) + (self.data['lag'] is not None)
+        has_cvr = self.data['cvr'] is not None
+        has_lag = self.data['lag'] is not None
 
-        fig = Figure(figsize=(4 * num_cols, 7), layout='constrained')
-        gs = fig.add_gridspec(2, num_cols, height_ratios=[1.2, 1])
+        # We want 5 columns total to accommodate CVR, Lag, and Mean Volume layouts cleanly
+        num_cols = 5
+
+        fig = Figure(figsize=(4 * num_cols, 9), layout='constrained')
+        gs = fig.add_gridspec(3, num_cols, height_ratios=[1.2, 1.2, 1])
 
         dx, dy, dz = self.pixdim
-        aspects = {'sag': dz / dy, 'cor': dz / dx, 'axi': dy / dx}
+        aspects = {
+            'sag': dz / dy,
+            'cor': dz / dx,
+            'axi': dy / dx,
+            'sag_y': dz
+            / dx,  # For CVR/Lag orthogonal slices if needed, or standard aspect
+        }
         self.axes = {}
         self.imgs = {}
         self.cross = {}
@@ -275,27 +285,78 @@ class VoxelViewer:
             return axis
 
         nx, ny, nz = self.nx, self.ny, self.nz
-        add_view('sag', gs[0, 0], aspects['sag'], 'gray', 'r', 'Y', 'Z', (ny, nz))
-        add_view('cor', gs[0, 1], aspects['cor'], 'gray', 'r', 'X', 'Z', (nx, nz))
-        add_view('axi', gs[0, 2], aspects['axi'], 'gray', 'r', 'X', 'Y', (nx, ny))
 
-        col = 3
-        for name, data, cmap_name, color in (
-            ('cvr', self.data['cvr'], 'inferno', 'cyan'),
-            ('lag', self.data['lag'], 'viridis_r', 'red'),
-        ):
-            if data is None:
-                continue
-            cmap = mpl.colormaps[cmap_name].copy()
-            cmap.set_bad(color='black')
-            axis = add_view(
-                name, gs[0, col], aspects['axi'], cmap, color, 'X', 'Y', (nx, ny)
+        # --- Row 0: CVR Maps (Sag, Cor, Axi) + Average Volume (cols 3 & 4) ---
+        if has_cvr:
+            cmap_cvr = mpl.colormaps['inferno'].copy()
+            cmap_cvr.set_bad(color='black')
+            add_view(
+                'cvr_sag',
+                gs[0, 0],
+                aspects['sag'],
+                cmap_cvr,
+                'cyan',
+                'Y',
+                'Z',
+                (ny, nz),
             )
-            axis.set_facecolor('black')
-            fig.colorbar(self.imgs[name], ax=axis, fraction=0.046, pad=0.04)
-            col += 1
+            add_view(
+                'cvr_cor',
+                gs[0, 1],
+                aspects['cor'],
+                cmap_cvr,
+                'cyan',
+                'X',
+                'Z',
+                (nx, nz),
+            )
+            add_view(
+                'cvr_axi',
+                gs[0, 2],
+                aspects['axi'],
+                cmap_cvr,
+                'cyan',
+                'X',
+                'Y',
+                (nx, ny),
+            )
+            for name in ('cvr_sag', 'cvr_cor', 'cvr_axi'):
+                self.axes[name].set_facecolor('black')
+            fig.colorbar(
+                self.imgs['cvr_axi'], ax=self.axes['cvr_axi'], fraction=0.046, pad=0.04
+            )
 
-        ts_ax = self.axes['ts'] = fig.add_subplot(gs[1, :])
+        # Average volume takes columns 3 and 4 in Row 0 (e.g., Coronal and Axial or custom slices)
+        add_view('mean_cor', gs[0, 3], aspects['cor'], 'gray', 'r', 'X', 'Z', (nx, nz))
+        add_view('mean_axi', gs[0, 4], aspects['axi'], 'gray', 'r', 'X', 'Y', (nx, ny))
+
+        # --- Row 1: Lag Maps (Sag, Cor, Axi) + Average Volume (col 3) ---
+        if has_lag:
+            cmap_lag = mpl.colormaps['viridis_r'].copy()
+            cmap_lag.set_bad(color='black')
+            add_view(
+                'lag_sag', gs[1, 0], aspects['sag'], cmap_lag, 'red', 'Y', 'Z', (ny, nz)
+            )
+            add_view(
+                'lag_cor', gs[1, 1], aspects['cor'], cmap_lag, 'red', 'X', 'Z', (nx, nz)
+            )
+            add_view(
+                'lag_axi', gs[1, 2], aspects['axi'], cmap_lag, 'red', 'X', 'Y', (nx, ny)
+            )
+            for name in ('lag_sag', 'lag_cor', 'lag_axi'):
+                self.axes[name].set_facecolor('black')
+            fig.colorbar(
+                self.imgs['lag_axi'], ax=self.axes['lag_axi'], fraction=0.046, pad=0.04
+            )
+
+        # Average volume takes column 3 in Row 1
+        add_view('mean_sag', gs[1, 3], aspects['sag'], 'gray', 'r', 'Y', 'Z', (ny, nz))
+
+        # Leave column 4 in Row 1 blank or use for extra controls/spacer if desired, or let mean_vol span
+        # (Alternatively, you can assign another slice view here)
+
+        # --- Row 2: Timeseries plot spanning all columns ---
+        ts_ax = self.axes['ts'] = fig.add_subplot(gs[2, :])
         (self.line_voxel,) = ts_ax.plot([], [], label='Voxel TS', color='#1f77b4')
         (self.line_co2,) = ts_ax.plot(
             [], [], label='CO2 Regressor', color='#ff7f0e', linestyle='--'
@@ -312,25 +373,50 @@ class VoxelViewer:
         self.curr_shift_sec = shift_sec
         ax = self.axes
 
-        views = {
-            'sag': (self.data['meanvol'][x], y, z, f'Sagittal (X={x})'),
-            'cor': (self.data['meanvol'][:, y], x, z, f'Coronal (Y={y})'),
-            'axi': (self.data['meanvol'][:, :, z], x, y, f'Axial (Z={z})'),
-        }
-        for name, data, label, fmt in (
-            ('cvr', self.data['cvr'], 'CVR', '{:.2f}'),
-            ('lag', self.data['lag'], 'Lag', '{:.2f}s'),
-        ):
-            if data is not None:
-                val = data[x, y, z]
-                title = (
-                    f'{label}: {fmt.format(val)}'
-                    if not np.isnan(val)
-                    else f'{label}: Masked'
-                )
-                views[name] = (data[:, :, z], x, y, title)
+        mean_vol = self.data['meanvol']
+        cvr_data = self.data['cvr']
+        lag_data = self.data['lag']
 
+        # --- Define views for all axes across the new grid ---
+        views = {
+            # Average volume slices
+            'mean_cor': (mean_vol[:, y, :], x, z, f'Coronal (Y={y})'),
+            'mean_axi': (mean_vol[:, :, z], x, y, f'Axial (Z={z})'),
+            'mean_sag': (mean_vol[x, :, :], y, z, f'Sagittal (X={x})'),
+        }
+
+        # CVR 3-axis views (Row 0)
+        if cvr_data is not None:
+            val_cvr = cvr_data[x, y, z]
+            cvr_title = (
+                f'CVR: {val_cvr:.2f}' if not np.isnan(val_cvr) else 'CVR: Masked'
+            )
+            views.update(
+                {
+                    'cvr_sag': (cvr_data[x, :, :], y, z, f'Sagittal (X={x})'),
+                    'cvr_cor': (cvr_data[:, y, :], x, z, f'Coronal (Y={y})'),
+                    'cvr_axi': (cvr_data[:, :, z], x, y, cvr_title),
+                }
+            )
+
+        # Lag 3-axis views (Row 1)
+        if lag_data is not None:
+            val_lag = lag_data[x, y, z]
+            lag_title = (
+                f'Lag: {val_lag:.2f}s' if not np.isnan(val_lag) else 'Lag: Masked'
+            )
+            views.update(
+                {
+                    'lag_sag': (lag_data[x, :, :], y, z, f'Sagittal (X={x})'),
+                    'lag_cor': (lag_data[:, y, :], x, z, f'Coronal (Y={y})'),
+                    'lag_axi': (lag_data[:, :, z], x, y, lag_title),
+                }
+            )
+
+        # Update each image slice, crosshairs, and titles
         for name, (slice_data, cx, cy, title) in views.items():
+            if name not in self.imgs:
+                continue
             img = self.imgs[name]
             img.set_data(slice_data.T)
             img.autoscale()
@@ -338,6 +424,7 @@ class VoxelViewer:
             self.cross[name][1].set_ydata([cy, cy])
             ax[name].set_title(title)
 
+        # --- Timeseries Plot (Row 2) ---
         ts_ax = ax['ts']
         self.line_voxel.set_data(self.time, zscore(self.timeseries[x, y, z, :]))
         self.line_voxel.set_label(f'Voxel ({x}, {y}, {z})')
@@ -360,6 +447,7 @@ class VoxelViewer:
         ts_ax.relim()
         ts_ax.autoscale_view(scalex=False, scaley=True)
 
+        # --- Sync Controls ---
         self._syncing = True
         try:
             self.x_field.value = x
