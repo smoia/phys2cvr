@@ -253,19 +253,19 @@ class VoxelViewer:
         has_cvr = self.data['cvr'] is not None
         has_lag = self.data['lag'] is not None
 
-        # We want 5 columns total to accommodate CVR, Lag, and Mean Volume layouts cleanly
         num_cols = 5
 
         fig = Figure(figsize=(4 * num_cols, 9), layout='constrained')
         gs = fig.add_gridspec(3, num_cols, height_ratios=[1.2, 1.2, 1])
+        gs = fig.add_gridspec(
+            3, num_cols, height_ratios=[1.2, 1.2, 1], wspace=0.05, hspace=0.2
+        )
 
         dx, dy, dz = self.pixdim
         aspects = {
             'sag': dz / dy,
             'cor': dz / dx,
             'axi': dy / dx,
-            'sag_y': dz
-            / dx,  # For CVR/Lag orthogonal slices if needed, or standard aspect
         }
         self.axes = {}
         self.imgs = {}
@@ -282,6 +282,10 @@ class VoxelViewer:
             )
             axis.set_xlabel(xlabel)
             axis.set_ylabel(ylabel)
+            axis.set_xticks([])
+            axis.set_yticks([])
+            axis.set_xticklabels([])
+            axis.set_yticklabels([])
             return axis
 
         nx, ny, nz = self.nx, self.ny, self.nz
@@ -326,7 +330,6 @@ class VoxelViewer:
                 self.imgs['cvr_axi'], ax=self.axes['cvr_axi'], fraction=0.046, pad=0.04
             )
 
-        # Average volume takes columns 3 and 4 in Row 0 (e.g., Coronal and Axial or custom slices)
         add_view('mean_cor', gs[0, 3], aspects['cor'], 'gray', 'r', 'X', 'Z', (nx, nz))
         add_view('mean_axi', gs[0, 4], aspects['axi'], 'gray', 'r', 'X', 'Y', (nx, ny))
 
@@ -349,11 +352,7 @@ class VoxelViewer:
                 self.imgs['lag_axi'], ax=self.axes['lag_axi'], fraction=0.046, pad=0.04
             )
 
-        # Average volume takes column 3 in Row 1
         add_view('mean_sag', gs[1, 3], aspects['sag'], 'gray', 'r', 'Y', 'Z', (ny, nz))
-
-        # Leave column 4 in Row 1 blank or use for extra controls/spacer if desired, or let mean_vol span
-        # (Alternatively, you can assign another slice view here)
 
         # --- Row 2: Timeseries plot spanning all columns ---
         ts_ax = self.axes['ts'] = fig.add_subplot(gs[2, :])
