@@ -1,21 +1,14 @@
 #!/usr/bin/env python3
 """Voxel viewer for phys2cvr, built with bootstack."""
 
-import argparse
-import logging
-import sys
-
 import bootstack as bs
 import matplotlib as mpl
 import numpy as np
 from matplotlib.figure import Figure
 from scipy.stats import zscore
 
-from phys2cvr import __version__
 from phys2cvr.io import EXT_ARRAY, EXT_NIMG, load_array, load_nifti_get_mask
 from phys2cvr.utils import estimate_lag_range
-
-logger = logging.getLogger(__name__)
 
 NIFTI_TYPES = [
     ('NIfTI files', ' '.join(f'*{ext}' for ext in EXT_NIMG)),
@@ -28,61 +21,15 @@ ARRAY_TYPES = [
 ]
 
 
-def _get_parser():
-    """
-    Parse command line inputs for this function.
-
-    Returns
-    -------
-    parser.parse_args() : argparse dict
-
-    """
-    parser = argparse.ArgumentParser(description='phys2cvr viewer.')
-    parser.add_argument(
-        'nii_file', nargs='?', default=None, help='Path to 4D fMRI NIfTI file'
-    )
-    parser.add_argument(
-        '--matrix_file',
-        default=None,
-        help='Path to regressor matrix text/mat file',
-    )
-    parser.add_argument('--cvr', default=None, help='Optional path to 3D CVR NIfTI map')
-    parser.add_argument('--lag', default=None, help='Optional path to 3D Lag NIfTI map')
-    parser.add_argument(
-        '--mask', default=None, help='Optional path to 3D brain mask NIfTI file'
-    )
-    parser.add_argument(
-        '--fs',
-        type=float,
-        default=None,
-        help='Regressor sampling frequency in Hz (default: 1.0)',
-    )
-    parser.add_argument(
-        '--lag_range',
-        type=float,
-        nargs=2,
-        default=None,
-        metavar=('START', 'END'),
-        help='Optional explicit lag range tuple (start, end) in seconds',
-    )
-
-    return parser
-
-
 def load_timeseries(path):
     """Load a NIfTI file and return data, spatial voxel sizes and TR (seconds)."""
-    data, _, img = load_nifti_get_mask(path)
+    data, _, img = load_nifti_get_mask(path, dim=4)
     zooms = img.header.get_zooms()
     pixdim = tuple(zooms[:3]) if len(zooms) >= 3 else (1.0, 1.0, 1.0)
     tr = float(zooms[3]) if len(zooms) > 3 else 1.0
     if tr <= 0 or np.isnan(tr):
         tr = 1.0
     return data, pixdim, tr
-
-
-def load_matrix(path):
-    """Load a regressor matrix (lags x timepoints); a single regressor is 1 row."""
-    return np.atleast_2d(np.loadtxt(path))
 
 
 class VoxelViewer:
@@ -119,28 +66,34 @@ class VoxelViewer:
     # ----- data handling -----
 
     def set_timeseries(self, path):
+        """Load the functional timeseries and initialize the selected voxel."""
         self.timeseries, self.pixdim, self.tr = load_timeseries(path)
-        self.nx, self.ny, self.nz, self.nt = self.timeserie.shape
+        self.nx, self.ny, self.nz, self.nt = self.timeseries.shape
         self.time = np.arange(self.nt) * self.tr
-        self.data['meanvol'] = np.mean(self.timeserie, axis=-1)
+        self.data['meanvol'] = np.mean(self.timeseries, axis=-1)
         self.curr = [self.nx // 2, self.ny // 2, self.nz // 2]
         self._apply_mask()
 
     def set_regressors(self, path):
+        """Load the shifted regressor matrix."""
         self.regressor_matrix = load_array(path, shape='prerectangle')
 
     def set_cvr(self, path):
+        """Load and mask the CVR map."""
         self.data['raw_cvr'], _, _ = load_nifti_get_mask(path)
         self._apply_mask(['cvr'])
 
     def set_lag(self, path):
+        """Load the lag map and estimate the available lag range."""
         self.data['raw_lag'], _, _ = load_nifti_get_mask(path)
         self._apply_mask(['lag'])
-        _, lag_max, lag_min = estimate_lag_range(self.data['lag'], path)
-        self.lag_range = [lag_max, lag_min]
+        finite_lags = self.data['raw_lag'][np.isfinite(self.data['raw_lag'])]
+        _, lag_max, lag_min = estimate_lag_range(finite_lags, path)
+        self.lag_range = [lag_min, lag_max]
         self._update_delay_range()
 
     def set_mask(self, path):
+        """Load a mask and apply it to the maps."""
         _, self.data['mask'], _ = load_nifti_get_mask(path, is_mask=True)
         self._apply_mask()
 
@@ -149,7 +102,7 @@ class VoxelViewer:
         for k in data_types:
             self.data[k] = (
                 self.data[f'raw_{k}']
-                if None in (self.data[f'raw_{k}'], self.data['mask'])
+                if self.data[f'raw_{k}'] is None or self.data['mask'] is None
                 else self._masked(self.data[f'raw_{k}'])
             )
 
@@ -186,82 +139,70 @@ class VoxelViewer:
     # ----- UI -----
 
     def build(self):
+        """Build the viewer inside the current page."""
+
         def loader(title, file_types, setter):
             return lambda: self._load(title, file_types, setter)
 
-        with bs.App(
-            title=f'fMRI Voxel & Regressor Viewer, phys2cvr v{__version__}',
-            theme='catppuccin-dark',
-            dark_theme='catppuccin-dark',
-            light_theme='catppuccin-light',
-            remember_window_state=True,
-            size=(1200, 850),
-            min_size=(1200, 850),
-        ) as app:
-            with app.add_toolbar() as bar:
-                with bar.add_menu('File') as menu:
-                    menu.add_action(
-                        'Load timeseries',
-                        on_click=loader(
-                            'Select 4D fMRI NIfTI File',
-                            NIFTI_TYPES,
-                            self.set_timeseries,
-                        ),
-                    )
-                    menu.add_action(
-                        'Load regressors',
-                        on_click=loader(
-                            'Select Regressor Matrix File',
-                            ARRAY_TYPES,
-                            self.set_regressors,
-                        ),
-                    )
-                    menu.add_action(
-                        'Load CVR map',
-                        on_click=loader(
-                            'Select 3D CVR Map NIfTI File', NIFTI_TYPES, self.set_cvr
-                        ),
-                    )
-                    menu.add_action(
-                        'Load lag map',
-                        on_click=loader(
-                            'Select 3D Lag Map NIfTI File', NIFTI_TYPES, self.set_lag
-                        ),
-                    )
-                    menu.add_action(
-                        'Load mask',
-                        on_click=loader(
-                            'Select 3D Brain Mask NIfTI File',
-                            NIFTI_TYPES,
-                            self.set_mask,
-                        ),
-                    )
-                    menu.add_divider()
-                    menu.add_action('Exit', shortcut='Mod+Q', on_click=app.close)
-                bar.add_spacer()
-                bar.add_theme_toggle()
+        with bs.Toolbar(horizontal='stretch') as bar:
+            self.toolbar = bar
+            with bar.add_menu('Load') as menu:
+                menu.add_action(
+                    'Load timeseries',
+                    on_click=loader(
+                        'Select 4D fMRI NIfTI File',
+                        NIFTI_TYPES,
+                        self.set_timeseries,
+                    ),
+                )
+                menu.add_action(
+                    'Load regressors',
+                    on_click=loader(
+                        'Select Regressor Matrix File',
+                        ARRAY_TYPES,
+                        self.set_regressors,
+                    ),
+                )
+                menu.add_action(
+                    'Load CVR map',
+                    on_click=loader(
+                        'Select 3D CVR Map NIfTI File', NIFTI_TYPES, self.set_cvr
+                    ),
+                )
+                menu.add_action(
+                    'Load lag map',
+                    on_click=loader(
+                        'Select 3D Lag Map NIfTI File', NIFTI_TYPES, self.set_lag
+                    ),
+                )
+                menu.add_action(
+                    'Load mask',
+                    on_click=loader(
+                        'Select 3D Brain Mask NIfTI File',
+                        NIFTI_TYPES,
+                        self.set_mask,
+                    ),
+                )
+        self.chart = bs.Chart(figure=Figure(), grow=True, horizontal='stretch')
 
-            self.chart = bs.Chart(figure=Figure(), grow=True, horizontal='stretch')
-
-            with bs.Row(gap=16, padding=10, horizontal='stretch', vertical='center'):
-                self.x_field = bs.NumberField(0, label='X', min_value=0, width=6)
-                self.y_field = bs.NumberField(0, label='Y', min_value=0, width=6)
-                self.z_field = bs.NumberField(0, label='Z', min_value=0, width=6)
-                with bs.Column(grow=True, horizontal='stretch'):
-                    bs.Label(f'CO2 Delay ({self.lag_units})', font='caption')
-                    self.slider = bs.Slider(
-                        0.0,
-                        min_value=self.min_delay_sec,
-                        max_value=self.max_delay_sec,
-                        horizontal='stretch',
-                    )
-                self.delay_label = bs.Label(f'+0.00 {self.lag_units}', width=10)
+        with bs.Row(gap=16, padding=10, horizontal='stretch', vertical='center'):
+            self.x_field = bs.NumberField(0, label='X', min_value=0, width=6)
+            self.y_field = bs.NumberField(0, label='Y', min_value=0, width=6)
+            self.z_field = bs.NumberField(0, label='Z', min_value=0, width=6)
+            with bs.Column(grow=True, horizontal='stretch'):
+                bs.Label(f'CO2 Delay ({self.lag_units})', font='caption')
+                self.slider = bs.Slider(
+                    0.0,
+                    min_value=self.min_delay_sec,
+                    max_value=self.max_delay_sec,
+                    horizontal='stretch',
+                )
+            self.delay_label = bs.Label(f'+0.00 {self.lag_units}', width=10)
 
         for field in (self.x_field, self.y_field, self.z_field):
             field.on_change(lambda e: self._on_coord_change())
         self.slider.on_change(lambda e: self._on_slider_move())
         self.refresh()
-        return app
 
     def _load(self, title, file_types, setter):
         path = bs.ask_open_file(title=title, file_types=file_types)
@@ -269,10 +210,9 @@ class VoxelViewer:
             return
         try:
             setter(path)
+            self.refresh()
         except Exception as err:  # noqa: BLE001
             bs.alert(str(err), title='Could not load file')
-            return
-        self.refresh()
 
     def refresh(self):
         """Rebuild the figure and sync controls after the data changed."""
@@ -296,6 +236,7 @@ class VoxelViewer:
         self._move_to(*self.curr)
 
     def init_plots(self):
+        """Create the anatomical, map and timecourse plots."""
         num_cols = 3 + (self.data['cvr'] is not None) + (self.data['lag'] is not None)
 
         fig = Figure(figsize=(4 * num_cols, 7), layout='constrained')
@@ -353,6 +294,7 @@ class VoxelViewer:
         self.chart.figure = fig
 
     def update_all(self, x, y, z, shift_sec):
+        """Update plots and controls for a voxel and regressor delay."""
         self.curr = [x, y, z]
         self.curr_shift_sec = shift_sec
         ax = self.axes
@@ -432,6 +374,7 @@ class VoxelViewer:
         self.update_all(x, y, z, shift)
 
     def on_canvas_click(self, event):
+        """Select a voxel from one of the displayed slices."""
         names = {axis: name for name, axis in self.axes.items()}
         name = names.get(event.inaxes)
         if name is None or name == 'ts' or event.xdata is None or event.ydata is None:
@@ -459,42 +402,3 @@ class VoxelViewer:
         if self._syncing or self.timeseries is None:
             return
         self.update_all(*self.curr, float(self.slider.value))
-
-
-def _main(argv=None):
-    args = _get_parser().parse_args(argv)
-
-    if args.lag_range is not None:
-        if args.lag_range[0] == args.lag_range[1]:
-            raise ValueError(
-                'Specified lag range extremes are the same. Provide two different '
-                'values or leave blank for automatic estimation.'
-            )
-        elif args.lag_range[0] > args.lag_range[1]:
-            raise ValueError('Specified minimum lag range is higher than maximum.')
-
-    viewer = VoxelViewer(fs=args.fs, lag_range=args.lag_range)
-    app = viewer.build()
-
-    # The mask goes first, so that it is applied to the maps
-    try:
-        if args.nii_file:
-            viewer.set_timeseries(args.nii_file)
-        for path, setter in (
-            (args.mask, viewer.set_mask),
-            (args.cvr, viewer.set_cvr),
-            (args.lag, viewer.set_lag),
-            (args.matrix_file, viewer.set_regressors),
-        ):
-            if path:
-                setter(path)
-    except Exception as err:  # noqa: BLE001
-        logger.error('Could not load input: %s', err)
-        sys.exit(1)
-    viewer.refresh()
-
-    app.run()
-
-
-if __name__ == '__main__':
-    _main(sys.argv[1:])
