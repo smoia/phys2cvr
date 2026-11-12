@@ -17,8 +17,8 @@ HAS_DISPLAY = sys.platform != 'linux' or bool(os.environ.get('DISPLAY'))
 if GUI_AVAILABLE:
     import bootstack as bs
 
-    import app
-    from guiplot import VoxelViewer
+    from phys2cvr.gui import app
+    from phys2cvr.gui.pages.guiplot import VoxelViewer
 
 
 @unittest.skipUnless(

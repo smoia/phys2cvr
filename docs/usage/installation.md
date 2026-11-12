@@ -25,7 +25,8 @@ The possible features are:
 -  `[responses]`: to use physiological response functions from physiopy's `phys2denoise`.
 -  `[matlab]`: to load and export MATLAB (`.mat`) files.
 -  `[parallel]`: to run L-GLMs in parallel and drop execution process time (at the cost of extra resources).
--  `[all]`: to install all of the above.
+-  `[gui]`: to use the graphical voxel viewer (requires Python 3.12+ and Tk).
+-  `[all]`: to install the workflow extras (`responses`, `matlab`, and `parallel`).
 
 ## Clone from Github / install without `pip`
 

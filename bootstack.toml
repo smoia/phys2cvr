@@ -1,7 +1,7 @@
 [app]
 name = "phys2cvr"
 id = "org.physiopy.phys2cvr"
-entry = "app.py"
+entry = "phys2cvr/gui/app.py"
 template = "basic"
 
 [layout]
