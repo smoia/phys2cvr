@@ -8,7 +8,7 @@ import sys
 import bootstack as bs
 
 from phys2cvr import __version__
-from phys2cvr.gui.pages.guiplot import VoxelViewer
+from phys2cvr.gui.pages.voxelviewer import VoxelViewer
 
 logger = logging.getLogger(__name__)
 
