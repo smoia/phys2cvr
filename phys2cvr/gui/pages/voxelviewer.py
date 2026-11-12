@@ -16,7 +16,7 @@ NIFTI_TYPES = [
 ]
 
 ARRAY_TYPES = [
-    ('Array files', ' '.join(f'*{ext}' for ext in EXT_ARRAY)),
+    ('Array files', '*.1D ' + ' '.join(f'*{ext}' for ext in EXT_ARRAY)),
     ('All files', '*.*'),
 ]
 
@@ -38,6 +38,7 @@ class VoxelViewer:
     def __init__(self, fs=None, lag_range=None):
         self.fs = fs if fs else 1.0
         self.lag_range = lag_range
+        self.lag_step = None
 
         self.timeseries = None
         self.data_types = [
@@ -65,6 +66,44 @@ class VoxelViewer:
 
     # ----- data handling -----
 
+    def _masked(self, raw):
+        data = raw.copy()
+        data[~self.data['mask']] = np.nan
+        return data
+
+    def _apply_mask(self, data_types=('cvr', 'lag')):
+        """Mask copies of the raw maps, so that masks never compound."""
+        for k in data_types:
+            self.data[k] = (
+                self.data[f'raw_{k}']
+                if self.data[f'raw_{k}'] is None or self.data['mask'] is None
+                else self._masked(self.data[f'raw_{k}'])
+            )
+
+    def _update_delay_range(self):
+        """Slider bounds, in seconds; regressor rows span the whole range."""
+        if self.lag_range is not None:
+            self.min_delay_sec, self.max_delay_sec = self.lag_range
+            self.lag_units = 's'
+            if self.lag_step is not None:
+                self.slider.step = self.lag_step
+        elif self.regressor_matrix is not None:
+            half_lags = (self.regressor_matrix.shape[0] - 1) / 2.0
+            self.min_delay_sec = -half_lags / self.fs
+            self.max_delay_sec = half_lags / self.fs
+            self.lag_units = 'idx'
+            self.slider.step = 1
+        else:
+            self.min_delay_sec, self.max_delay_sec = -1.0, 1.0
+            self.lag_units = 'idx'
+            self.slider.step = 1
+
+        self.lagmin_field.value = self.min_delay_sec
+        self.lagmax_field.value = self.max_delay_sec
+        self.slider.min_value = self.min_delay_sec
+        self.slider.max_value = self.max_delay_sec
+        self.slider.disabled = self.regressor_matrix is None
+
     def set_timeseries(self, path):
         """Load the functional timeseries and initialize the selected voxel."""
         self.timeseries, self.pixdim, self.tr = load_timeseries(path)
@@ -88,7 +127,7 @@ class VoxelViewer:
         self.data['raw_lag'], _, _ = load_nifti_get_mask(path)
         self._apply_mask(['lag'])
         finite_lags = self.data['raw_lag'][np.isfinite(self.data['raw_lag'])]
-        _, lag_max, lag_min = estimate_lag_range(finite_lags, path)
+        self.lag_step, lag_max, lag_min = estimate_lag_range(finite_lags, path)
         self.lag_range = [lag_min, lag_max]
         self._update_delay_range()
 
@@ -96,38 +135,6 @@ class VoxelViewer:
         """Load a mask and apply it to the maps."""
         _, self.data['mask'], _ = load_nifti_get_mask(path, is_mask=True)
         self._apply_mask()
-
-    def _apply_mask(self, data_types=('cvr', 'lag')):
-        """Mask copies of the raw maps, so that masks never compound."""
-        for k in data_types:
-            self.data[k] = (
-                self.data[f'raw_{k}']
-                if self.data[f'raw_{k}'] is None or self.data['mask'] is None
-                else self._masked(self.data[f'raw_{k}'])
-            )
-
-    def _masked(self, raw):
-        data = raw.copy()
-        data[~self.data['mask']] = np.nan
-        return data
-
-    def _update_delay_range(self):
-        """Slider bounds, in seconds; regressor rows span the whole range."""
-        if self.lag_range is not None:
-            self.min_delay_sec, self.max_delay_sec = self.lag_range
-            self.lag_units = 's'
-        elif self.regressor_matrix is not None:
-            half_lags = (self.regressor_matrix.shape[0] - 1) / 2.0
-            self.min_delay_sec = -half_lags / self.fs
-            self.max_delay_sec = half_lags / self.fs
-            self.lag_units = 'idx'
-        else:
-            self.min_delay_sec, self.max_delay_sec = -1.0, 1.0
-            self.lag_units = 'idx'
-
-        self.slider.min_value = self.min_delay_sec
-        self.slider.max_value = self.max_delay_sec
-        self.slider.disabled = self.regressor_matrix is None
 
     def _regressor_row(self, shift_sec):
         """Return the regressor shifted by `shift_sec` and the actual shift used."""
@@ -144,7 +151,7 @@ class VoxelViewer:
         def loader(title, file_types, setter):
             return lambda: self._load(title, file_types, setter)
 
-        with bs.Toolbar(horizontal='stretch') as bar:
+        with bs.Toolbar(horizontal='stretch', surface='chrome') as bar:
             self.toolbar = bar
             with bar.add_menu('Load') as menu:
                 menu.add_action(
@@ -186,11 +193,15 @@ class VoxelViewer:
         self.chart = bs.Chart(figure=Figure(), grow=True, horizontal='stretch')
 
         with bs.Row(gap=16, padding=10, horizontal='stretch', vertical='center'):
-            self.x_field = bs.NumberField(0, label='X', min_value=0, width=6)
-            self.y_field = bs.NumberField(0, label='Y', min_value=0, width=6)
-            self.z_field = bs.NumberField(0, label='Z', min_value=0, width=6)
+            self.x_field = bs.NumberField(0, label='X', min_value=0, width=4)
+            self.y_field = bs.NumberField(0, label='Y', min_value=0, width=4)
+            self.z_field = bs.NumberField(0, label='Z', min_value=0, width=4)
+            self.lagmax_field = bs.NumberField(0, label='Lag max', min_value=0, width=4)
+            self.lagmin_field = bs.NumberField(0, label='Lag min', min_value=0, width=4)
             with bs.Column(grow=True, horizontal='stretch'):
-                bs.Label(f'CO2 Delay ({self.lag_units})', font='caption')
+                self.CO2_label = bs.Label(
+                    f'CO2 Delay ({self.lag_units})', font='caption'
+                )
                 self.slider = bs.Slider(
                     0.0,
                     min_value=self.min_delay_sec,
@@ -201,6 +212,8 @@ class VoxelViewer:
 
         for field in (self.x_field, self.y_field, self.z_field):
             field.on_change(lambda e: self._on_coord_change())
+        for field in (self.lagmax_field, self.lagmin_field):
+            field.on_change(lambda e: self._on_lagrange_change())
         self.slider.on_change(lambda e: self._on_slider_move())
         self.refresh()
 
