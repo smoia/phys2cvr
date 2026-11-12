@@ -474,7 +474,7 @@ class VoxelViewer:
         self.update_all(x, y, z, shift)
 
     def on_canvas_click(self, event):
-        """Select a voxel from one of the displayed slices."""
+        """Select a voxel from any of the displayed anatomical or map slices."""
         names = {axis: name for name, axis in self.axes.items()}
         name = names.get(event.inaxes)
         if name is None or name == 'ts' or event.xdata is None or event.ydata is None:
@@ -482,12 +482,15 @@ class VoxelViewer:
 
         x, y, z = self.curr
         u, v = int(round(event.xdata)), int(round(event.ydata))
-        if name == 'sag':
+
+        # Determine coordinates based on which view was clicked
+        if name in ('cvr_sag', 'lag_sag', 'mean_sag'):
             y, z = u, v
-        elif name == 'cor':
+        elif name in ('cvr_cor', 'lag_cor', 'mean_cor'):
             x, z = u, v
-        else:
+        elif name in ('cvr_axi', 'lag_axi', 'mean_axi'):
             x, y = u, v
+
         self._move_to(x, y, z)
 
     def _on_coord_change(self):
