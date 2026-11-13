@@ -29,6 +29,12 @@ def _get_parser():
         default=None,
         help='Path to file containing all the lagged versions of the regressor of interest',
     )
+    parser.add_argument(
+        '-r2',
+        '--r2',
+        default=None,
+        help='Path to 4D R² map volume across computed lag GLMs',
+    )
     parser.add_argument('-cvr', '--cvr', default=None, help='Path to 3D CVR map')
     parser.add_argument('-lag', '--lag', default=None, help='Path to 3D Lag map')
     parser.add_argument('-m', '--mask', default=None, help='Path to 3D brain mask file')
@@ -107,6 +113,7 @@ def _main(argv=None):
             (args.cvr, viewer.set_cvr),
             (args.lag, viewer.set_lag),
             (args.regressor, viewer.set_regressors),
+            (args.r2, viewer.set_r2),
         ):
             if path:
                 setter(path)

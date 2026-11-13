@@ -47,8 +47,10 @@ class VoxelViewer:
             'mask',
             'cvr',
             'lag',
+            'r2',
             'raw_cvr',
             'raw_lag',
+            'raw_r2',
         ]
         self.data = {k: None for k in self.data_types}
         self.regressor_matrix = None
@@ -112,6 +114,11 @@ class VoxelViewer:
         self.time = np.arange(self.nt) * self.tr
         self.data['meanvol'] = np.mean(self.timeseries, axis=-1)
         self.curr = [self.nx // 2, self.ny // 2, self.nz // 2]
+
+        # If a mask was not provided yet, generate it from non-zero mean volume voxels
+        if self.data['mask'] is None:
+            self.data['mask'] = self.data['meanvol'] != 0
+
         self._apply_mask()
 
     def set_regressors(self, path):
@@ -135,6 +142,16 @@ class VoxelViewer:
         self.lag_step, lag_max, lag_min = estimate_lag_range(finite_lags, path)
         self.lag_range = (lag_min, lag_max)
         self._update_delay_range()
+
+    def set_r2(self, path):
+        """Load the 4D R² map volume."""
+        self.data['raw_r2'], _, _ = load_nifti_get_mask(path, dim=4)
+        if self.data['mask'] is not None:
+            self.data['r2'] = self.data['raw_r2'].copy()
+            # Mask spatial dimensions while keeping 4th dimension intact
+            self.data['r2'][~self.data['mask']] = np.nan
+        else:
+            self.data['r2'] = self.data['raw_r2']
 
     def set_mask(self, path):
         """Load a mask and apply it to the maps."""
@@ -185,6 +202,12 @@ class VoxelViewer:
                     'Load lag map',
                     on_click=loader(
                         'Select 3D Lag Map NIfTI File', NIFTI_TYPES, self.set_lag
+                    ),
+                )
+                menu.add_action(
+                    'Load R2 map',
+                    on_click=loader(
+                        'Select 4D R2 Map NIfTI File', NIFTI_TYPES, self.set_r2
                     ),
                 )
                 menu.add_action(
@@ -355,8 +378,10 @@ class VoxelViewer:
             'mean_axi', gs_mean[2], aspects['axi'], 'gray', 'r', 'X', 'Y', (nx, ny)
         )
 
-        # --- Row 2: Timeseries plot spanning all columns ---
-        ts_ax = self.axes['ts'] = fig.add_subplot(gs[2, :])
+        # --- Row 2: Timeseries plot (left, 4/5 width) and R2 curve plot (right, 1/5 width) ---
+        gs_row2 = gs[2, :].subgridspec(1, 2, width_ratios=[4, 1], wspace=0.1)
+
+        ts_ax = self.axes['ts'] = fig.add_subplot(gs_row2[0])
         (self.line_voxel,) = ts_ax.plot([], [], label='Voxel TS', color='#1f77b4')
         (self.line_co2,) = ts_ax.plot(
             [], [], label='CO2 Regressor', color='#ff7f0e', linestyle='--'
@@ -367,6 +392,24 @@ class VoxelViewer:
         ts_ax.set_xlim(0, 1)
         ts_ax.legend(loc='upper right')
         ts_ax.grid(True, linestyle=':', alpha=0.5)
+
+        r2_ax = self.axes['r2'] = fig.add_subplot(gs_row2[1])
+        (self.line_r2,) = r2_ax.plot([], [], label='R²', color='#2ca02c')
+        self.r2_bar = r2_ax.axvline(0, color='red', linestyle=':', lw=1.5)
+        r2_ax.set_title('R²: N/A')
+        r2_ax.set_xlabel(
+            'Lag'
+            if self.data['lag'] is not None or self.lag_range is not None
+            else 'Index'
+        )
+        r2_ax.set_ylabel('R²')
+        r2_ax.grid(True, linestyle=':', alpha=0.5)
+
+        # Format y-axis ticks to always show exactly 2 decimals
+        r2_ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.2f'))
+
+        self.chart.figure = fig
+        self.chart.figure.canvas.mpl_connect('button_press_event', self.on_canvas_click)
 
         self.chart.figure = fig
 
@@ -482,6 +525,45 @@ class VoxelViewer:
         ts_ax.relim()
         ts_ax.autoscale_view(scalex=False, scaley=True)
 
+        # --- R2 Profile Plot ---
+        r2_ax = ax['r2']
+        current_r2_val = 0.0
+        if self.data['r2'] is not None:
+            r2_voxel = self.data['r2'][x, y, z, :]
+            num_r2 = len(r2_voxel)
+
+            # Find closest R² value corresponding to current shift/slider
+            if self.lag_range is not None:
+                r2_x = np.linspace(self.lag_range[0], self.lag_range[1], num_r2)
+                r2_xlabel = 'Lag (s)'
+            elif self.regressor_matrix is not None:
+                half_lags = (self.regressor_matrix.shape[0] - 1) / 2.0
+                r2_x = np.linspace(-half_lags / self.fs, half_lags / self.fs, num_r2)
+                r2_xlabel = 'Lag (s)'
+            else:
+                r2_x = np.arange(num_r2)
+                r2_xlabel = 'Index'
+
+            self.line_r2.set_data(r2_x, r2_voxel)
+            r2_ax.set_xlabel(r2_xlabel)
+            r2_ax.set_xlim(
+                r2_x[0] if len(r2_x) > 0 else 0, r2_x[-1] if len(r2_x) > 0 else 1
+            )
+            r2_ax.relim()
+            r2_ax.autoscale_view(scalex=False, scaley=True)
+
+            # Get exact R² value at the slider/shift index closest to shift_sec
+            idx_closest = int(np.argmin(np.abs(r2_x - shift_sec)))
+            if 0 <= idx_closest < len(r2_voxel):
+                current_r2_val = r2_voxel[idx_closest]
+        else:
+            self.line_r2.set_data([], [])
+
+        self.r2_bar.set_xdata([shift_sec, shift_sec])
+        r2_ax.set_title(
+            f'R²: {current_r2_val:.4f}' if not np.isnan(current_r2_val) else 'R²: NaN'
+        )
+
         self._syncing = True
         try:
             self.x_field.value = x
@@ -499,26 +581,56 @@ class VoxelViewer:
     # ----- callbacks -----
 
     def _move_to(self, x, y, z):
-        """Move to a voxel, following its lag value when there is one."""
+        """Move to a voxel, following its lag value or max R² index when applicable."""
         x = int(np.clip(x, 0, self.nx - 1))
         y = int(np.clip(y, 0, self.ny - 1))
         z = int(np.clip(z, 0, self.nz - 1))
         shift = self.curr_shift_sec
+
+        # If a lag map is loaded and has a valid value at this voxel, use it
         if self.data['lag'] is not None and not np.isnan(self.data['lag'][x, y, z]):
             shift = float(self.data['lag'][x, y, z])
+        # Otherwise, if lag map is not loaded but R² data is available, set shift to max R² index
+        elif self.data['lag'] is None and self.data['r2'] is not None:
+            r2_voxel = self.data['r2'][x, y, z, :]
+            if r2_voxel.size > 0 and not np.all(np.isnan(r2_voxel)):
+                max_idx = int(np.nanargmax(r2_voxel))
+                num_r2 = len(r2_voxel)
+
+                # Map the max R² index back to seconds (or index units) based on current settings
+                if self.lag_range is not None:
+                    r2_x = np.linspace(self.lag_range[0], self.lag_range[1], num_r2)
+                    shift = float(r2_x[max_idx])
+                elif self.regressor_matrix is not None:
+                    half_lags = (self.regressor_matrix.shape[0] - 1) / 2.0
+                    r2_x = np.linspace(
+                        -half_lags / self.fs, half_lags / self.fs, num_r2
+                    )
+                    shift = float(r2_x[max_idx])
+                else:
+                    shift = float(max_idx)
+
         self.update_all(x, y, z, shift)
 
     def on_canvas_click(self, event):
-        """Select a voxel from any of the displayed anatomical or map slices."""
+        """Select a voxel from slices or update slider/shift from the R² plot."""
         names = {axis: name for name, axis in self.axes.items()}
         name = names.get(event.inaxes)
-        if name is None or name == 'ts' or event.xdata is None or event.ydata is None:
+        if name is None or event.xdata is None or event.ydata is None:
+            return
+
+        if name == 'r2':
+            # Clicked on R² plot: update the shift/slider value based on x-coordinate
+            clicked_shift = float(event.xdata)
+            self.update_all(*self.curr, clicked_shift)
+            return
+
+        if name == 'ts':
             return
 
         x, y, z = self.curr
         u, v = int(round(event.xdata)), int(round(event.ydata))
 
-        # Determine coordinates based on which view was clicked
         if name in ('cvr_sag', 'lag_sag', 'mean_sag'):
             y, z = u, v
         elif name in ('cvr_cor', 'lag_cor', 'mean_cor'):
