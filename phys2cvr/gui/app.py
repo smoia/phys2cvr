@@ -49,6 +49,7 @@ def build_app(viewer):
         remember_window_state=True,
         size=(1200, 850),
         min_size=(1200, 850),
+        sidebar_mode='compact',
     ) as shell:
         # --- Status bar -----------------------------------------------------
         ssb = shell.statusbar
