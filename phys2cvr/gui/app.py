@@ -17,24 +17,36 @@ logger = logging.getLogger(__name__)
 def _get_parser():
     """Create the viewer argument parser."""
     parser = argparse.ArgumentParser(description='phys2cvr viewer.')
-    parser.add_argument('nii_file', nargs='?', help='Path to 4D fMRI NIfTI file')
-    parser.add_argument('--matrix_file', help='Path to regressor matrix text/mat file')
-    parser.add_argument('--cvr', help='Optional path to 3D CVR NIfTI map')
-    parser.add_argument('--lag', help='Optional path to 3D Lag NIfTI map')
-    parser.add_argument('--mask', help='Optional path to 3D brain mask NIfTI file')
     parser.add_argument(
+        '-ts',
+        '--timeseries',
+        default=None,
+        help='Path to fMRI file (i.e. the input to phys2cvr)',
+    )
+    parser.add_argument(
+        '-r',
+        '--regressor',
+        default=None,
+        help='Path to file containing all the lagged versions of the regressor of interest',
+    )
+    parser.add_argument('-cvr', '--cvr', default=None, help='Path to 3D CVR map')
+    parser.add_argument('-lag', '--lag', default=None, help='Path to 3D Lag map')
+    parser.add_argument('-m', '--mask', default=None, help='Path to 3D brain mask file')
+    parser.add_argument(
+        '-fs',
         '--fs',
         type=float,
         default=None,
-        help='Regressor sampling frequency in Hz (default: 1.0)',
+        help='Regressor sampling frequency in Hz (corresponding to )',
     )
     parser.add_argument(
+        '-lr',
         '--lag_range',
         type=float,
         nargs=2,
         default=None,
         metavar=('START', 'END'),
-        help='Optional explicit lag range tuple (start, end) in seconds',
+        help='Set lag range to explore (will be overridden when loading a lag map)',
     )
     return parser
 
@@ -88,13 +100,13 @@ def _main(argv=None):
     shell = build_app(viewer)
 
     try:
-        if args.nii_file:
-            viewer.set_timeseries(args.nii_file)
+        if args.timeseries:
+            viewer.set_timeseries(args.timeseries)
         for path, setter in (
             (args.mask, viewer.set_mask),
             (args.cvr, viewer.set_cvr),
             (args.lag, viewer.set_lag),
-            (args.matrix_file, viewer.set_regressors),
+            (args.regressor, viewer.set_regressors),
         ):
             if path:
                 setter(path)
