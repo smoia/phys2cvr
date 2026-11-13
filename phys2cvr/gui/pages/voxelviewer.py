@@ -35,8 +35,9 @@ def load_timeseries(path):
 class VoxelViewer:
     """Interactive viewer for fMRI voxels, CVR/lag maps and shifted regressors."""
 
-    def __init__(self, fs=None, lag_range=None):
+    def __init__(self, fs=None, lag_range=None, cvr_range=None):
         self.fs = fs if fs else 1.0
+        self.cvr_range = cvr_range
         self.lag_range = lag_range
         self.lag_step = None
 
@@ -121,6 +122,10 @@ class VoxelViewer:
         """Load and mask the CVR map."""
         self.data['raw_cvr'], _, _ = load_nifti_get_mask(path)
         self._apply_mask(['cvr'])
+        cvr_vals = self.data['cvr'][np.isfinite(self.data['cvr'])]
+        self.cvr_range = (
+            np.percentile(cvr_vals, [1, 99]) if cvr_vals.size > 0 else (None, None)
+        )
 
     def set_lag(self, path):
         """Load the lag map and estimate the available lag range."""
@@ -128,7 +133,7 @@ class VoxelViewer:
         self._apply_mask(['lag'])
         finite_lags = self.data['raw_lag'][np.isfinite(self.data['raw_lag'])]
         self.lag_step, lag_max, lag_min = estimate_lag_range(finite_lags, path)
-        self.lag_range = [lag_min, lag_max]
+        self.lag_range = (lag_min, lag_max)
         self._update_delay_range()
 
     def set_mask(self, path):
@@ -282,14 +287,13 @@ class VoxelViewer:
         cmap_cvr = mpl.colormaps['inferno'].copy()
         cmap_cvr.set_bad(color='black')
 
-        cvr_data = self.data['cvr']
-        if cvr_data is not None:
-            cvr_vals = cvr_data[np.isfinite(cvr_data)]
-            cvr_vmin, cvr_vmax = (
-                np.percentile(cvr_vals, [1, 99]) if cvr_vals.size > 0 else (None, None)
-            )
+        if self.cvr_range is not None:
+            cvr_bound = max(abs(self.cvr_range[0]), abs(self.cvr_range[1]))
+        elif self.data['cvr'] is not None:
+            cvr_vals = self.data['cvr'][np.isfinite(self.data['cvr'])]
+            cvr_bound = np.max(np.abs(cvr_vals)) if cvr_vals.size > 0 else 1.0
         else:
-            cvr_vmin, cvr_vmax = None, None
+            cvr_bound = 1.0
 
         add_view(
             'cvr_sag', gs[0, 0], aspects['sag'], cmap_cvr, 'cyan', 'Y', 'Z', (ny, nz)
@@ -303,8 +307,7 @@ class VoxelViewer:
 
         for name in ('cvr_sag', 'cvr_cor', 'cvr_axi'):
             self.axes[name].set_facecolor('black')
-            if cvr_vmin is not None and cvr_vmax is not None:
-                self.imgs[name].set_clim(vmin=cvr_vmin, vmax=cvr_vmax)
+            self.imgs[name].set_clim(vmin=-cvr_bound, vmax=cvr_bound)
 
         fig.colorbar(
             self.imgs['cvr_axi'], ax=self.axes['cvr_axi'], fraction=0.046, pad=0.04
@@ -314,11 +317,10 @@ class VoxelViewer:
         cmap_lag = mpl.colormaps['viridis_r'].copy()
         cmap_lag.set_bad(color='black')
 
-        lag_data = self.data['lag']
         if self.lag_range is not None:
             lag_bound = max(abs(self.lag_range[0]), abs(self.lag_range[1]))
-        elif lag_data is not None:
-            lag_vals = lag_data[np.isfinite(lag_data)]
+        elif self.data['lag'] is not None:
+            lag_vals = self.data['lag'][np.isfinite(self.data['lag'])]
             lag_bound = np.max(np.abs(lag_vals)) if lag_vals.size > 0 else 1.0
         else:
             lag_bound = 1.0
@@ -374,30 +376,28 @@ class VoxelViewer:
         self.curr_shift_sec = shift_sec
         ax = self.axes
 
-        mean_vol = self.data['meanvol']
-        cvr_data = self.data['cvr']
-        lag_data = self.data['lag']
+        self.data['lag'] = self.data['lag']
 
         views = {
             'mean_cor': (
-                mean_vol[:, y, :]
-                if mean_vol is not None
+                self.data['meanvol'][:, y, :]
+                if self.data['meanvol'] is not None
                 else np.zeros((self.nx, self.nz)),
                 x,
                 z,
                 f'Coronal (Y={y})',
             ),
             'mean_axi': (
-                mean_vol[:, :, z]
-                if mean_vol is not None
+                self.data['meanvol'][:, :, z]
+                if self.data['meanvol'] is not None
                 else np.zeros((self.nx, self.ny)),
                 x,
                 y,
                 f'Axial (Z={z})',
             ),
             'mean_sag': (
-                mean_vol[x, :, :]
-                if mean_vol is not None
+                self.data['meanvol'][x, :, :]
+                if self.data['meanvol'] is not None
                 else np.zeros((self.ny, self.nz)),
                 y,
                 z,
@@ -405,16 +405,16 @@ class VoxelViewer:
             ),
         }
 
-        if cvr_data is not None:
-            val_cvr = cvr_data[x, y, z]
+        if self.data['cvr'] is not None:
+            val_cvr = self.data['cvr'][x, y, z]
             cvr_title = (
                 f'CVR: {val_cvr:.2f}' if not np.isnan(val_cvr) else 'CVR: Masked'
             )
             views.update(
                 {
-                    'cvr_sag': (cvr_data[x, :, :], y, z, f'Sagittal (X={x})'),
-                    'cvr_cor': (cvr_data[:, y, :], x, z, f'Coronal (Y={y})'),
-                    'cvr_axi': (cvr_data[:, :, z], x, y, cvr_title),
+                    'cvr_sag': (self.data['cvr'][x, :, :], y, z, f'Sagittal (X={x})'),
+                    'cvr_cor': (self.data['cvr'][:, y, :], x, z, f'Coronal (Y={y})'),
+                    'cvr_axi': (self.data['cvr'][:, :, z], x, y, cvr_title),
                 }
             )
         else:
@@ -426,16 +426,16 @@ class VoxelViewer:
                 }
             )
 
-        if lag_data is not None:
-            val_lag = lag_data[x, y, z]
+        if self.data['lag'] is not None:
+            val_lag = self.data['lag'][x, y, z]
             lag_title = (
                 f'Lag: {val_lag:.2f}s' if not np.isnan(val_lag) else 'Lag: Masked'
             )
             views.update(
                 {
-                    'lag_sag': (lag_data[x, :, :], y, z, f'Sagittal (X={x})'),
-                    'lag_cor': (lag_data[:, y, :], x, z, f'Coronal (Y={y})'),
-                    'lag_axi': (lag_data[:, :, z], x, y, lag_title),
+                    'lag_sag': (self.data['lag'][x, :, :], y, z, f'Sagittal (X={x})'),
+                    'lag_cor': (self.data['lag'][:, y, :], x, z, f'Coronal (Y={y})'),
+                    'lag_axi': (self.data['lag'][:, :, z], x, y, lag_title),
                 }
             )
         else:
