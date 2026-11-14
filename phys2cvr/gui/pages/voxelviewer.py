@@ -101,11 +101,15 @@ class VoxelViewer:
             self.lag_units = 'idx'
             self.slider.step = 1
 
-        self.lagmin_field.value = self.min_delay_sec
-        self.lagmax_field.value = self.max_delay_sec
-        self.slider.min_value = self.min_delay_sec
-        self.slider.max_value = self.max_delay_sec
-        self.slider.disabled = self.regressor_matrix is None
+        self._syncing = True
+        try:
+            self.lagmin_field.value = self.min_delay_sec
+            self.lagmax_field.value = self.max_delay_sec
+            self.slider.min_value = self.min_delay_sec
+            self.slider.max_value = self.max_delay_sec
+            self.slider.disabled = self.regressor_matrix is None
+        finally:
+            self._syncing = False
 
     def set_timeseries(self, path):
         """Load the functional timeseries and initialize the selected voxel."""
@@ -431,11 +435,11 @@ class VoxelViewer:
 
     def update_all(self, x, y, z, shift_sec):
         """Update plots and controls for a voxel and regressor delay."""
+        if self._syncing or not hasattr(self, 'imgs') or not self.imgs:
+            return
         self.curr = [x, y, z]
         self.curr_shift_sec = shift_sec
         ax = self.axes
-
-        self.data['lag'] = self.data['lag']
 
         views = {
             'mean_cor': (
