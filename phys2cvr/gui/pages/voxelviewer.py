@@ -177,6 +177,10 @@ class VoxelViewer:
             self.toolbar = bar
             with bar.add_menu('Load') as menu:
                 menu.add_action(
+                    'Load result folder',
+                    on_click=lambda: self._load_folder(),
+                )
+                menu.add_action(
                     'Load timeseries',
                     on_click=loader(
                         'Select 4D fMRI NIfTI File',
@@ -254,6 +258,18 @@ class VoxelViewer:
             self.refresh()
         except Exception as err:  # noqa: BLE001
             bs.alert(str(err), title='Could not load file')
+
+    def _load_folder(self):
+        folder_path = bs.ask_directory(title='Select phys2cvr Result Folder')
+        if not folder_path:
+            return
+        try:
+            from phys2cvr.gui.app import load_result_folder
+
+            load_result_folder(folder_path, self)
+            self.refresh()
+        except Exception as err:  # noqa: BLE001
+            bs.alert(str(err), title='Could not load result folder')
 
     def refresh(self):
         """Rebuild the figure and sync controls after the data changed."""
