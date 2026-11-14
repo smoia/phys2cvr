@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Voxel viewer for phys2cvr, built with bootstack."""
 
+import logging
+
 import bootstack as bs
 import matplotlib as mpl
 import numpy as np
@@ -9,6 +11,9 @@ from scipy.stats import zscore
 
 from phys2cvr.io import EXT_ARRAY, EXT_NIMG, load_array, load_nifti_get_mask
 from phys2cvr.utils import estimate_lag_range
+
+LGR = logging.getLogger(__name__)
+
 
 NIFTI_TYPES = [
     ('NIfTI files', ' '.join(f'*{ext}' for ext in EXT_NIMG)),
@@ -111,6 +116,28 @@ class VoxelViewer:
         finally:
             self._syncing = False
 
+    def _update_dimensions_from_loaded_data(self):
+        """Infer spatial dimensions and pixdim from any available map if timeseries is not loaded."""
+        if self.timeseries is not None:
+            return
+
+        # Check available 3D/4D maps for shape and zooms
+        for k in ('cvr', 'lag', 'r2', 'mask', 'meanvol'):
+            img_data = self.data.get(k)
+            if img_data is None:
+                img_data = self.data.get(f'raw_{k}')
+
+            if img_data is not None:
+                self.nx, self.ny, self.nz = img_data.shape[:3]
+                if self.curr == [0, 0, 0] or self.curr[0] >= self.nx:
+                    self.curr = [self.nx // 2, self.ny // 2, self.nz // 2]
+                break
+
+    def _update_zooms_from_img(self, img):
+        if img is not None and hasattr(img, 'header'):
+            zooms = img.header.get_zooms()
+            self.pixdim = tuple(zooms[:3]) if len(zooms) >= 3 else (1.0, 1.0, 1.0)
+
     def set_timeseries(self, path):
         """Load the functional timeseries and initialize the selected voxel."""
         self.timeseries, self.pixdim, self.tr = load_timeseries(path)
@@ -128,6 +155,7 @@ class VoxelViewer:
     def set_regressors(self, path):
         """Load the shifted regressor matrix."""
         self.regressor_matrix = load_array(path, shape='prerectangle')
+        self._update_delay_range()
 
     def set_cvr(self, path):
         """Load and mask the CVR map."""
@@ -139,6 +167,7 @@ class VoxelViewer:
         else:
             self.cvr_vmin, self.cvr_vmax = None, None
         self.cvr_range = (self.cvr_vmin, self.cvr_vmax)
+        self._update_dimensions_from_loaded_data()
 
     def set_lag(self, path):
         """Load the lag map and estimate the available lag range."""
@@ -148,6 +177,7 @@ class VoxelViewer:
         self.lag_step, lag_max, lag_min = estimate_lag_range(finite_lags, path)
         self.lag_range = (lag_min, lag_max)
         self._update_delay_range()
+        self._update_dimensions_from_loaded_data()
 
     def set_r2(self, path):
         """Load the 4D R² map volume."""
@@ -158,11 +188,13 @@ class VoxelViewer:
             self.data['r2'][~self.data['mask']] = np.nan
         else:
             self.data['r2'] = self.data['raw_r2']
+        self._update_dimensions_from_loaded_data()
 
     def set_mask(self, path):
         """Load a mask and apply it to the maps."""
         _, self.data['mask'], _ = load_nifti_get_mask(path, is_mask=True)
         self._apply_mask()
+        self._update_dimensions_from_loaded_data()
 
     def _regressor_row(self, shift_sec):
         """Return the regressor shifted by `shift_sec` and the actual shift used."""
@@ -262,8 +294,16 @@ class VoxelViewer:
         try:
             setter(path)
             self.refresh()
-        except Exception as err:  # noqa: BLE001
-            bs.alert(str(err), title='Could not load file')
+        except Exception as e:  # noqa: BLE001
+            LGR.error(
+                f'Fatal error encountered while loading {path}: {e}',
+                exc_info=True,
+            )
+            bs.alert(
+                f'Fatal error encountered while loading {path}: {e}',
+                title='Could not load file',
+                severity='danger',
+            )
 
     def _load_folder(self):
         folder_path = bs.ask_directory(title='Select phys2cvr Result Folder')
@@ -280,7 +320,17 @@ class VoxelViewer:
     def refresh(self):
         """Rebuild the figure and sync controls after the data changed."""
         self._update_delay_range()
-        if self.timeseries is None:
+        self._update_dimensions_from_loaded_data()
+
+        has_data = (
+            self.timeseries is not None
+            or self.data['cvr'] is not None
+            or self.data['lag'] is not None
+            or self.data['r2'] is not None
+            or self.regressor_matrix is not None
+        )
+
+        if not has_data:
             self.axes = {}
             self.chart.figure = Figure()
             return
@@ -477,9 +527,24 @@ class VoxelViewer:
         else:
             views.update(
                 {
-                    'cvr_sag': (np.zeros((self.ny, self.nz)), y, z, 'CVR: Sagittal'),
-                    'cvr_cor': (np.zeros((self.nx, self.nz)), x, z, 'CVR: Coronal'),
-                    'cvr_axi': (np.zeros((self.nx, self.ny)), x, y, 'CVR: Axial'),
+                    'cvr_sag': (
+                        np.full((self.ny, self.nz), np.nan),
+                        y,
+                        z,
+                        'CVR: Sagittal',
+                    ),
+                    'cvr_cor': (
+                        np.full((self.nx, self.nz), np.nan),
+                        x,
+                        z,
+                        'CVR: Coronal',
+                    ),
+                    'cvr_axi': (
+                        np.full((self.nx, self.ny), np.nan),
+                        x,
+                        y,
+                        'CVR: Axial',
+                    ),
                 }
             )
 
@@ -498,9 +563,24 @@ class VoxelViewer:
         else:
             views.update(
                 {
-                    'lag_sag': (np.zeros((self.ny, self.nz)), y, z, 'Lag: Sagittal'),
-                    'lag_cor': (np.zeros((self.nx, self.nz)), x, z, 'Lag: Coronal'),
-                    'lag_axi': (np.zeros((self.nx, self.ny)), x, y, 'Lag: Axial'),
+                    'lag_sag': (
+                        np.full((self.ny, self.nz), np.nan),
+                        y,
+                        z,
+                        'Lag: Sagittal',
+                    ),
+                    'lag_cor': (
+                        np.full((self.nx, self.nz), np.nan),
+                        x,
+                        z,
+                        'Lag: Coronal',
+                    ),
+                    'lag_axi': (
+                        np.full((self.nx, self.ny), np.nan),
+                        x,
+                        y,
+                        'Lag: Axial',
+                    ),
                 }
             )
 
@@ -523,6 +603,8 @@ class VoxelViewer:
             self.line_voxel.set_label(f'Voxel ({x}, {y}, {z})')
         else:
             self.line_voxel.set_data([], [])
+            self.line_voxel.set_label('Voxel TS (Not Loaded)')
+            ts_ax.set_xlim(0, 1)
 
         actual_sec = shift_sec
         if self.regressor_matrix is not None:
