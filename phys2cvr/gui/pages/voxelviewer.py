@@ -60,8 +60,8 @@ class VoxelViewer:
         self.data = {k: None for k in self.data_types}
         self.regressor_matrix = None
         self.pixdim = (1.0, 1.0, 1.0)
-        self.tr = 1.0
-        self.time = np.arange(1.0)
+        self.tr = None
+        self.time = None
         self.nx = self.ny = self.nz = self.nt = 1
 
         self.curr = [0, 0, 0]
@@ -394,7 +394,11 @@ class VoxelViewer:
 
         for name in ('cvr_sag', 'cvr_cor', 'cvr_axi'):
             self.axes[name].set_facecolor('black')
-            self.imgs[name].set_clim(vmin=self.cvr_range[0], vmax=self.cvr_range[1])
+            if (
+                getattr(self, 'cvr_range', None) is not None
+                and self.cvr_range[0] is not None
+            ):
+                self.imgs[name].set_clim(vmin=self.cvr_range[0], vmax=self.cvr_range[1])
 
         fig.colorbar(
             self.imgs['cvr_axi'], ax=self.axes['cvr_axi'], fraction=0.046, pad=0.04
@@ -448,14 +452,20 @@ class VoxelViewer:
         ts_ax = self.axes['ts'] = fig.add_subplot(gs_row2[0])
         (self.line_voxel,) = ts_ax.plot([], [], label='Voxel TS', color='#1f77b4')
         (self.line_co2,) = ts_ax.plot(
-            [], [], label='CO2 Regressor', color='#ff7f0e', linestyle='--'
+            [], [], label='Regressor', color='#ff7f0e', linestyle='--'
         )
         ts_ax.set_title('Timecourse Comparison — Voxel (0, 0, 0)')
-        ts_ax.set_xlabel('Time (s)')
+        ts_ax.set_xlabel('Time (s)' if self.timeseries is not None else 'TR')
         ts_ax.set_ylabel('Z-Score')
         ts_ax.set_xlim(0, 1)
         ts_ax.legend(loc='upper right')
-        ts_ax.grid(True, linestyle=':', alpha=0.5)
+
+        text_color = ts_ax.yaxis.label.get_color()
+        legend = ts_ax.legend(loc='upper right', frameon=True)
+        frame = legend.get_frame()
+        frame.set_facecolor(fig.get_facecolor())
+        for text in legend.get_texts():
+            text.set_color(text_color)
 
         r2_ax = self.axes['r2'] = fig.add_subplot(gs_row2[1])
         (self.line_r2,) = r2_ax.plot([], [], label='R²', color='#2ca02c')
@@ -467,12 +477,10 @@ class VoxelViewer:
             else 'Index'
         )
         r2_ax.set_ylabel('R²')
-        r2_ax.grid(True, linestyle=':', alpha=0.5)
 
         # Format y-axis ticks to always show exactly 2 decimals
         r2_ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.2f'))
 
-        self.chart.figure = fig
         self.chart.figure.canvas.mpl_connect('button_press_event', self.on_canvas_click)
 
         self.chart.figure = fig
@@ -597,30 +605,58 @@ class VoxelViewer:
             self.cross[name][1].set_ydata([cy, cy])
             ax[name].set_title(title)
 
+        # --- Timecourse Comparison Plot ---
         ts_ax = ax['ts']
-        if self.timeseries is not None:
-            self.line_voxel.set_data(self.time, zscore(self.timeseries[x, y, z, :]))
-            self.line_voxel.set_label(f'Voxel ({x}, {y}, {z})')
-        else:
-            self.line_voxel.set_data([], [])
-            self.line_voxel.set_label('Voxel TS (Not Loaded)')
-            ts_ax.set_xlim(0, 1)
-
-        actual_sec = shift_sec
-        if self.regressor_matrix is not None:
-            raw_co2, actual_sec = self._regressor_row(shift_sec)
-            if len(raw_co2) != self.nt:
-                reg_time = np.linspace(0, self.time[-1], len(raw_co2))
-                raw_co2 = np.interp(self.time, reg_time, raw_co2)
-            self.line_co2.set_data(self.time, zscore(raw_co2))
-            self.line_co2.set_label(f'CO2 Shift ({actual_sec:+.2f}{self.lag_units})')
-        else:
-            self.line_co2.set_data([], [])
-            self.line_co2.set_label('_nolegend_')
-
         ts_ax.set_title(f'Timecourse Comparison — Voxel ({x}, {y}, {z})')
-        ts_ax.legend(loc='upper right')
-        ts_ax.set_xlim(0, self.time[-1] if self.nt > 1 else 1)
+
+        has_ts = self.timeseries is not None
+        has_regr = self.regressor_matrix is not None
+
+        # 1. Update Voxel Timeseries line
+        if has_ts:
+            voxel_ts = zscore(self.timeseries[x, y, z, :])
+            self.line_voxel.set_data(self.time, voxel_ts)
+            ts_ax.set_xlim(0, self.time[-1] if self.nt > 1 else 1)
+            self.line_voxel.set_visible(True)
+            ts_ax.set_xlabel('Time (s)')
+        else:
+            self.line_voxel.set_visible(False)
+
+        # 2. Update Regressor line
+        if has_regr:
+            num_regr_rows = self.regressor_matrix.shape[0]
+            half_lags = (num_regr_rows - 1) / 2.0
+
+            if self.lag_range is not None:
+                l_min, l_max = self.lag_range
+                if l_max != l_min:
+                    norm_pos = (shift_sec - l_min) / (l_max - l_min)
+                    regr_idx = int(round(norm_pos * (num_regr_rows - 1)))
+                else:
+                    regr_idx = int(num_regr_rows // 2)
+            else:
+                idx_offset = int(round(shift_sec * self.fs))
+                regr_idx = int(round(half_lags + idx_offset))
+
+            regr_idx = np.clip(regr_idx, 0, num_regr_rows - 1)
+            regr_trace = zscore(self.regressor_matrix[regr_idx, :])
+
+            if self.time is not None:
+                regr_time = self.time
+                ts_ax.set_xlabel('Time (s)')
+            else:
+                regr_time = np.arange(regr_trace.size) + 1
+                ts_ax.set_xlabel('TR')
+
+            self.line_co2.set_data(regr_time, regr_trace)
+            self.line_co2.set_label(f'Regressor (shift: {shift_sec:.2f})')
+
+            if not has_ts:
+                ts_ax.set_xlim(0, regr_time[-1] if len(regr_time) > 1 else 1)
+            self.line_co2.set_visible(True)
+        else:
+            self.line_co2.set_visible(False)
+
         ts_ax.relim()
         ts_ax.autoscale_view(scalex=False, scaley=True)
 
@@ -663,6 +699,8 @@ class VoxelViewer:
             f'R²: {current_r2_val:.4f}' if not np.isnan(current_r2_val) else 'R²: NaN'
         )
 
+        # --- Updates a few things ---
+        actual_sec = shift_sec
         self._syncing = True
         try:
             self.x_field.value = x
