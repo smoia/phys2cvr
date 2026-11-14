@@ -134,9 +134,11 @@ class VoxelViewer:
         self.data['raw_cvr'], _, _ = load_nifti_get_mask(path)
         self._apply_mask(['cvr'])
         cvr_vals = self.data['cvr'][np.isfinite(self.data['cvr'])]
-        self.cvr_range = (
-            np.percentile(cvr_vals, [1, 99]) if cvr_vals.size > 0 else (None, None)
-        )
+        if cvr_vals.size > 0:
+            self.cvr_vmin, self.cvr_vmax = np.percentile(cvr_vals, [1, 99])
+        else:
+            self.cvr_vmin, self.cvr_vmax = None, None
+        self.cvr_range = (self.cvr_vmin, self.cvr_vmax)
 
     def set_lag(self, path):
         """Load the lag map and estimate the available lag range."""
@@ -330,14 +332,6 @@ class VoxelViewer:
         cmap_cvr = mpl.colormaps['inferno'].copy()
         cmap_cvr.set_bad(color='black')
 
-        if self.cvr_range is not None:
-            cvr_bound = max(abs(self.cvr_range[0]), abs(self.cvr_range[1]))
-        elif self.data['cvr'] is not None:
-            cvr_vals = self.data['cvr'][np.isfinite(self.data['cvr'])]
-            cvr_bound = np.max(np.abs(cvr_vals)) if cvr_vals.size > 0 else 1.0
-        else:
-            cvr_bound = 1.0
-
         add_view(
             'cvr_sag', gs[0, 0], aspects['sag'], cmap_cvr, 'cyan', 'Y', 'Z', (ny, nz)
         )
@@ -350,7 +344,7 @@ class VoxelViewer:
 
         for name in ('cvr_sag', 'cvr_cor', 'cvr_axi'):
             self.axes[name].set_facecolor('black')
-            self.imgs[name].set_clim(vmin=-cvr_bound, vmax=cvr_bound)
+            self.imgs[name].set_clim(vmin=self.cvr_range[0], vmax=self.cvr_range[1])
 
         fig.colorbar(
             self.imgs['cvr_axi'], ax=self.axes['cvr_axi'], fraction=0.046, pad=0.04
@@ -515,7 +509,10 @@ class VoxelViewer:
                 continue
             img = self.imgs[name]
             img.set_data(slice_data.T)
-            img.autoscale()
+
+            # Only autoscale meanvolume views!
+            if name.startswith('mean_'):
+                img.autoscale()
             self.cross[name][0].set_xdata([cx, cx])
             self.cross[name][1].set_ydata([cy, cy])
             ax[name].set_title(title)
