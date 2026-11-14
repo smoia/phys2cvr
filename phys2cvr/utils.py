@@ -303,18 +303,18 @@ def estimate_lag_range(lag, lag_map, lag_step=None, lag_max=None, lag_min=None):
                 )
         lag_step = lag_step[0]
 
-        LGR.warning(f'phys2cvr detected a delta lag of {lag_step} seconds')
+        LGR.info(f'phys2cvr detected a delta lag of {lag_step} seconds')
     else:
         LGR.warning(f'Forcing delta lag to be {lag_step}')
 
     if lag_max is None:
         lag_max = lag_list.max()
-        LGR.warning(f'phys2cvr detected a lag max of {lag_max}s')
+        LGR.info(f'phys2cvr detected a lag max of {lag_max}s')
     else:
         LGR.warning(f'Forcing lag range to be [{lag_min}, {lag_max}]')
     if lag_min is None:
         lag_min = lag_list.min()
-        LGR.warning(f'phys2cvr detected a lag min of {lag_min}s')
+        LGR.info(f'phys2cvr detected a lag min of {lag_min}s')
     else:
         LGR.warning(f'Forcing lag range to be [{lag_min}, {lag_max}]')
 
