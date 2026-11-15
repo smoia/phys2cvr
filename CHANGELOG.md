@@ -1,3 +1,15 @@
+# 0.35.0 (Sun Nov 15 2026)
+
+#### 💻 Refactored
+
+- Handle better array dimension check [#176](https://github.com/smoia/phys2cvr/pull/176) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.34.1 (Tue Nov 10 2026)
 
 #### 🐛 Bug Fix
