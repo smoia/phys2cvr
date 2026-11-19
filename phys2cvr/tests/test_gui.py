@@ -276,6 +276,58 @@ class TestViewer(unittest.TestCase):
         self.assertEqual(viewer.curr_shift_sec, 1)
         self.assertEqual(viewer.axes['r2'].get_title(), 'R²: 0.8000')
 
+    def test_split_sashes_resize_charts_and_survive_refresh(self):
+        viewer = self.viewer
+        viewer.data = dict.fromkeys(viewer.data_types)
+        viewer.data['cvr'] = np.ones((4, 5, 6))
+        viewer.timeseries = None
+        viewer.time = None
+        viewer.regressor_matrix = np.arange(9.0).reshape(3, 3)
+        viewer.lag_range = (-1, 1)
+        viewer.refresh()
+        self.shell._internal.update()
+
+        expectations = (
+            ('rows', 'cvr', 'ts', 'height'),
+            ('maps', 'cvr', 'mean', 'width'),
+            ('map_rows', 'cvr', 'lag', 'height'),
+            ('curves', 'ts', 'r2', 'width'),
+        )
+        for split_name, first, second, dimension in expectations:
+            split = viewer.chart_splits[split_name]
+            old_position = split.sash_positions[0]
+            first_widget = viewer.charts[first]._internal
+            second_widget = viewer.charts[second]._internal
+            measure = f'winfo_{dimension}'
+            before_first = getattr(first_widget, measure)()
+            before_second = getattr(second_widget, measure)()
+            split.sash_position(0, old_position - 30)
+            self.shell._internal.update()
+            self.assertLess(getattr(first_widget, measure)(), before_first)
+            self.assertGreater(getattr(second_widget, measure)(), before_second)
+
+        positions = {
+            key: split.sash_positions for key, split in viewer.chart_splits.items()
+        }
+        viewer.refresh()
+        self.shell._internal.update()
+        for key, split in viewer.chart_splits.items():
+            self.assertEqual(split.sash_positions, positions[key])
+
+        original_geometry = self.shell._internal.geometry()
+        try:
+            widths = {
+                name: chart._internal.winfo_width()
+                for name, chart in viewer.charts.items()
+            }
+            self.shell._internal.geometry('1500x950')
+            self.shell._internal.update()
+            for name, chart in viewer.charts.items():
+                self.assertGreater(chart._internal.winfo_width(), widths[name])
+        finally:
+            self.shell._internal.geometry(original_geometry)
+            self.shell._internal.update()
+
 
 if __name__ == '__main__':
     unittest.main()
