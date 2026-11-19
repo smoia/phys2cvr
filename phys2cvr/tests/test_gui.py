@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import nibabel as nib
 import numpy as np
+from matplotlib.backend_bases import MouseEvent
 
 GUI_AVAILABLE = importlib.util.find_spec('bootstack') is not None
 HAS_DISPLAY = sys.platform != 'linux' or bool(os.environ.get('DISPLAY'))
@@ -228,6 +229,52 @@ class TestViewer(unittest.TestCase):
         np.testing.assert_allclose(viewer.line_voxel.get_ydata(), [-2, 0, 2])
         np.testing.assert_allclose(viewer.line_co2.get_ydata(), [-4, 0, 4])
         self.assertEqual(viewer.axes['ts'].get_ylabel(), 'Demeaned')
+
+    def test_separate_chart_canvases_and_shared_map_colorbars(self):
+        viewer = self.viewer
+        viewer.data = dict.fromkeys(viewer.data_types)
+        viewer.data['cvr'] = np.arange(120.0).reshape(4, 5, 6)
+        viewer.data['lag'] = np.zeros((4, 5, 6))
+        viewer.data['meanvol'] = np.ones((4, 5, 6))
+        viewer.data['r2'] = np.tile([0.1, 0.4, 0.8], (4, 5, 6, 1))
+        viewer.timeseries = None
+        viewer.time = None
+        viewer.curr = [2, 2, 3]
+        viewer.lag_range = (-1, 1)
+        viewer.regressor_matrix = np.arange(9.0).reshape(3, 3)
+        viewer.refresh()
+        self.shell._internal.update()
+
+        self.assertEqual(set(viewer.charts), {'cvr', 'lag', 'mean', 'ts', 'r2'})
+        self.assertEqual(len({id(c.figure) for c in viewer.charts.values()}), 5)
+        for kind in ('cvr', 'lag', 'mean'):
+            fig = viewer.charts[kind].figure
+            images = [
+                viewer.imgs[f'{kind}_{orientation}']
+                for orientation in ('sag', 'cor', 'axi')
+            ]
+            self.assertEqual(len(fig.axes), 4)
+            self.assertTrue(all(image.axes.figure is fig for image in images))
+            self.assertTrue(all(image.norm is images[0].norm for image in images))
+            self.assertIs(images[-1].colorbar.mappable, images[-1])
+
+            axis = viewer.axes[f'{kind}_axi']
+            fig.canvas.draw()
+            px, py = axis.transData.transform((1, 1))
+            event = MouseEvent('button_press_event', fig.canvas, px, py, button=1)
+            fig.canvas.callbacks.process('button_press_event', event)
+            self.assertEqual(viewer.curr[:2], [1, 1])
+            self.assertEqual(list(viewer.cross['lag_axi'][0].get_xdata()), [1, 1])
+
+        fig = viewer.charts['r2'].figure
+        fig.canvas.draw()
+        px, py = viewer.axes['r2'].transData.transform((1, 0.4))
+        fig.canvas.callbacks.process(
+            'button_press_event',
+            MouseEvent('button_press_event', fig.canvas, px, py, button=1),
+        )
+        self.assertEqual(viewer.curr_shift_sec, 1)
+        self.assertEqual(viewer.axes['r2'].get_title(), 'R²: 0.8000')
 
 
 if __name__ == '__main__':

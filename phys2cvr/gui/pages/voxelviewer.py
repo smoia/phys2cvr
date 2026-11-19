@@ -357,7 +357,7 @@ class VoxelViewer:
                             0.0, label='Lag max', step=0.1, width=4
                         )
             with bs.Column(grow=True, horizontal='stretch', vertical='stretch'):
-                self.chart = bs.Chart(figure=Figure(), grow=True, horizontal='stretch')
+                self._build_charts()
                 with bs.Row(
                     gap=16, padding=10, horizontal='stretch', vertical='center'
                 ):
@@ -383,6 +383,23 @@ class VoxelViewer:
         self.zscore_switch.on_change(lambda e: self._update_current_plot())
         self.slider.on_change(lambda e: self._on_slider_move())
         self.refresh()
+
+    def _build_charts(self):
+        """Create the five chart containers in the viewer layout."""
+        self.charts = {}
+        with bs.Column(
+            grow=True, horizontal='stretch', weights=[7, 3], horizontal_items='stretch'
+        ):
+            with bs.Row(weights=[3, 1], vertical_items='stretch'):
+                with bs.Column(weights=[1, 1], horizontal_items='stretch'):
+                    self.charts['cvr'] = bs.Chart(figure=Figure(figsize=(1, 1)))
+                    self.charts['lag'] = bs.Chart(figure=Figure(figsize=(1, 1)))
+                self.charts['mean'] = bs.Chart(figure=Figure(figsize=(1, 1)))
+            with bs.Row(weights=[4, 1], vertical_items='stretch'):
+                self.charts['ts'] = bs.Chart(figure=Figure(figsize=(1, 1)))
+                self.charts['r2'] = bs.Chart(
+                    figure=Figure(figsize=(1, 1)), margin_x=(0, 10)
+                )
 
     def _set_map_limits(self, kind, lower, upper):
         lower, upper = float(lower), float(upper)
@@ -471,11 +488,11 @@ class VoxelViewer:
 
         if not has_data:
             self.axes = {}
-            self.chart.figure = Figure()
+            for chart in self.charts.values():
+                chart.figure = Figure(figsize=(1, 1))
             return
 
         self.init_plots()
-        self.chart.figure.canvas.mpl_connect('button_press_event', self.on_canvas_click)
 
         self._syncing = True
         try:
@@ -488,20 +505,23 @@ class VoxelViewer:
         self._move_to(*self.curr)
 
     def init_plots(self):
-        """Create anatomical, CVR, Lag, and timecourse plots with mean volume stacked in the 4th column."""
-        fig = Figure(figsize=(16, 9), layout='constrained')
-        gs = fig.add_gridspec(3, 4, height_ratios=[1.2, 1.2, 1])
-
+        """Create separate figures for maps, timecourses and R²."""
         dx, dy, dz = self.pixdim
         aspects = {'sag': dz / dy, 'cor': dz / dx, 'axi': dy / dx}
         self.axes = {}
         self.imgs = {}
         self.cross = {}
 
-        def add_view(name, subplot, aspect, cmap, color, xlabel, ylabel, size):
+        def add_view(
+            fig, name, subplot, aspect, cmap, norm, color, xlabel, ylabel, size
+        ):
             axis = self.axes[name] = fig.add_subplot(subplot)
             self.imgs[name] = axis.imshow(
-                np.zeros(size[::-1]), cmap=cmap, origin='lower', aspect=aspect
+                np.zeros(size[::-1]),
+                cmap=cmap,
+                norm=norm,
+                origin='lower',
+                aspect=aspect,
             )
             self.cross[name] = (
                 axis.axvline(0, color=color, lw=1),
@@ -517,83 +537,44 @@ class VoxelViewer:
 
         nx, ny, nz = self.nx, self.ny, self.nz
 
-        # --- Row 0: CVR Maps (Sag, Cor, Axi) ---
-        cmap_cvr = mpl.colormaps[self.map_settings['cvr']['cmap']].with_extremes(
-            bad='black'
-        )
-
-        add_view(
-            'cvr_sag', gs[0, 0], aspects['sag'], cmap_cvr, 'cyan', 'Y', 'Z', (ny, nz)
-        )
-        add_view(
-            'cvr_cor', gs[0, 1], aspects['cor'], cmap_cvr, 'cyan', 'X', 'Z', (nx, nz)
-        )
-        add_view(
-            'cvr_axi', gs[0, 2], aspects['axi'], cmap_cvr, 'cyan', 'X', 'Y', (nx, ny)
-        )
-
-        for name in ('cvr_sag', 'cvr_cor', 'cvr_axi'):
-            self.axes[name].set_facecolor('black')
-            if (
-                getattr(self, 'cvr_range', None) is not None
-                and self.cvr_range[0] is not None
+        figures = {}
+        for kind, color in (('cvr', 'cyan'), ('lag', 'red'), ('mean', 'red')):
+            vertical = kind == 'mean'
+            fig = figures[kind] = Figure(figsize=(1, 1), layout='compressed')
+            fig.get_layout_engine().set(w_pad=0.02, h_pad=0.02, wspace=0, hspace=0)
+            grid = fig.add_gridspec(3 if vertical else 1, 1 if vertical else 3)
+            settings = self.map_settings[kind]
+            cmap = mpl.colormaps[settings['cmap']].with_extremes(bad='black')
+            norm = mpl.colors.Normalize(*settings['limits'])
+            axes = []
+            for index, (name, xlabel, ylabel, size) in enumerate(
+                (
+                    ('sag', 'Y', 'Z', (ny, nz)),
+                    ('cor', 'X', 'Z', (nx, nz)),
+                    ('axi', 'X', 'Y', (nx, ny)),
+                )
             ):
-                self.imgs[name].set_clim(vmin=self.cvr_range[0], vmax=self.cvr_range[1])
+                axis = add_view(
+                    fig,
+                    f'{kind}_{name}',
+                    grid[index, 0] if vertical else grid[0, index],
+                    aspects[name],
+                    cmap,
+                    norm,
+                    color,
+                    xlabel,
+                    ylabel,
+                    size,
+                )
+                axis.set_anchor(
+                    ('S', 'C', 'N')[index] if vertical else ('E', 'C', 'W')[index]
+                )
+                axis.set_facecolor('black')
+                axes.append(axis)
+            fig.colorbar(self.imgs[f'{kind}_axi'], ax=axes, fraction=0.035, pad=0.02)
 
-        fig.colorbar(
-            self.imgs['cvr_axi'], ax=self.axes['cvr_axi'], fraction=0.046, pad=0.04
-        )
-
-        # --- Row 1: Lag Maps (Sag, Cor, Axi) ---
-        cmap_lag = mpl.colormaps[self.map_settings['lag']['cmap']].with_extremes(
-            bad='black'
-        )
-
-        if self.lag_range is not None:
-            lag_bound = max(abs(self.lag_range[0]), abs(self.lag_range[1]))
-        elif self.data['lag'] is not None:
-            lag_vals = self.data['lag'][np.isfinite(self.data['lag'])]
-            lag_bound = np.max(np.abs(lag_vals)) if lag_vals.size > 0 else 1.0
-        else:
-            lag_bound = 1.0
-
-        add_view(
-            'lag_sag', gs[1, 0], aspects['sag'], cmap_lag, 'red', 'Y', 'Z', (ny, nz)
-        )
-        add_view(
-            'lag_cor', gs[1, 1], aspects['cor'], cmap_lag, 'red', 'X', 'Z', (nx, nz)
-        )
-        add_view(
-            'lag_axi', gs[1, 2], aspects['axi'], cmap_lag, 'red', 'X', 'Y', (nx, ny)
-        )
-
-        for name in ('lag_sag', 'lag_cor', 'lag_axi'):
-            self.axes[name].set_facecolor('black')
-            self.imgs[name].set_clim(vmin=-lag_bound, vmax=lag_bound)
-
-        fig.colorbar(
-            self.imgs['lag_axi'], ax=self.axes['lag_axi'], fraction=0.046, pad=0.04
-        )
-
-        # --- Mean Volume: 3 axes stacked vertically in column 3, spanning rows 0 and 1, resized (2/3 scale) ---
-        gs_mean = gs[:2, 3].subgridspec(3, 1, hspace=0.15)
-        mean_cmap = mpl.colormaps[self.map_settings['mean']['cmap']].with_extremes(
-            bad='black'
-        )
-        add_view(
-            'mean_sag', gs_mean[0], aspects['sag'], mean_cmap, 'r', 'Y', 'Z', (ny, nz)
-        )
-        add_view(
-            'mean_cor', gs_mean[1], aspects['cor'], mean_cmap, 'r', 'X', 'Z', (nx, nz)
-        )
-        add_view(
-            'mean_axi', gs_mean[2], aspects['axi'], mean_cmap, 'r', 'X', 'Y', (nx, ny)
-        )
-
-        # --- Row 2: Timeseries plot (left, 4/5 width) and R2 curve plot (right, 1/5 width) ---
-        gs_row2 = gs[2, :].subgridspec(1, 2, width_ratios=[4, 1], wspace=0.1)
-
-        ts_ax = self.axes['ts'] = fig.add_subplot(gs_row2[0])
+        ts_fig = figures['ts'] = Figure(figsize=(1, 1), layout='constrained')
+        ts_ax = self.axes['ts'] = ts_fig.add_subplot()
         (self.line_voxel,) = ts_ax.plot([], [], label='Voxel TS', color='#1f77b4')
         (self.line_co2,) = ts_ax.plot(
             [], [], label='Regressor', color='#ff7f0e', linestyle='--'
@@ -607,11 +588,12 @@ class VoxelViewer:
         text_color = ts_ax.yaxis.label.get_color()
         legend = ts_ax.legend(loc='upper right', frameon=True)
         frame = legend.get_frame()
-        frame.set_facecolor(fig.get_facecolor())
+        frame.set_facecolor(ts_fig.get_facecolor())
         for text in legend.get_texts():
             text.set_color(text_color)
 
-        r2_ax = self.axes['r2'] = fig.add_subplot(gs_row2[1])
+        r2_fig = figures['r2'] = Figure(figsize=(1, 1), layout='constrained')
+        r2_ax = self.axes['r2'] = r2_fig.add_subplot()
         (self.line_r2,) = r2_ax.plot([], [], label='R²', color='#2ca02c')
         self.r2_bar = r2_ax.axvline(0, color='red', linestyle=':', lw=1.5)
         (self.r2_point,) = r2_ax.plot([], [], 'o', color='red')
@@ -626,9 +608,9 @@ class VoxelViewer:
         # Format y-axis ticks to always show exactly 2 decimals
         r2_ax.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.2f'))
 
-        self.chart.figure.canvas.mpl_connect('button_press_event', self.on_canvas_click)
-
-        self.chart.figure = fig
+        for name, fig in figures.items():
+            self.charts[name].figure = fig
+            fig.canvas.mpl_connect('button_press_event', self.on_canvas_click)
 
     def update_all(self, x, y, z, shift_sec):
         """Update plots and controls for a voxel and regressor delay."""
@@ -858,7 +840,8 @@ class VoxelViewer:
         finally:
             self._syncing = False
 
-        self.chart.draw()
+        for chart in self.charts.values():
+            chart.draw()
 
     # ----- callbacks -----
 
