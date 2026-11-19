@@ -390,7 +390,7 @@ class VoxelViewer:
         with bs.Column(
             grow=True, horizontal='stretch', weights=[7, 3], horizontal_items='stretch'
         ):
-            with bs.Row(weights=[3, 1], vertical_items='stretch'):
+            with bs.Row(weights=[5, 1], vertical_items='stretch'):
                 with bs.Column(weights=[1, 1], horizontal_items='stretch'):
                     self.charts['cvr'] = bs.Chart(figure=Figure(figsize=(1, 1)))
                     self.charts['lag'] = bs.Chart(figure=Figure(figsize=(1, 1)))
@@ -398,7 +398,7 @@ class VoxelViewer:
             with bs.Row(weights=[4, 1], vertical_items='stretch'):
                 self.charts['ts'] = bs.Chart(figure=Figure(figsize=(1, 1)))
                 self.charts['r2'] = bs.Chart(
-                    figure=Figure(figsize=(1, 1)), margin_x=(0, 10)
+                    figure=Figure(figsize=(1, 1)), margin_x=(20, 50)
                 )
 
     def _set_map_limits(self, kind, lower, upper):
@@ -538,7 +538,11 @@ class VoxelViewer:
         nx, ny, nz = self.nx, self.ny, self.nz
 
         figures = {}
-        for kind, color in (('cvr', 'cyan'), ('lag', 'red'), ('mean', 'red')):
+        for kind, color, show_colorbar in (
+            ('cvr', 'cyan', True),
+            ('lag', 'red', True),
+            ('mean', 'red', False),
+        ):
             vertical = kind == 'mean'
             fig = figures[kind] = Figure(figsize=(1, 1), layout='compressed')
             fig.get_layout_engine().set(w_pad=0.02, h_pad=0.02, wspace=0, hspace=0)
@@ -571,7 +575,10 @@ class VoxelViewer:
                 )
                 axis.set_facecolor('black')
                 axes.append(axis)
-            fig.colorbar(self.imgs[f'{kind}_axi'], ax=axes, fraction=0.035, pad=0.02)
+            if show_colorbar:
+                fig.colorbar(
+                    self.imgs[f'{kind}_axi'], ax=axes, fraction=0.035, pad=0.02
+                )
 
         ts_fig = figures['ts'] = Figure(figsize=(1, 1), layout='constrained')
         ts_ax = self.axes['ts'] = ts_fig.add_subplot()
@@ -630,7 +637,7 @@ class VoxelViewer:
                 else np.zeros((self.nx, self.nz)),
                 x,
                 z,
-                f'Coronal (Y={y})',
+                'Coronal',
             ),
             'mean_axi': (
                 self.data['meanvol'][:, :, z]
@@ -638,7 +645,7 @@ class VoxelViewer:
                 else np.zeros((self.nx, self.ny)),
                 x,
                 y,
-                f'Axial (Z={z})',
+                'Axial',
             ),
             'mean_sag': (
                 self.data['meanvol'][x, :, :]
@@ -646,7 +653,7 @@ class VoxelViewer:
                 else np.zeros((self.ny, self.nz)),
                 y,
                 z,
-                f'Sagittal (X={x})',
+                'Sagittal',
             ),
         }
 
@@ -657,8 +664,8 @@ class VoxelViewer:
             )
             views.update(
                 {
-                    'cvr_sag': (self.data['cvr'][x, :, :], y, z, f'Sagittal (X={x})'),
-                    'cvr_cor': (self.data['cvr'][:, y, :], x, z, f'Coronal (Y={y})'),
+                    'cvr_sag': (self.data['cvr'][x, :, :], y, z, 'Sagittal'),
+                    'cvr_cor': (self.data['cvr'][:, y, :], x, z, 'Coronal'),
                     'cvr_axi': (self.data['cvr'][:, :, z], x, y, cvr_title),
                 }
             )
@@ -669,19 +676,19 @@ class VoxelViewer:
                         np.full((self.ny, self.nz), np.nan),
                         y,
                         z,
-                        'CVR: Sagittal',
+                        'Sagittal',
                     ),
                     'cvr_cor': (
                         np.full((self.nx, self.nz), np.nan),
                         x,
                         z,
-                        'CVR: Coronal',
+                        'Coronal',
                     ),
                     'cvr_axi': (
                         np.full((self.nx, self.ny), np.nan),
                         x,
                         y,
-                        'CVR: Axial',
+                        'Axial',
                     ),
                 }
             )
@@ -693,8 +700,8 @@ class VoxelViewer:
             )
             views.update(
                 {
-                    'lag_sag': (self.data['lag'][x, :, :], y, z, f'Sagittal (X={x})'),
-                    'lag_cor': (self.data['lag'][:, y, :], x, z, f'Coronal (Y={y})'),
+                    'lag_sag': (self.data['lag'][x, :, :], y, z, 'Sagittal'),
+                    'lag_cor': (self.data['lag'][:, y, :], x, z, 'Coronal'),
                     'lag_axi': (self.data['lag'][:, :, z], x, y, lag_title),
                 }
             )
@@ -705,19 +712,19 @@ class VoxelViewer:
                         np.full((self.ny, self.nz), np.nan),
                         y,
                         z,
-                        'Lag: Sagittal',
+                        'Sagittal',
                     ),
                     'lag_cor': (
                         np.full((self.nx, self.nz), np.nan),
                         x,
                         z,
-                        'Lag: Coronal',
+                        'Coronal',
                     ),
                     'lag_axi': (
                         np.full((self.nx, self.ny), np.nan),
                         x,
                         y,
-                        'Lag: Axial',
+                        'Axial',
                     ),
                 }
             )
