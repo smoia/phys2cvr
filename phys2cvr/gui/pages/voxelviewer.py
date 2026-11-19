@@ -499,6 +499,7 @@ class VoxelViewer:
         r2_ax = self.axes['r2'] = fig.add_subplot(gs_row2[1])
         (self.line_r2,) = r2_ax.plot([], [], label='R²', color='#2ca02c')
         self.r2_bar = r2_ax.axvline(0, color='red', linestyle=':', lw=1.5)
+        (self.r2_point,) = r2_ax.plot([], [], 'o', color='red')
         r2_ax.set_title('R²: N/A')
         r2_ax.set_xlabel(
             'Lag'
@@ -518,6 +519,9 @@ class VoxelViewer:
         """Update plots and controls for a voxel and regressor delay."""
         if self._syncing or not hasattr(self, 'imgs') or not self.imgs:
             return
+        shift_sec = float(np.clip(shift_sec, self.min_delay_sec, self.max_delay_sec))
+        if self.regressor_matrix is not None:
+            _, shift_sec = self._regressor_row(shift_sec)
         self.curr = [x, y, z]
         self.curr_shift_sec = shift_sec
         ax = self.axes
@@ -711,8 +715,10 @@ class VoxelViewer:
             idx_closest = int(np.argmin(np.abs(r2_x - shift_sec)))
             if 0 <= idx_closest < len(r2_voxel):
                 current_r2_val = r2_voxel[idx_closest]
+                self.r2_point.set_data([r2_x[idx_closest]], [current_r2_val])
         else:
             self.line_r2.set_data([], [])
+            self.r2_point.set_data([], [])
 
         self.r2_bar.set_xdata([shift_sec, shift_sec])
         r2_ax.set_title(

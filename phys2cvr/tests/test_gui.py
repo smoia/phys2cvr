@@ -132,6 +132,27 @@ class TestViewer(unittest.TestCase):
             viewer._on_slider_move()
             self.assertAlmostEqual(viewer.curr_shift_sec, -0.5)
 
+    def test_r2_uses_closest_sample_to_regressor_step(self):
+        viewer = self.viewer
+        viewer.data = dict.fromkeys(viewer.data_types)
+        viewer.data['r2'] = np.tile([0.1, 0.4, 0.8], (4, 5, 6, 1))
+        viewer.curr = [1, 1, 1]
+        viewer.timeseries = None
+        viewer.time = None
+        viewer.fs = None
+        viewer.regressor_matrix = np.arange(27.0).reshape(9, 3)
+        viewer.lag_range = (-2.0, 2.0)
+        viewer.refresh()
+        self.assertAlmostEqual(viewer.slider.step, 0.5)
+        viewer.slider.value = 1.5
+        viewer._on_slider_move()
+        self.assertAlmostEqual(viewer.curr_shift_sec, 1.5)
+        self.assertEqual(viewer.axes['r2'].get_title(), 'R²: 0.8000')
+        np.testing.assert_array_equal(viewer.r2_point.get_xdata(), [2])
+        np.testing.assert_array_equal(viewer.r2_point.get_ydata(), [0.8])
+        viewer.update_all(*viewer.curr, 0.7)
+        self.assertAlmostEqual(viewer.curr_shift_sec, 0.5)
+
 
 if __name__ == '__main__':
     unittest.main()
