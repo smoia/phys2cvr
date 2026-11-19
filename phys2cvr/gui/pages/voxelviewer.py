@@ -348,12 +348,13 @@ class VoxelViewer:
                             0, label='Z', min_value=0, width=4
                         )
                         bs.Divider()
+                        bs.Label('Timeseries', font='caption')
                         self.zscore_switch = bs.Switch('Z-score', value=True)
-                        self.lagmax_field = bs.NumberField(
-                            0.0, label='Lag max', step=0.1, width=4
-                        )
                         self.lagmin_field = bs.NumberField(
                             0.0, label='Lag min', step=0.1, width=4
+                        )
+                        self.lagmax_field = bs.NumberField(
+                            0.0, label='Lag max', step=0.1, width=4
                         )
             with bs.Column(grow=True, horizontal='stretch', vertical='stretch'):
                 self.chart = bs.Chart(figure=Figure(), grow=True, horizontal='stretch')
