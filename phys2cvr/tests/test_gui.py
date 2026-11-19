@@ -18,7 +18,7 @@ if GUI_AVAILABLE:
     import bootstack as bs
 
     from phys2cvr.gui import app
-    from phys2cvr.gui.pages.guiplot import VoxelViewer
+    from phys2cvr.gui.pages.voxelviewer import VoxelViewer
 
 
 @unittest.skipUnless(
@@ -72,11 +72,11 @@ class TestViewer(unittest.TestCase):
             self.viewer.set_lag(tmp / 'lag.nii.gz')
             self.viewer.set_regressors(tmp / 'matrix.txt')
             self.viewer.refresh()
-            self.assertEqual(self.viewer.lag_range, [-1, 1])
+            self.assertEqual(self.viewer.lag_range, (-1, 1))
             self.assertTrue(np.isnan(self.viewer.data['cvr'][0, 0, 0]))
             self.assertEqual(self.viewer.curr, [2, 2, 3])
             event = SimpleNamespace(
-                inaxes=self.viewer.axes['axi'],
+                inaxes=self.viewer.axes['cvr_axi'],
                 xdata=1,
                 ydata=3,
             )
@@ -88,6 +88,32 @@ class TestViewer(unittest.TestCase):
 
     def test_application_shell(self):
         self.assertEqual(self.shell.current, 'viewer')
+
+    def test_slider_without_timeseries(self):
+        viewer = self.viewer
+        viewer.timeseries = None
+        viewer.time = None
+        viewer.data = dict.fromkeys(viewer.data_types)
+        viewer.lag_range = None
+        viewer.regressor_matrix = np.array(
+            [[1.0, 3.0, 2.0], [2.0, 3.0, 1.0], [3.0, 1.0, 2.0]]
+        )
+        viewer.refresh()
+        viewer.slider.value = 1
+        viewer._on_slider_move()
+        np.testing.assert_allclose(
+            viewer.line_co2.get_ydata(), [1.22474487, -1.22474487, 0], atol=1e-6
+        )
+        self.assertFalse(viewer.slider.disabled)
+
+        viewer.regressor_matrix = None
+        viewer.data['r2'] = np.tile([0.1, 0.4, 0.8], (4, 5, 6, 1))
+        viewer.curr = [0, 0, 0]
+        viewer.refresh()
+        viewer.slider.value = 1
+        viewer._on_slider_move()
+        self.assertEqual(viewer.axes['r2'].get_title(), 'R²: 0.4000')
+        self.assertFalse(viewer.slider.disabled)
 
 
 if __name__ == '__main__':

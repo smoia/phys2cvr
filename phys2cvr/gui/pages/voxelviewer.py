@@ -101,6 +101,11 @@ class VoxelViewer:
             self.max_delay_sec = half_lags / self.fs
             self.lag_units = 'idx'
             self.slider.step = 1
+        elif self.data['r2'] is not None:
+            self.min_delay_sec = 0.0
+            self.max_delay_sec = max(1, self.data['r2'].shape[-1] - 1)
+            self.lag_units = 'idx'
+            self.slider.step = 1
         else:
             self.min_delay_sec, self.max_delay_sec = -1.0, 1.0
             self.lag_units = 'idx'
@@ -112,7 +117,9 @@ class VoxelViewer:
             self.lagmax_field.value = self.max_delay_sec
             self.slider.min_value = self.min_delay_sec
             self.slider.max_value = self.max_delay_sec
-            self.slider.disabled = self.regressor_matrix is None
+            self.slider.disabled = (
+                self.regressor_matrix is None and self.data['r2'] is None
+            )
         finally:
             self._syncing = False
 
@@ -188,6 +195,7 @@ class VoxelViewer:
             self.data['r2'][~self.data['mask']] = np.nan
         else:
             self.data['r2'] = self.data['raw_r2']
+        self._update_delay_range()
         self._update_dimensions_from_loaded_data()
 
     def set_mask(self, path):
@@ -642,6 +650,12 @@ class VoxelViewer:
             regr_trace = zscore(self.regressor_matrix[regr_idx, :])
 
             if self.time is not None:
+                if regr_trace.size != self.time.size:
+                    regr_trace = np.interp(
+                        self.time,
+                        np.linspace(self.time[0], self.time[-1], regr_trace.size),
+                        regr_trace,
+                    )
                 regr_time = self.time
                 ts_ax.set_xlabel('Time (s)')
             else:
@@ -662,7 +676,7 @@ class VoxelViewer:
 
         # --- R2 Profile Plot ---
         r2_ax = ax['r2']
-        current_r2_val = 0.0
+        current_r2_val = None
         if self.data['r2'] is not None:
             r2_voxel = self.data['r2'][x, y, z, :]
             num_r2 = len(r2_voxel)
@@ -696,7 +710,7 @@ class VoxelViewer:
 
         self.r2_bar.set_xdata([shift_sec, shift_sec])
         r2_ax.set_title(
-            f'R²: {current_r2_val:.4f}' if not np.isnan(current_r2_val) else 'R²: NaN'
+            'R²: N/A' if current_r2_val is None else f'R²: {current_r2_val:.4f}'
         )
 
         # --- Updates a few things ---
@@ -778,7 +792,7 @@ class VoxelViewer:
         self._move_to(x, y, z)
 
     def _on_coord_change(self):
-        if self._syncing or self.timeseries is None:
+        if self._syncing or not self.axes:
             return
         values = [f.value for f in (self.x_field, self.y_field, self.z_field)]
         if any(v is None for v in values):
@@ -786,6 +800,6 @@ class VoxelViewer:
         self._move_to(*values)
 
     def _on_slider_move(self):
-        if self._syncing or self.timeseries is None:
+        if self._syncing or not self.axes:
             return
         self.update_all(*self.curr, float(self.slider.value))
