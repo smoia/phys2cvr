@@ -295,8 +295,8 @@ class VoxelViewer:
             self.x_field = bs.NumberField(0, label='X', min_value=0, width=4)
             self.y_field = bs.NumberField(0, label='Y', min_value=0, width=4)
             self.z_field = bs.NumberField(0, label='Z', min_value=0, width=4)
-            self.lagmax_field = bs.NumberField(0, label='Lag max', width=4)
-            self.lagmin_field = bs.NumberField(0, label='Lag min', width=4)
+            self.lagmax_field = bs.NumberField(0.0, label='Lag max', step=0.1, width=4)
+            self.lagmin_field = bs.NumberField(0.0, label='Lag min', step=0.1, width=4)
             with bs.Column(grow=True, horizontal='stretch'):
                 self.CO2_label = bs.Label(
                     f'CO2 Delay ({self.lag_units})', font='caption'
@@ -807,6 +807,35 @@ class VoxelViewer:
         if any(v is None for v in values):
             return
         self._move_to(*values)
+
+    def _validate_lag_range(self, lower, upper):
+        if not np.isfinite(lower) or not np.isfinite(upper) or lower >= upper:
+            raise ValueError('Lag minimum must be finite and less than lag maximum.')
+        if self.fs is not None and self.regressor_matrix is not None:
+            capacity = (self.regressor_matrix.shape[0] - 1) / self.fs
+            if upper - lower > capacity and not np.isclose(upper - lower, capacity):
+                raise ValueError(
+                    'The lag range is too big for the regressor matrix at the '
+                    f'specified sampling frequency (maximum span: {capacity:g} s).'
+                )
+
+    def _on_lagrange_change(self):
+        if self._syncing:
+            return
+        lower, upper = self.lagmin_field.value, self.lagmax_field.value
+        if lower is None or upper is None:
+            return
+        try:
+            self._validate_lag_range(lower, upper)
+        except ValueError as err:
+            LGR.warning('Invalid lag range: %s', err)
+            self._update_delay_range()
+            bs.alert(str(err), title='Invalid lag range', severity='warning')
+            return
+        self.lag_range = (float(lower), float(upper))
+        self._update_delay_range()
+        if self.axes:
+            self.update_all(*self.curr, self.curr_shift_sec)
 
     def _on_slider_move(self):
         if self._syncing or not self.axes:

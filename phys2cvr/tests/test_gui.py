@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import nibabel as nib
 import numpy as np
@@ -38,6 +39,9 @@ class TestViewer(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.shell.close()
+
+    def setUp(self):
+        self.viewer.fs = None
 
     def test_viewer_menu_follows_page(self):
         toolbar = self.viewer.toolbar._internal
@@ -152,6 +156,42 @@ class TestViewer(unittest.TestCase):
         np.testing.assert_array_equal(viewer.r2_point.get_ydata(), [0.8])
         viewer.update_all(*viewer.curr, 0.7)
         self.assertAlmostEqual(viewer.curr_shift_sec, 0.5)
+
+    def test_edit_lag_range_infers_frequency_and_rejects_excess_span(self):
+        viewer = self.viewer
+        viewer.data = dict.fromkeys(viewer.data_types)
+        viewer.timeseries = None
+        viewer.time = None
+        viewer.regressor_matrix = np.arange(27.0).reshape(9, 3)
+        viewer.fs = None
+        viewer.lag_range = (-2.0, 2.0)
+        viewer.refresh()
+
+        def change_range(lower, upper):
+            viewer._syncing = True
+            viewer.lagmin_field.value = lower
+            viewer.lagmax_field.value = upper
+            viewer._syncing = False
+            viewer._on_lagrange_change()
+
+        change_range(-1, 1)
+        self.assertEqual(viewer.lag_range, (-1, 1))
+        self.assertAlmostEqual(viewer.slider.step, 0.25)
+        np.testing.assert_array_equal(viewer._regressor_row(1)[0], [24, 25, 26])
+
+        viewer.fs = 2.0
+        change_range(-1, 1)
+        self.assertAlmostEqual(viewer.slider.step, 0.5)
+        np.testing.assert_array_equal(viewer._regressor_row(1)[0], [12, 13, 14])
+        with patch('phys2cvr.gui.pages.voxelviewer.bs.alert') as alert:
+            change_range(-2, 3)
+        alert.assert_called_once()
+        self.assertIn('too big', alert.call_args.args[0])
+        self.assertEqual(viewer.lag_range, (-1, 1))
+        self.assertEqual((viewer.slider.min_value, viewer.slider.max_value), (-1, 1))
+        self.assertEqual(
+            (viewer.lagmin_field.value, viewer.lagmax_field.value), (-1, 1)
+        )
 
 
 if __name__ == '__main__':
