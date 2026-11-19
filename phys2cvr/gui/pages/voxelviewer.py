@@ -387,44 +387,18 @@ class VoxelViewer:
     def _build_charts(self):
         """Create the five chart containers in the viewer layout."""
         self.charts = {}
-        self.chart_splits = {}
-        self.chart_splits['rows'] = bs.SplitView(
-            orient='vertical', grow=True, horizontal='stretch'
-        )
-        with self.chart_splits['rows'].add(
-            'maps', weight=7, horizontal_items='stretch'
+        with bs.Column(
+            grow=True, horizontal='stretch', weights=[7, 3], horizontal_items='stretch'
         ):
-            self.chart_splits['maps'] = bs.SplitView(grow=True, horizontal='stretch')
-            with self.chart_splits['maps'].add(
-                'cvr_lag', weight=3, horizontal_items='stretch'
-            ):
-                self.chart_splits['map_rows'] = bs.SplitView(
-                    orient='vertical', grow=True, horizontal='stretch'
-                )
-                for kind in ('cvr', 'lag'):
-                    with self.chart_splits['map_rows'].add(
-                        kind, weight=1, horizontal_items='stretch'
-                    ):
-                        self.charts[kind] = bs.Chart(
-                            figure=Figure(figsize=(1, 1)), grow=True
-                        )
-            with self.chart_splits['maps'].add(
-                'mean', weight=1, horizontal_items='stretch'
-            ):
-                self.charts['mean'] = bs.Chart(figure=Figure(figsize=(1, 1)), grow=True)
-        with self.chart_splits['rows'].add(
-            'curves', weight=3, horizontal_items='stretch'
-        ):
-            self.chart_splits['curves'] = bs.SplitView(grow=True, horizontal='stretch')
-            with self.chart_splits['curves'].add(
-                'ts', weight=4, horizontal_items='stretch'
-            ):
-                self.charts['ts'] = bs.Chart(figure=Figure(figsize=(1, 1)), grow=True)
-            with self.chart_splits['curves'].add(
-                'r2', weight=1, horizontal_items='stretch'
-            ):
+            with bs.Row(weights=[3, 1], vertical_items='stretch'):
+                with bs.Column(weights=[1, 1], horizontal_items='stretch'):
+                    self.charts['cvr'] = bs.Chart(figure=Figure(figsize=(1, 1)))
+                    self.charts['lag'] = bs.Chart(figure=Figure(figsize=(1, 1)))
+                self.charts['mean'] = bs.Chart(figure=Figure(figsize=(1, 1)))
+            with bs.Row(weights=[4, 1], vertical_items='stretch'):
+                self.charts['ts'] = bs.Chart(figure=Figure(figsize=(1, 1)))
                 self.charts['r2'] = bs.Chart(
-                    figure=Figure(figsize=(1, 1)), grow=True, margin_x=(0, 10)
+                    figure=Figure(figsize=(1, 1)), margin_x=(0, 10)
                 )
 
     def _set_map_limits(self, kind, lower, upper):
