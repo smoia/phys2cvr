@@ -115,6 +115,23 @@ class TestViewer(unittest.TestCase):
         self.assertEqual(viewer.axes['r2'].get_title(), 'R²: 0.4000')
         self.assertFalse(viewer.slider.disabled)
 
+    def test_regressor_slider_uses_frequency_and_inferred_frequency(self):
+        viewer = self.viewer
+        viewer.data = dict.fromkeys(viewer.data_types)
+        viewer.timeseries = None
+        viewer.time = None
+        viewer.regressor_matrix = np.arange(27.0).reshape(9, 3)
+        viewer.lag_range = (-2.0, 2.0)
+        for frequency in (None, 2.0):
+            viewer.fs = frequency
+            viewer.refresh()
+            self.assertAlmostEqual(viewer.slider.step, 0.5)
+            self.assertAlmostEqual(viewer._regressor_fs(), 2.0)
+            np.testing.assert_array_equal(viewer._regressor_row(-0.5)[0], [9, 10, 11])
+            viewer.slider.value = -0.5
+            viewer._on_slider_move()
+            self.assertAlmostEqual(viewer.curr_shift_sec, -0.5)
+
 
 if __name__ == '__main__':
     unittest.main()

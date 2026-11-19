@@ -41,7 +41,11 @@ class VoxelViewer:
     """Interactive viewer for fMRI voxels, CVR/lag maps and shifted regressors."""
 
     def __init__(self, fs=None, lag_range=None, cvr_range=None):
-        self.fs = fs if fs else 1.0
+        if fs is not None and (not np.isfinite(fs) or fs <= 0):
+            raise ValueError(
+                'Regressor sampling frequency must be positive and finite.'
+            )
+        self.fs = fs
         self.cvr_range = cvr_range
         self.lag_range = lag_range
         self.lag_step = None
@@ -93,14 +97,12 @@ class VoxelViewer:
         if self.lag_range is not None:
             self.min_delay_sec, self.max_delay_sec = self.lag_range
             self.lag_units = 's'
-            if self.lag_step is not None:
-                self.slider.step = self.lag_step
         elif self.regressor_matrix is not None:
             half_lags = (self.regressor_matrix.shape[0] - 1) / 2.0
-            self.min_delay_sec = -half_lags / self.fs
-            self.max_delay_sec = half_lags / self.fs
-            self.lag_units = 'idx'
-            self.slider.step = 1
+            frequency = self.fs if self.fs is not None else 1.0
+            self.min_delay_sec = -half_lags / frequency
+            self.max_delay_sec = half_lags / frequency
+            self.lag_units = 's' if self.fs is not None else 'idx'
         elif self.data['r2'] is not None:
             self.min_delay_sec = 0.0
             self.max_delay_sec = max(1, self.data['r2'].shape[-1] - 1)
@@ -109,7 +111,14 @@ class VoxelViewer:
         else:
             self.min_delay_sec, self.max_delay_sec = -1.0, 1.0
             self.lag_units = 'idx'
-            self.slider.step = 1
+
+        if self.regressor_matrix is not None:
+            step = 1.0 / self._regressor_fs()
+        elif self.lag_range is not None and self.data['r2'] is not None:
+            count = self.data['r2'].shape[-1]
+            step = (self.max_delay_sec - self.min_delay_sec) / max(count - 1, 1)
+        else:
+            step = 1.0
 
         self._syncing = True
         try:
@@ -117,6 +126,7 @@ class VoxelViewer:
             self.lagmax_field.value = self.max_delay_sec
             self.slider.min_value = self.min_delay_sec
             self.slider.max_value = self.max_delay_sec
+            self.slider.step = step
             self.slider.disabled = (
                 self.regressor_matrix is None and self.data['r2'] is None
             )
@@ -204,12 +214,23 @@ class VoxelViewer:
         self._apply_mask()
         self._update_dimensions_from_loaded_data()
 
+    def _regressor_fs(self):
+        """Return the supplied frequency, or infer it from lag range and rows."""
+        if self.fs is not None:
+            return self.fs
+        if self.lag_range is not None and self.regressor_matrix.shape[0] > 1:
+            return (self.regressor_matrix.shape[0] - 1) / (
+                self.lag_range[1] - self.lag_range[0]
+            )
+        return 1.0
+
     def _regressor_row(self, shift_sec):
         """Return the regressor shifted by `shift_sec` and the actual shift used."""
         num_lags = self.regressor_matrix.shape[0]
-        idx = int(round((shift_sec - self.min_delay_sec) * self.fs))
+        frequency = self._regressor_fs()
+        idx = int(round((shift_sec - self.min_delay_sec) * frequency))
         idx = int(np.clip(idx, 0, num_lags - 1))
-        return self.regressor_matrix[idx], idx / self.fs + self.min_delay_sec
+        return self.regressor_matrix[idx], idx / frequency + self.min_delay_sec
 
     # ----- UI -----
 
@@ -274,8 +295,8 @@ class VoxelViewer:
             self.x_field = bs.NumberField(0, label='X', min_value=0, width=4)
             self.y_field = bs.NumberField(0, label='Y', min_value=0, width=4)
             self.z_field = bs.NumberField(0, label='Z', min_value=0, width=4)
-            self.lagmax_field = bs.NumberField(0, label='Lag max', min_value=0, width=4)
-            self.lagmin_field = bs.NumberField(0, label='Lag min', min_value=0, width=4)
+            self.lagmax_field = bs.NumberField(0, label='Lag max', width=4)
+            self.lagmin_field = bs.NumberField(0, label='Lag min', width=4)
             with bs.Column(grow=True, horizontal='stretch'):
                 self.CO2_label = bs.Label(
                     f'CO2 Delay ({self.lag_units})', font='caption'
@@ -632,22 +653,8 @@ class VoxelViewer:
 
         # 2. Update Regressor line
         if has_regr:
-            num_regr_rows = self.regressor_matrix.shape[0]
-            half_lags = (num_regr_rows - 1) / 2.0
-
-            if self.lag_range is not None:
-                l_min, l_max = self.lag_range
-                if l_max != l_min:
-                    norm_pos = (shift_sec - l_min) / (l_max - l_min)
-                    regr_idx = int(round(norm_pos * (num_regr_rows - 1)))
-                else:
-                    regr_idx = int(num_regr_rows // 2)
-            else:
-                idx_offset = int(round(shift_sec * self.fs))
-                regr_idx = int(round(half_lags + idx_offset))
-
-            regr_idx = np.clip(regr_idx, 0, num_regr_rows - 1)
-            regr_trace = zscore(self.regressor_matrix[regr_idx, :])
+            row, _ = self._regressor_row(shift_sec)
+            regr_trace = zscore(row)
 
             if self.time is not None:
                 if regr_trace.size != self.time.size:
@@ -686,8 +693,7 @@ class VoxelViewer:
                 r2_x = np.linspace(self.lag_range[0], self.lag_range[1], num_r2)
                 r2_xlabel = 'Lag (s)'
             elif self.regressor_matrix is not None:
-                half_lags = (self.regressor_matrix.shape[0] - 1) / 2.0
-                r2_x = np.linspace(-half_lags / self.fs, half_lags / self.fs, num_r2)
+                r2_x = np.linspace(self.min_delay_sec, self.max_delay_sec, num_r2)
                 r2_xlabel = 'Lag (s)'
             else:
                 r2_x = np.arange(num_r2)
@@ -753,10 +759,7 @@ class VoxelViewer:
                     r2_x = np.linspace(self.lag_range[0], self.lag_range[1], num_r2)
                     shift = float(r2_x[max_idx])
                 elif self.regressor_matrix is not None:
-                    half_lags = (self.regressor_matrix.shape[0] - 1) / 2.0
-                    r2_x = np.linspace(
-                        -half_lags / self.fs, half_lags / self.fs, num_r2
-                    )
+                    r2_x = np.linspace(self.min_delay_sec, self.max_delay_sec, num_r2)
                     shift = float(r2_x[max_idx])
                 else:
                     shift = float(max_idx)
