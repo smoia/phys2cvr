@@ -23,7 +23,13 @@ python -m phys2cvr.gui.app
 ```
 
 Use the viewer's **Load** menu to open a 4D fMRI timeseries, regressor matrix,
-CVR map, lag map, and mask. You can also pass paths and lag settings at startup;
+CVR map, lag map, R² volume, mask, or result folder. These inputs can be viewed
+independently. The left settings panel controls voxel coordinates, map color
+limits and colormaps, lag bounds, and whether timecourses are z-scored or
+demeaned. The lag slider moves by one regressor row; when the sampling frequency
+is unspecified, it is inferred from the lag range and matrix size.
+
+You can also pass paths and lag settings at startup;
 run `python -m phys2cvr.gui.app --help` for the available options. From a
 repository checkout, `bootstack run` also launches the GUI using
 `bootstack.toml`.

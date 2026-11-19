@@ -45,7 +45,7 @@ def _get_parser():
         '--fs',
         type=float,
         default=None,
-        help='Regressor sampling frequency in Hz (corresponding to )',
+        help='Regressor sampling frequency in Hz (inferred from the lag range if omitted)',
     )
     parser.add_argument(
         '-lr',

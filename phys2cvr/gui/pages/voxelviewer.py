@@ -75,6 +75,16 @@ class VoxelViewer:
         self.lag_units = 's'
         self._syncing = False
         self.axes = {}
+        self.map_settings = {
+            'cvr': {
+                'limits': cvr_range
+                if cvr_range and None not in cvr_range
+                else (0.0, 1.0),
+                'cmap': 'inferno',
+            },
+            'lag': {'limits': (-1.0, 1.0), 'cmap': 'viridis_r'},
+            'mean': {'limits': (0.0, 1.0), 'cmap': 'gray'},
+        }
 
     # ----- data handling -----
 
@@ -130,6 +140,7 @@ class VoxelViewer:
             self.slider.disabled = (
                 self.regressor_matrix is None and self.data['r2'] is None
             )
+            self.CO2_label.text = f'CO2 Delay ({self.lag_units})'
         finally:
             self._syncing = False
 
@@ -161,6 +172,9 @@ class VoxelViewer:
         self.nx, self.ny, self.nz, self.nt = self.timeseries.shape
         self.time = np.arange(self.nt) * self.tr
         self.data['meanvol'] = np.mean(self.timeseries, axis=-1)
+        finite = self.data['meanvol'][np.isfinite(self.data['meanvol'])]
+        if finite.size:
+            self._set_map_limits('mean', float(finite.min()), float(finite.max()))
         self.curr = [self.nx // 2, self.ny // 2, self.nz // 2]
 
         # If a mask was not provided yet, generate it from non-zero mean volume voxels
@@ -184,6 +198,8 @@ class VoxelViewer:
         else:
             self.cvr_vmin, self.cvr_vmax = None, None
         self.cvr_range = (self.cvr_vmin, self.cvr_vmax)
+        if self.cvr_vmin is not None:
+            self._set_map_limits('cvr', self.cvr_vmin, self.cvr_vmax)
         self._update_dimensions_from_loaded_data()
 
     def set_lag(self, path):
@@ -193,6 +209,8 @@ class VoxelViewer:
         finite_lags = self.data['raw_lag'][np.isfinite(self.data['raw_lag'])]
         self.lag_step, lag_max, lag_min = estimate_lag_range(finite_lags, path)
         self.lag_range = (lag_min, lag_max)
+        lag_bound = max(abs(lag_min), abs(lag_max))
+        self._set_map_limits('lag', -lag_bound, lag_bound)
         self._update_delay_range()
         self._update_dimensions_from_loaded_data()
 
@@ -289,32 +307,123 @@ class VoxelViewer:
                         self.set_mask,
                     ),
                 )
-        self.chart = bs.Chart(figure=Figure(), grow=True, horizontal='stretch')
-
-        with bs.Row(gap=16, padding=10, horizontal='stretch', vertical='center'):
-            self.x_field = bs.NumberField(0, label='X', min_value=0, width=4)
-            self.y_field = bs.NumberField(0, label='Y', min_value=0, width=4)
-            self.z_field = bs.NumberField(0, label='Z', min_value=0, width=4)
-            self.lagmax_field = bs.NumberField(0.0, label='Lag max', step=0.1, width=4)
-            self.lagmin_field = bs.NumberField(0.0, label='Lag min', step=0.1, width=4)
-            with bs.Column(grow=True, horizontal='stretch'):
-                self.CO2_label = bs.Label(
-                    f'CO2 Delay ({self.lag_units})', font='caption'
-                )
-                self.slider = bs.Slider(
-                    0.0,
-                    min_value=self.min_delay_sec,
-                    max_value=self.max_delay_sec,
-                    horizontal='stretch',
-                )
-            self.delay_label = bs.Label(f'+0.00 {self.lag_units}', width=10)
+        self.map_fields = {}
+        with bs.Row(grow=True, horizontal='stretch', vertical_items='stretch'):
+            with bs.Column(
+                width=190,
+                surface='card_raised',
+                vertical='stretch',
+                horizontal_items='stretch',
+            ):
+                with bs.ScrollView(grow=True, horizontal='stretch'):
+                    with bs.Column(padding=8, gap=6, horizontal_items='stretch'):
+                        for kind, title in (
+                            ('cvr', 'CVR map'),
+                            ('lag', 'Lag map'),
+                            ('mean', 'Mean volume'),
+                        ):
+                            bs.Label(title, font='caption')
+                            lower, upper = self.map_settings[kind]['limits']
+                            vmin = bs.NumberField(
+                                float(lower), label='Min', step=0.1, width=4
+                            )
+                            vmax = bs.NumberField(
+                                float(upper), label='Max', step=0.1, width=4
+                            )
+                            cmap = bs.Select(
+                                sorted(mpl.colormaps),
+                                value=self.map_settings[kind]['cmap'],
+                                label='Colorscale',
+                                width=10,
+                            )
+                            self.map_fields[kind] = (vmin, vmax, cmap)
+                            bs.Divider()
+                        self.x_field = bs.NumberField(
+                            0, label='X', min_value=0, width=4
+                        )
+                        self.y_field = bs.NumberField(
+                            0, label='Y', min_value=0, width=4
+                        )
+                        self.z_field = bs.NumberField(
+                            0, label='Z', min_value=0, width=4
+                        )
+                        bs.Divider()
+                        self.zscore_switch = bs.Switch('Z-score', value=True)
+                        self.lagmax_field = bs.NumberField(
+                            0.0, label='Lag max', step=0.1, width=4
+                        )
+                        self.lagmin_field = bs.NumberField(
+                            0.0, label='Lag min', step=0.1, width=4
+                        )
+            with bs.Column(grow=True, horizontal='stretch', vertical='stretch'):
+                self.chart = bs.Chart(figure=Figure(), grow=True, horizontal='stretch')
+                with bs.Row(
+                    gap=16, padding=10, horizontal='stretch', vertical='center'
+                ):
+                    with bs.Column(grow=True, horizontal='stretch'):
+                        self.CO2_label = bs.Label(
+                            f'CO2 Delay ({self.lag_units})', font='caption'
+                        )
+                        self.slider = bs.Slider(
+                            0.0,
+                            min_value=self.min_delay_sec,
+                            max_value=self.max_delay_sec,
+                            horizontal='stretch',
+                        )
+                    self.delay_label = bs.Label(f'+0.00 {self.lag_units}', width=10)
 
         for field in (self.x_field, self.y_field, self.z_field):
             field.on_change(lambda e: self._on_coord_change())
         for field in (self.lagmax_field, self.lagmin_field):
             field.on_change(lambda e: self._on_lagrange_change())
+        for kind, fields in self.map_fields.items():
+            for field in fields:
+                field.on_change(lambda e, kind=kind: self._on_map_settings_change(kind))
+        self.zscore_switch.on_change(lambda e: self._update_current_plot())
         self.slider.on_change(lambda e: self._on_slider_move())
         self.refresh()
+
+    def _set_map_limits(self, kind, lower, upper):
+        lower, upper = float(lower), float(upper)
+        if lower == upper:
+            delta = max(abs(lower) * 0.01, 0.01)
+            lower, upper = lower - delta, upper + delta
+        self.map_settings[kind]['limits'] = (lower, upper)
+        if hasattr(self, 'map_fields') and kind in self.map_fields:
+            syncing = self._syncing
+            self._syncing = True
+            try:
+                self.map_fields[kind][0].value = lower
+                self.map_fields[kind][1].value = upper
+            finally:
+                self._syncing = syncing
+
+    def _on_map_settings_change(self, kind):
+        if self._syncing:
+            return
+        vmin, vmax, cmap = self.map_fields[kind]
+        lower, upper = vmin.value, vmax.value
+        if lower is None or upper is None:
+            return
+        if not np.isfinite(lower) or not np.isfinite(upper) or lower >= upper:
+            previous = self.map_settings[kind]['limits']
+            self._set_map_limits(kind, *previous)
+            LGR.warning('Invalid %s color range: %s to %s', kind, lower, upper)
+            bs.alert(
+                'Minimum must be less than maximum.',
+                title='Invalid color range',
+                severity='warning',
+            )
+            return
+        self.map_settings[kind] = {
+            'limits': (float(lower), float(upper)),
+            'cmap': cmap.value,
+        }
+        self._update_current_plot()
+
+    def _update_current_plot(self):
+        if not self._syncing and self.axes:
+            self.update_all(*self.curr, self.curr_shift_sec)
 
     def _load(self, title, file_types, setter):
         path = bs.ask_open_file(title=title, file_types=file_types)
@@ -408,8 +517,9 @@ class VoxelViewer:
         nx, ny, nz = self.nx, self.ny, self.nz
 
         # --- Row 0: CVR Maps (Sag, Cor, Axi) ---
-        cmap_cvr = mpl.colormaps['inferno'].copy()
-        cmap_cvr.set_bad(color='black')
+        cmap_cvr = mpl.colormaps[self.map_settings['cvr']['cmap']].with_extremes(
+            bad='black'
+        )
 
         add_view(
             'cvr_sag', gs[0, 0], aspects['sag'], cmap_cvr, 'cyan', 'Y', 'Z', (ny, nz)
@@ -434,8 +544,9 @@ class VoxelViewer:
         )
 
         # --- Row 1: Lag Maps (Sag, Cor, Axi) ---
-        cmap_lag = mpl.colormaps['viridis_r'].copy()
-        cmap_lag.set_bad(color='black')
+        cmap_lag = mpl.colormaps[self.map_settings['lag']['cmap']].with_extremes(
+            bad='black'
+        )
 
         if self.lag_range is not None:
             lag_bound = max(abs(self.lag_range[0]), abs(self.lag_range[1]))
@@ -465,14 +576,17 @@ class VoxelViewer:
 
         # --- Mean Volume: 3 axes stacked vertically in column 3, spanning rows 0 and 1, resized (2/3 scale) ---
         gs_mean = gs[:2, 3].subgridspec(3, 1, hspace=0.15)
-        add_view(
-            'mean_sag', gs_mean[0], aspects['sag'], 'gray', 'r', 'Y', 'Z', (ny, nz)
+        mean_cmap = mpl.colormaps[self.map_settings['mean']['cmap']].with_extremes(
+            bad='black'
         )
         add_view(
-            'mean_cor', gs_mean[1], aspects['cor'], 'gray', 'r', 'X', 'Z', (nx, nz)
+            'mean_sag', gs_mean[0], aspects['sag'], mean_cmap, 'r', 'Y', 'Z', (ny, nz)
         )
         add_view(
-            'mean_axi', gs_mean[2], aspects['axi'], 'gray', 'r', 'X', 'Y', (nx, ny)
+            'mean_cor', gs_mean[1], aspects['cor'], mean_cmap, 'r', 'X', 'Z', (nx, nz)
+        )
+        add_view(
+            'mean_axi', gs_mean[2], aspects['axi'], mean_cmap, 'r', 'X', 'Y', (nx, ny)
         )
 
         # --- Row 2: Timeseries plot (left, 4/5 width) and R2 curve plot (right, 1/5 width) ---
@@ -631,9 +745,12 @@ class VoxelViewer:
             img = self.imgs[name]
             img.set_data(slice_data.T)
 
-            # Only autoscale meanvolume views!
-            if name.startswith('mean_'):
-                img.autoscale()
+            kind = name.split('_', 1)[0]
+            settings = self.map_settings[kind]
+            if img.get_cmap().name != settings['cmap']:
+                img.set_cmap(mpl.colormaps[settings['cmap']].with_extremes(bad='black'))
+            if img.get_clim() != tuple(settings['limits']):
+                img.set_clim(*settings['limits'])
             self.cross[name][0].set_xdata([cx, cx])
             self.cross[name][1].set_ydata([cy, cy])
             ax[name].set_title(title)
@@ -647,7 +764,7 @@ class VoxelViewer:
 
         # 1. Update Voxel Timeseries line
         if has_ts:
-            voxel_ts = zscore(self.timeseries[x, y, z, :])
+            voxel_ts = self._normalize(self.timeseries[x, y, z, :])
             self.line_voxel.set_data(self.time, voxel_ts)
             ts_ax.set_xlim(0, self.time[-1] if self.nt > 1 else 1)
             self.line_voxel.set_visible(True)
@@ -658,7 +775,7 @@ class VoxelViewer:
         # 2. Update Regressor line
         if has_regr:
             row, _ = self._regressor_row(shift_sec)
-            regr_trace = zscore(row)
+            regr_trace = self._normalize(row)
 
             if self.time is not None:
                 if regr_trace.size != self.time.size:
@@ -683,6 +800,7 @@ class VoxelViewer:
             self.line_co2.set_visible(False)
 
         ts_ax.relim()
+        ts_ax.set_ylabel('Z-Score' if self.zscore_switch.value else 'Demeaned')
         ts_ax.autoscale_view(scalex=False, scaley=True)
 
         # --- R2 Profile Plot ---
@@ -742,6 +860,11 @@ class VoxelViewer:
         self.chart.draw()
 
     # ----- callbacks -----
+
+    def _normalize(self, values):
+        if self.zscore_switch.value:
+            return zscore(values)
+        return values - np.mean(values)
 
     def _move_to(self, x, y, z):
         """Move to a voxel, following its lag value or max R² index when applicable."""

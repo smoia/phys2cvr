@@ -42,6 +42,7 @@ class TestViewer(unittest.TestCase):
 
     def setUp(self):
         self.viewer.fs = None
+        self.viewer.zscore_switch.value = True
 
     def test_viewer_menu_follows_page(self):
         toolbar = self.viewer.toolbar._internal
@@ -192,6 +193,41 @@ class TestViewer(unittest.TestCase):
         self.assertEqual(
             (viewer.lagmin_field.value, viewer.lagmax_field.value), (-1, 1)
         )
+
+    def test_sidebar_map_settings_and_normalization(self):
+        viewer = self.viewer
+        viewer.data = dict.fromkeys(viewer.data_types)
+        viewer.timeseries = np.tile([2.0, 4.0, 6.0], (2, 2, 2, 1))
+        viewer.nx = viewer.ny = viewer.nz = 2
+        viewer.nt = 3
+        viewer.time = np.arange(3)
+        viewer.data['meanvol'] = np.mean(viewer.timeseries, axis=-1)
+        viewer.data['cvr'] = np.arange(8.0).reshape(2, 2, 2)
+        viewer.data['lag'] = np.arange(8.0).reshape(2, 2, 2)
+        viewer.regressor_matrix = np.array([[10.0, 14.0, 18.0]] * 3)
+        viewer.lag_range = (-1, 1)
+        viewer.refresh()
+
+        for kind in ('cvr', 'lag', 'mean'):
+            lower, upper, cmap = viewer.map_fields[kind]
+            viewer._syncing = True
+            lower.value, upper.value, cmap.value = -2.25, 5.75, 'plasma'
+            viewer._syncing = False
+            viewer._on_map_settings_change(kind)
+            for orientation in ('sag', 'cor', 'axi'):
+                image = viewer.imgs[f'{kind}_{orientation}']
+                self.assertEqual(image.get_clim(), (-2.25, 5.75))
+                self.assertEqual(image.get_cmap().name, 'plasma')
+        viewer.update_all(0, 0, 0, 0)
+        np.testing.assert_allclose(
+            viewer.line_voxel.get_ydata(), [-1.22474487, 0, 1.22474487], atol=1e-6
+        )
+        viewer.zscore_switch._internal.invoke()
+        self.shell._internal.update()
+        self.assertFalse(viewer.zscore_switch.value)
+        np.testing.assert_allclose(viewer.line_voxel.get_ydata(), [-2, 0, 2])
+        np.testing.assert_allclose(viewer.line_co2.get_ydata(), [-4, 0, 4])
+        self.assertEqual(viewer.axes['ts'].get_ylabel(), 'Demeaned')
 
 
 if __name__ == '__main__':
