@@ -36,6 +36,24 @@ def page():
     shell.destroy()
 
 
+@pytest.fixture(autouse=True)
+def reset_form(page):
+    form, _ = page
+    for dest, action in form.actions.items():
+        field = form.fields[dest]
+        if dest in ('response_function', 'r2model', 'workflow_config'):
+            field.value = ''
+        elif isinstance(
+            action, (argparse._StoreTrueAction, argparse._StoreFalseAction)
+        ):
+            field.value = False
+        elif action.type in (int, float) and action.default is not None:
+            field.value = action.default
+        else:
+            field.clear()
+    form.response_path.clear()
+
+
 def test_parser_fields_and_default_values(page):
     form, _ = page
     parser = _get_parser()
@@ -203,7 +221,10 @@ def test_real_workflow_and_error_reporting(page, tmp_path):
 
 
 def test_window_destruction_stops_active_workflow(page):
-    form, _ = page
+    _, shell = page
+    with shell.page_nav() as nav:
+        with nav.add_page('workflow-stop', text='Stop test'):
+            form = build_workflow_setter()
     process = MagicMock()
     output = MagicMock()
     form.process = process

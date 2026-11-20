@@ -3,6 +3,7 @@ This configuration test module was taken from phys2bids.
 Credit to the original author(s) and to the phys2bids community.
 """
 
+import importlib.util
 import os
 import ssl
 from urllib.request import urlretrieve
@@ -10,6 +11,20 @@ from urllib.request import urlretrieve
 import nibabel as nib
 import numpy as np
 import pytest
+
+
+@pytest.fixture(scope='module', autouse=True)
+def reset_gui_theme_provider(request):
+    """Release Bootstack's theme singleton after each independent GUI suite."""
+    gui_modules = {'test_diffviewer', 'test_gui', 'test_guiargset', 'test_logviewer'}
+    is_gui_module = request.module.__name__.rsplit('.', 1)[-1] in gui_modules
+    yield
+    if is_gui_module and importlib.util.find_spec('bootstack') is not None:
+        # Bootstack resets Tk-bound fonts on destroy but retains this singleton,
+        # preventing named fonts from being initialized for the next Tk root.
+        from bootstack.style.theme_provider import ThemeProvider
+
+        ThemeProvider._instance = None
 
 
 def fetch_file(osf_id, path, filename):

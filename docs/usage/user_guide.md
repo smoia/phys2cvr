@@ -53,4 +53,16 @@ command line. The run button starts a separate process, keeping the GUI responsi
 the page reports completion or an error. Closing the application stops an
 active workflow.
 
+To run the GUI tests with pytest, install the test and GUI extras and use a
+graphical display. On headless Linux, use Xvfb:
+
+```shell
+pip install -e '.[test,gui]'
+xvfb-run -a python -m pytest phys2cvr/tests/test_gui.py \
+  phys2cvr/tests/test_diffviewer.py phys2cvr/tests/test_logviewer.py \
+  phys2cvr/tests/test_guiargset.py
+```
+
+Display-dependent tests are skipped when no display is available.
+
 ## In-depth tutorial coming soon...
