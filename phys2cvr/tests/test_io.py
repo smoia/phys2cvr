@@ -48,7 +48,7 @@ def test_load_nifti_get_mask(nifti_data, nifti_mask):
 def test_load_txt(extension, delimiter, testdir):
     """Test load_txt."""
     a = np.random.randn(5)
-    n = os.join.path(testdir, f'zoe{extension}')
+    n = os.path.join(testdir, f'zoe{extension}')
     np.savetxt(n, a, delimiter=delimiter)
     b = io.load_txt(n)
 
@@ -89,10 +89,15 @@ def test_load_array():
     os.remove(m)
 
 
-def test_load_physio():
-    d = pk.Physio(np.random.randn(40), fs=10)
-    d = pk.peakfind_physio(d)
-    n = 'kaylee.phys'
+def test_load_physio(tmp_path):
+    data = np.random.randn(40)
+    peaks = np.array([5, 15, 25, 35])
+    d = pk.Physio(
+        data,
+        fs=10,
+        metadata={'peaks': peaks, 'troughs': np.array([]), 'reject': np.array([])},
+    )
+    n = str(tmp_path / 'kaylee.phys')
     pk.save_physio(n, d)
     p = io.load_physio(n)
 
