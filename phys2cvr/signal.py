@@ -115,8 +115,8 @@ def filter_signal(data, tr, lowcut=0.02, highcut=0.04, order=9, axis=-1):
     nyq = 0.5 / tr
     low = lowcut / nyq
     high = highcut / nyq
-    a, b = butter(int(order), [low, high], btype='band', output='sos')
-    return sosfiltfilt(a, b, data, axis=axis)
+    sos = butter(int(order), [low, high], btype='band', output='sos')
+    return sosfiltfilt(sos, data, axis=axis)
 
 
 def endtidal_interpolation(signal, peaks, axis=-1):
