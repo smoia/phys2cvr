@@ -43,4 +43,14 @@ run `python -m phys2cvr.gui.app --help` for the available options. From a
 repository checkout, `bootstack run` also launches the GUI using
 `bootstack.toml`.
 
+The **Run phys2cvr** page provides the workflow's command-line options as
+grouped controls. Hover over a control for its CLI help. Matrix inputs accept
+one file path per line or multiple files selected with the browse button.
+Optional numeric fields may be left blank to use the CLI default. Select a
+custom response-function file using the response-function selector and its
+file field. Workflow presets override the same options they override on the
+command line. The run button starts a separate process, keeping the GUI responsive;
+the page reports completion or an error. Closing the application stops an
+active workflow.
+
 ## In-depth tutorial coming soon...
