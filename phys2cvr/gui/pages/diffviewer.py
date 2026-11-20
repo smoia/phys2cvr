@@ -76,6 +76,7 @@ class DiffViewer:
             'lag_reldiff': {'limits': (-1.0, 1.0), 'cmap': 'viridis_r'},
             'r2_reldiff': {'limits': (-1.0, 1.0), 'cmap': 'inferno'},
         }
+        self.diffswitch = {}
 
     # ----- data handling -----
 
@@ -107,6 +108,22 @@ class DiffViewer:
                     self.curr = [self.nx // 2, self.ny // 2, self.nz // 2]
                 break
 
+    def compute_difference(self, kind):
+        """Compute difference and relative difference between maps."""
+        if None not in (self.data[f'{kind}_base'], self.data[f'{kind}_comp']):
+            self.data[f'{kind}_diff'] = (
+                self.data[f'{kind}_base'] - self.data[f'{kind}_comp']
+            )
+            self.data[f'{kind}_reld'] = np.zeros_like(self.data[f'{kind}_diff'])
+            self.data[f'{kind}_reld'] = np.divide(
+                self.data[f'{kind}_diff'] * 100,
+                self.data[f'{kind}_base'],
+                where=self.data[f'{kind}_base'] != 0,
+            )
+        else:
+            self.data[f'{kind}_diff'] = None
+            self.data[f'{kind}_reld'] = None
+
     def set_cvr(self, path, ver):
         """Load and mask the CVR map."""
         self.data[f'raw_cvr_{ver}'], _, _ = load_nifti_get_mask(path)
@@ -120,6 +137,7 @@ class DiffViewer:
         if self.cvr_vmin is not None:
             self._set_map_limits(f'cvr_{ver}', self.cvr_vmin, self.cvr_vmax)
         self._update_dimensions_from_loaded_data()
+        self.compute_difference('cvr')
 
     def set_lag(self, path, ver):
         """Load the lag map and estimate the available lag range."""
@@ -133,12 +151,14 @@ class DiffViewer:
         lag_bound = max(abs(lag_min), abs(lag_max))
         self._set_map_limits(f'lag_{ver}', -lag_bound, lag_bound)
         self._update_dimensions_from_loaded_data()
+        self.compute_difference('lag')
 
     def set_r2(self, path, ver):
         """Load the 4D R² map volume."""
         self.data[f'raw_r2_{ver}'], _, _ = load_nifti_get_mask(path, dim=4)
         self._apply_mask([f'r2_{ver}'])
         self._update_dimensions_from_loaded_data()
+        self.compute_difference('r2')
 
     def set_mask(self, path, ver):
         """Load a mask and apply it to the maps."""
@@ -248,6 +268,7 @@ class DiffViewer:
             vertical_items='stretch',
         ):
             # --- Settings bar ---------------------------------------------------
+
             with bs.ScrollView(grow=True, horizontal='stretch', column=0, rowspan=3):
                 with bs.Column(padding=8, gap=3, horizontal_items='stretch'):
                     for kind, title in (
@@ -260,9 +281,6 @@ class DiffViewer:
                         ('cvr_diff', 'CVR map: difference'),
                         ('lag_diff', 'Lag map: difference'),
                         ('r2_diff', 'R2 map: difference'),
-                        ('cvr_reld', 'CVR map: %% difference'),
-                        ('lag_reld', 'Lag map: %% difference'),
-                        ('r2_reld', 'R2 map: %% difference'),
                     ):
                         bs.Label(title, font='caption', margin_y=(5, 8))
                         lower, upper = self.map_settings[kind]['limits']
@@ -279,13 +297,21 @@ class DiffViewer:
                             width=10,
                         )
                         self.map_fields[kind] = (vmin, vmax, cmap)
+
+                        if 'diff' in kind:
+                            self.diffswitch['rel'] = bs.Switch(
+                                'Relative diff', value=False
+                            )
+                            self.diffswitch['abs'] = bs.Switch(
+                                'Absolute diff', value=False
+                            )
+
                         bs.Divider(margin_y=(10, 5))
 
                     bs.Label('Voxel position', font='caption', margin_y=(5, 8))
                     self.x_field = bs.NumberField(0, label='X', min_value=0, width=4)
                     self.y_field = bs.NumberField(0, label='Y', min_value=0, width=4)
                     self.z_field = bs.NumberField(0, label='Z', min_value=0, width=4)
-                    self.reldiff_switch = bs.Switch('Z-score', value=True)
 
                     bs.Spacer()
 
