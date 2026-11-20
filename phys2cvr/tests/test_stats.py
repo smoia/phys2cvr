@@ -137,9 +137,7 @@ def test_regression():
 
     mask = np.zeros((4, 4, 4))
     mask[1, 1, 1] = 1
-    b, t, r = stats.regression(
-        data, regr, denoise_mat=np.ones((10, 1)), mask=mask
-    )
+    b, t, r = stats.regression(data, regr, denoise_mat=np.ones((10, 1)), mask=mask)
     assert b[1, 1, 1] != 0
     assert b.sum() != 0
     assert r.shape == data.shape[:-1]
@@ -149,9 +147,7 @@ def test_regression():
 
     regr = np.arange(5)[:, None]  # perfect predictor
 
-    b, t, r = stats.regression(
-        data, regr, denoise_mat=np.ones((5, 1))
-    )
+    b, t, r = stats.regression(data, regr, denoise_mat=np.ones((5, 1)))
 
     assert b[0, 0, 0] == pytest.approx(1.0)
     assert r[0, 0, 0] == pytest.approx(1.0)
@@ -165,9 +161,7 @@ def test_regression():
     mask = np.zeros((2, 2, 2))
     mask[0, 0, 0] = 1
 
-    b, t, r = stats.regression(
-        data, regr, denoise_mat=np.ones((4, 1)), mask=mask
-    )
+    b, t, r = stats.regression(data, regr, denoise_mat=np.ones((4, 1)), mask=mask)
 
     assert b[0, 0, 0] == pytest.approx(1.0)
     assert r[0, 0, 0] == pytest.approx(1.0)

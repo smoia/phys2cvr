@@ -154,9 +154,7 @@ def compute_petco2hrf(
         )
 
     if comp_endtidal and pidx is not None:
-        petco2 = np.asarray(
-            endtidal_interpolation(co2, pidx, axis=-1), dtype=float
-        )
+        petco2 = np.asarray(endtidal_interpolation(co2, pidx, axis=-1), dtype=float)
 
         # Plot PetCO2 vs CO2
         plot_timeseries(
