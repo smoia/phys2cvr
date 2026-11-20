@@ -62,8 +62,7 @@ def _get_parser():
     parser.add_argument(
         '-rfld',
         '--result_folder',
-        default='/home/nemo/Scrivania/Workbench/physiopy/Tests/phys2cvr/gui/p2c_stnd',
-        # default=None,
+        default=None,
         help='Load a phys2cvr output folder and let the GUI load everything for you!',
     )
     return parser
