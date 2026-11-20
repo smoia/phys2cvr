@@ -43,7 +43,7 @@ class TestLogViewer(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.shell.close()
+        cls.shell.destroy()
 
     def test_load_and_resize(self):
         text_widget = self.log_area._text_widget()

@@ -249,4 +249,4 @@ def test_comparison_gui_interactions(tmp_path):
         assert viewer.map_settings['cvr_comp']['limits'] == old_limits
         assert viewer.map_fields['cvr_comp'][0].value == old_limits[0]
     finally:
-        shell.close()
+        shell.destroy()

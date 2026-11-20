@@ -39,7 +39,7 @@ class TestViewer(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.shell.close()
+        cls.shell.destroy()
 
     def setUp(self):
         self.viewer.fs = None
