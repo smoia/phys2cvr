@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Voxel viewer for phys2cvr, built with bootstack."""
+"""Comparison viewer for phys2cvr, built with bootstack."""
 
 import logging
 
 import bootstack as bs
 import matplotlib as mpl
+import nibabel as nib
 import numpy as np
 from matplotlib.figure import Figure
 
-from phys2cvr.io import EXT_NIMG, load_nifti_get_mask
-from phys2cvr.utils import estimate_lag_range
+from phys2cvr.io import EXT_NIMG
 
 LGR = logging.getLogger(__name__)
 
@@ -21,18 +21,9 @@ NIFTI_TYPES = [
 
 
 class DiffViewer:
-    """Interactive viewer for fMRI voxels, CVR/lag maps and shifted regressors."""
+    """Compare CVR, lag, and R² maps at a shared voxel position."""
 
     def __init__(self):
-        self.cvr_range_base = None
-        self.lag_range_base = None
-        self.cvr_range_comp = None
-        self.lag_range_comp = None
-        self.cvr_range_diff = None
-        self.lag_range_diff = None
-        self.lag_step = None
-
-        self.timeseries = None
         self.data_types = [
             'mask_base',
             'raw_cvr_base',
@@ -60,8 +51,10 @@ class DiffViewer:
         self.nx = self.ny = self.nz = 1
 
         self.curr = [0, 0, 0]
+        self._geometry = {}
         self._syncing = False
         self.axes = {}
+        self.charts = {}
         self.map_settings = {
             'cvr_base': {'limits': (-1.0, 1.0), 'cmap': 'inferno'},
             'lag_base': {'limits': (-1.0, 1.0), 'cmap': 'viridis_r'},
@@ -72,98 +65,105 @@ class DiffViewer:
             'cvr_diff': {'limits': (-1.0, 1.0), 'cmap': 'inferno'},
             'lag_diff': {'limits': (-1.0, 1.0), 'cmap': 'viridis_r'},
             'r2_diff': {'limits': (-1.0, 1.0), 'cmap': 'inferno'},
-            'cvr_reldiff': {'limits': (-1.0, 1.0), 'cmap': 'inferno'},
-            'lag_reldiff': {'limits': (-1.0, 1.0), 'cmap': 'viridis_r'},
-            'r2_reldiff': {'limits': (-1.0, 1.0), 'cmap': 'inferno'},
         }
         self.diffswitch = {}
 
     # ----- data handling -----
 
-    def _masked(self, raw):
-        data = raw.copy()
-        data[~self.data['mask']] = np.nan
-        return data
-
-    def _apply_mask(self, data_types=('cvr', 'lag')):
-        """Mask copies of the raw maps, so that masks never compound."""
-        for k in data_types:
-            self.data[k] = (
-                self.data[f'raw_{k}']
-                if self.data[f'raw_{k}'] is None or self.data['mask'] is None
-                else self._masked(self.data[f'raw_{k}'])
+    def _read_image(self, path, key, *, r2=False, is_mask=False):
+        """Read a map and validate its spatial grid before storing its geometry."""
+        img = nib.load(path)
+        if not hasattr(img, 'affine') or img.affine is None:
+            raise ValueError(f'{path} does not have a 3D spatial affine.')
+        data = np.asarray(img.get_fdata())
+        if r2 and data.ndim == 4 and data.shape[-1]:
+            finite = np.isfinite(data)
+            data = np.max(np.where(finite, data, -np.inf), axis=-1)
+            data[~np.any(finite, axis=-1)] = np.nan
+        if data.ndim != 3 or any(size == 0 for size in data.shape):
+            raise ValueError(
+                f'{path} must be a 3D map' + (' or 4D R² map.' if r2 else '.')
             )
+        for other, (shape, affine, _) in self._geometry.items():
+            if other != key and (
+                data.shape != shape
+                or not np.allclose(img.affine, affine, rtol=0, atol=1e-5)
+            ):
+                raise ValueError(
+                    f'{path} does not match the spatial grid of {other}; '
+                    'resample the images to the same grid before comparing.'
+                )
+        zooms = tuple(float(v) for v in img.header.get_zooms()[:3])
+        self._geometry[key] = (data.shape, img.affine.copy(), zooms)
+        return np.isfinite(data) & (data != 0) if is_mask else data
+
+    def _apply_mask(self, ver):
+        """Reapply one dataset's mask to its original maps."""
+        mask = self.data[f'mask_{ver}']
+        for kind in ('cvr', 'lag', 'r2'):
+            raw = self.data[f'raw_{kind}_{ver}']
+            if raw is None:
+                self.data[f'{kind}_{ver}'] = None
+            elif mask is None:
+                self.data[f'{kind}_{ver}'] = raw.copy()
+            else:
+                self.data[f'{kind}_{ver}'] = np.where(mask, raw, np.nan)
+            self.compute_difference(kind)
 
     def _update_dimensions_from_loaded_data(self):
-        """Infer spatial dimensions and pixdim from any available map if timeseries is not loaded."""
-        # Check available 3D/4D maps for shape and zooms
-        for k in self.data_types:
-            img_data = self.data.get(k)
-            if img_data is None:
-                img_data = self.data.get(f'raw_{k}')
-
-            if img_data is not None:
-                self.nx, self.ny, self.nz = img_data.shape[:3]
-                if self.curr == [0, 0, 0] or self.curr[0] >= self.nx:
-                    self.curr = [self.nx // 2, self.ny // 2, self.nz // 2]
-                break
+        """Use the common image grid for all plots."""
+        if self._geometry:
+            shape, _, self.pixdim = next(iter(self._geometry.values()))
+            if (self.nx, self.ny, self.nz) != shape:
+                self.nx, self.ny, self.nz = shape
+                self.curr = [size // 2 for size in shape]
+            else:
+                self.curr = [
+                    int(np.clip(value, 0, size - 1))
+                    for value, size in zip(self.curr, shape, strict=True)
+                ]
 
     def compute_difference(self, kind):
         """Compute difference and relative difference between maps."""
-        if None not in (self.data[f'{kind}_base'], self.data[f'{kind}_comp']):
-            self.data[f'{kind}_diff'] = (
-                self.data[f'{kind}_base'] - self.data[f'{kind}_comp']
-            )
-            self.data[f'{kind}_reld'] = np.zeros_like(self.data[f'{kind}_diff'])
-            self.data[f'{kind}_reld'] = np.divide(
-                self.data[f'{kind}_diff'] * 100,
-                self.data[f'{kind}_base'],
-                where=self.data[f'{kind}_base'] != 0,
-            )
+        base, comp = self.data[f'{kind}_base'], self.data[f'{kind}_comp']
+        if base is not None and comp is not None:
+            diff = self.data[f'{kind}_diff'] = base - comp
+            reld = np.full(diff.shape, np.nan, dtype=float)
+            np.divide(diff * 100, base, out=reld, where=np.isfinite(base) & (base != 0))
+            self.data[f'{kind}_reld'] = reld
         else:
             self.data[f'{kind}_diff'] = None
             self.data[f'{kind}_reld'] = None
 
     def set_cvr(self, path, ver):
         """Load and mask the CVR map."""
-        self.data[f'raw_cvr_{ver}'], _, _ = load_nifti_get_mask(path)
-        self._apply_mask([f'cvr_{ver}'])
+        self.data[f'raw_cvr_{ver}'] = self._read_image(path, f'raw_cvr_{ver}')
+        self._apply_mask(ver)
         cvr_vals = self.data[f'cvr_{ver}'][np.isfinite(self.data[f'cvr_{ver}'])]
-        if cvr_vals.size > 0:
-            self.cvr_vmin, self.cvr_vmax = np.percentile(cvr_vals, [1, 99])
-        else:
-            self.cvr_vmin, self.cvr_vmax = None, None
-        self.cvr_range = (self.cvr_vmin, self.cvr_vmax)
-        if self.cvr_vmin is not None:
-            self._set_map_limits(f'cvr_{ver}', self.cvr_vmin, self.cvr_vmax)
+        if cvr_vals.size:
+            self._set_map_limits(f'cvr_{ver}', *np.percentile(cvr_vals, [1, 99]))
         self._update_dimensions_from_loaded_data()
-        self.compute_difference('cvr')
 
     def set_lag(self, path, ver):
-        """Load the lag map and estimate the available lag range."""
-        self.data[f'raw_lag_{ver}'], _, _ = load_nifti_get_mask(path)
-        self._apply_mask([f'lag_{ver}'])
-        finite_lags = self.data[f'raw_lag_{ver}'][
-            np.isfinite(self.data[f'raw_lag_{ver}'])
-        ]
-        self.lag_step, lag_max, lag_min = estimate_lag_range(finite_lags, path)
-        self.lag_range = (lag_min, lag_max)
-        lag_bound = max(abs(lag_min), abs(lag_max))
-        self._set_map_limits(f'lag_{ver}', -lag_bound, lag_bound)
+        """Load the lag map."""
+        self.data[f'raw_lag_{ver}'] = self._read_image(path, f'raw_lag_{ver}')
+        self._apply_mask(ver)
+        finite_lags = self.data[f'lag_{ver}'][np.isfinite(self.data[f'lag_{ver}'])]
+        if finite_lags.size:
+            lag_bound = np.max(np.abs(finite_lags))
+            self._set_map_limits(f'lag_{ver}', -lag_bound, lag_bound)
         self._update_dimensions_from_loaded_data()
-        self.compute_difference('lag')
 
     def set_r2(self, path, ver):
-        """Load the 4D R² map volume."""
-        self.data[f'raw_r2_{ver}'], _, _ = load_nifti_get_mask(path, dim=4)
-        self._apply_mask([f'r2_{ver}'])
+        """Load a 3D R² map or the per-voxel maximum of a 4D R² volume."""
+        self.data[f'raw_r2_{ver}'] = self._read_image(path, f'raw_r2_{ver}', r2=True)
+        self._apply_mask(ver)
         self._update_dimensions_from_loaded_data()
-        self.compute_difference('r2')
 
     def set_mask(self, path, ver):
         """Load a mask and apply it to the maps."""
-        _, self.data[f'mask_{ver}'], _ = load_nifti_get_mask(path, is_mask=True)
-        self._apply_mask()
+        self.data[f'mask_{ver}'] = self._read_image(path, f'mask_{ver}', is_mask=True)
+        self._apply_mask(ver)
         self._update_dimensions_from_loaded_data()
 
     # ----- UI -----
@@ -180,7 +180,7 @@ class DiffViewer:
             with bar.add_menu('Load base') as menu:
                 menu.add_action(
                     'Load result folder',
-                    on_click=lambda: self._load_folder(),
+                    on_click=lambda: self._load_folder('base'),
                 )
                 menu.add_action(
                     'Load CVR map',
@@ -203,7 +203,7 @@ class DiffViewer:
                 menu.add_action(
                     'Load R2 map',
                     on_click=loader(
-                        'Select 4D R2 Map NIfTI File',
+                        'Select 3D or 4D R2 Map NIfTI File',
                         NIFTI_TYPES,
                         self.set_r2,
                         ver='base',
@@ -221,7 +221,7 @@ class DiffViewer:
             with bar.add_menu('Load comparison') as menu:
                 menu.add_action(
                     'Load result folder',
-                    on_click=lambda: self._load_folder(),
+                    on_click=lambda: self._load_folder('comp'),
                 )
                 menu.add_action(
                     'Load CVR map',
@@ -244,7 +244,7 @@ class DiffViewer:
                 menu.add_action(
                     'Load R2 map',
                     on_click=loader(
-                        'Select 4D R2 Map NIfTI File',
+                        'Select 3D or 4D R2 Map NIfTI File',
                         NIFTI_TYPES,
                         self.set_r2,
                         ver='comp',
@@ -269,90 +269,75 @@ class DiffViewer:
         ):
             # --- Settings bar ---------------------------------------------------
 
-            with bs.ScrollView(grow=True, horizontal='stretch', column=0, rowspan=3):
-                with bs.Column(padding=8, gap=3, horizontal_items='stretch'):
-                    for kind, title in (
-                        ('cvr_base', 'CVR map: base'),
-                        ('lag_base', 'Lag map: base'),
-                        ('r2_base', 'R2 map: base'),
-                        ('cvr_comp', 'CVR map: comparison'),
-                        ('lag_comp', 'Lag map: comparison'),
-                        ('r2_comp', 'R2 map: comparison'),
-                        ('cvr_diff', 'CVR map: difference'),
-                        ('lag_diff', 'Lag map: difference'),
-                        ('r2_diff', 'R2 map: difference'),
-                    ):
-                        bs.Label(title, font='caption', margin_y=(5, 8))
-                        lower, upper = self.map_settings[kind]['limits']
-                        vmin = bs.NumberField(
-                            float(lower), label='Min', step=0.1, width=4
-                        )
-                        vmax = bs.NumberField(
-                            float(upper), label='Max', step=0.1, width=4
-                        )
-                        cmap = bs.Select(
-                            sorted(mpl.colormaps),
-                            value=self.map_settings[kind]['cmap'],
-                            label='Colorscale',
-                            width=10,
-                        )
-                        self.map_fields[kind] = (vmin, vmax, cmap)
-
-                        if 'diff' in kind:
-                            self.diffswitch[f'{kind[:-4]}rel'] = bs.Switch(
-                                'Relative diff', value=False
-                            )
-                            self.diffswitch[f'{kind[:-4]}abs'] = bs.Switch(
-                                'Absolute diff', value=False
-                            )
-
-                        bs.Divider(margin_y=(10, 5))
-
-                    bs.Label('Voxel position', font='caption', margin_y=(5, 8))
-                    self.x_field = bs.NumberField(0, label='X', min_value=0, width=4)
-                    self.y_field = bs.NumberField(0, label='Y', min_value=0, width=4)
-                    self.z_field = bs.NumberField(0, label='Z', min_value=0, width=4)
-
-                    bs.Spacer()
-
-                    # Add R² plot here.
+            with bs.Column(
+                row=0,
+                column=0,
+                rowspan=3,
+                width=190,
+                surface='card_raised',
+                horizontal='stretch',
+                vertical='stretch',
+            ):
+                with bs.ScrollView(grow=True, horizontal='stretch'):
+                    self._build_settings()
 
             # --- Views ----------------------------------------------------------
-            self.charts['cvr_base'] = bs.Chart(
-                figure=Figure(figsize=(1, 1)), row=0, column=1
-            )
-            self.charts['cvr_comp'] = bs.Chart(
-                figure=Figure(figsize=(1, 1)), row=1, column=1
-            )
-            self.charts['cvr_diff'] = bs.Chart(
-                figure=Figure(figsize=(1, 1)), row=2, column=1
-            )
-            self.charts['lag_base'] = bs.Chart(
-                figure=Figure(figsize=(1, 1)), row=0, column=2
-            )
-            self.charts['lag_comp'] = bs.Chart(
-                figure=Figure(figsize=(1, 1)), row=1, column=2
-            )
-            self.charts['lag_diff'] = bs.Chart(
-                figure=Figure(figsize=(1, 1)), row=2, column=2
-            )
-            self.charts['r2_base'] = bs.Chart(
-                figure=Figure(figsize=(1, 1)), row=0, column=3
-            )
-            self.charts['r2_comp'] = bs.Chart(
-                figure=Figure(figsize=(1, 1)), row=1, column=3
-            )
-            self.charts['r2_diff'] = bs.Chart(
-                figure=Figure(figsize=(1, 1)), row=2, column=3
-            )
+            for col, kind in enumerate(('cvr', 'lag', 'r2'), start=1):
+                for row, ver in enumerate(('base', 'comp', 'diff')):
+                    self.charts[f'{kind}_{ver}'] = bs.Chart(
+                        figure=Figure(figsize=(1, 1)), row=row, column=col
+                    )
 
         for field in (self.x_field, self.y_field, self.z_field):
             field.on_change(lambda e: self._on_coord_change())
         for kind, fields in self.map_fields.items():
             for field in fields:
                 field.on_change(lambda e, kind=kind: self._on_map_settings_change(kind))
-        self.reldiff_switch.on_change(lambda e: self._update_current_plot())
+        for switch in self.diffswitch.values():
+            switch.on_change(lambda e: self._update_current_plot())
         self.refresh()
+
+    def _build_settings(self):
+        with bs.Column(padding=8, gap=3, horizontal_items='stretch'):
+            for kind, title in (
+                ('cvr_base', 'CVR map: base'),
+                ('lag_base', 'Lag map: base'),
+                ('r2_base', 'R2 map: base'),
+                ('cvr_comp', 'CVR map: comparison'),
+                ('lag_comp', 'Lag map: comparison'),
+                ('r2_comp', 'R2 map: comparison'),
+                ('cvr_diff', 'CVR map: difference'),
+                ('lag_diff', 'Lag map: difference'),
+                ('r2_diff', 'R2 map: difference'),
+            ):
+                bs.Label(title, font='caption', margin_y=(5, 8))
+                lower, upper = self.map_settings[kind]['limits']
+                vmin = bs.NumberField(float(lower), label='Min', step=0.1, width=4)
+                vmax = bs.NumberField(float(upper), label='Max', step=0.1, width=4)
+                cmap = bs.Select(
+                    sorted(mpl.colormaps),
+                    value=self.map_settings[kind]['cmap'],
+                    label='Colorscale',
+                    width=10,
+                )
+                self.map_fields[kind] = (vmin, vmax, cmap)
+
+                if 'diff' in kind:
+                    self.diffswitch[f'{kind[:-4]}rel'] = bs.Switch(
+                        'Relative diff', value=False
+                    )
+                    self.diffswitch[f'{kind[:-4]}abs'] = bs.Switch(
+                        'Absolute diff', value=False
+                    )
+
+                bs.Divider(margin_y=(10, 5))
+
+            bs.Label('Voxel position', font='caption', margin_y=(5, 8))
+            self.x_field = bs.NumberField(0, label='X', min_value=0, width=4)
+            self.y_field = bs.NumberField(0, label='Y', min_value=0, width=4)
+            self.z_field = bs.NumberField(0, label='Z', min_value=0, width=4)
+
+            bs.Spacer()
 
     def _set_map_limits(self, kind, lower, upper):
         lower, upper = float(lower), float(upper)
@@ -394,14 +379,14 @@ class DiffViewer:
 
     def _update_current_plot(self):
         if not self._syncing and self.axes:
-            self.update_all(*self.curr, self.curr_shift_sec)
+            self.update_all(*self.curr)
 
     def _load(self, title, file_types, setter, ver):
         path = bs.ask_open_file(title=title, file_types=file_types)
         if not path:
             return
         try:
-            setter(path)
+            setter(path, ver)
             self.refresh()
         except Exception as e:  # noqa: BLE001
             LGR.error(
@@ -414,23 +399,27 @@ class DiffViewer:
                 severity='danger',
             )
 
-    def _load_folder(self):
+    def _load_folder(self, ver):
         folder_path = bs.ask_directory(title='Select phys2cvr Result Folder')
         if not folder_path:
             return
         try:
             from phys2cvr.gui.app import load_result_folder
 
-            load_result_folder(folder_path, self)
+            load_result_folder(folder_path, self, comparison_version=ver)
             self.refresh()
         except Exception as err:  # noqa: BLE001
+            LGR.error(
+                'Could not load result folder %s: %s', folder_path, err, exc_info=True
+            )
+            self.refresh()
             bs.alert(str(err), title='Could not load result folder')
 
     def refresh(self):
         """Rebuild the figure and sync controls after the data changed."""
         self._update_dimensions_from_loaded_data()
 
-        has_data = any(self.data.values())
+        has_data = any(value is not None for value in self.data.values())
 
         if not has_data:
             self.axes = {}
@@ -451,7 +440,7 @@ class DiffViewer:
         self._move_to(*self.curr)
 
     def init_plots(self):
-        """Create separate figures for maps, timecourses and R²."""
+        """Create one figure per map, each with three orthogonal views."""
         dx, dy, dz = self.pixdim
         aspects = {'sag': dz / dy, 'cor': dz / dx, 'axi': dy / dx}
         self.axes = {}
@@ -484,15 +473,13 @@ class DiffViewer:
         nx, ny, nz = self.nx, self.ny, self.nz
 
         figures = {}
-        for kind, color in (
-            ('cvr', 'cyan'),
-            ('lag', 'red'),
-            ('r2', 'cyan'),
-        ):
-            fig = figures[kind] = Figure(figsize=(1, 1), layout='compressed')
+        for map_name in self.charts:
+            kind = map_name.split('_')[0]
+            color = 'red' if kind == 'lag' else 'cyan'
+            fig = figures[map_name] = Figure(figsize=(1, 1), layout='compressed')
             fig.get_layout_engine().set(w_pad=0.02, h_pad=0.02, wspace=0, hspace=0)
             grid = fig.add_gridspec(1, 3)
-            settings = self.map_settings[kind]
+            settings = self.map_settings[map_name]
             cmap = mpl.colormaps[settings['cmap']].with_extremes(bad='black')
             norm = mpl.colors.Normalize(*settings['limits'])
             axes = []
@@ -505,7 +492,7 @@ class DiffViewer:
             ):
                 axis = add_view(
                     fig,
-                    f'{kind}_{name}',
+                    f'{map_name}_{name}',
                     grid[0, index],
                     aspects[name],
                     cmap,
@@ -518,190 +505,74 @@ class DiffViewer:
                 axis.set_anchor(('E', 'C', 'W')[index])
                 axis.set_facecolor('black')
                 axes.append(axis)
-            fig.colorbar(self.imgs[f'{kind}_axi'], ax=axes, fraction=0.035, pad=0.02)
+            fig.colorbar(
+                self.imgs[f'{map_name}_axi'], ax=axes, fraction=0.035, pad=0.02
+            )
 
         for name, fig in figures.items():
             self.charts[name].figure = fig
             fig.canvas.mpl_connect('button_press_event', self.on_canvas_click)
 
     def update_all(self, x, y, z):
-        """Update plots and controls for a voxel and regressor delay."""
-        if self._syncing or not hasattr(self, 'imgs') or not self.imgs:
+        """Update every map and coordinate control for the selected voxel."""
+        if self._syncing or not getattr(self, 'imgs', None):
             return
         self.curr = [x, y, z]
-        ax = self.axes
-
-        views = {}
-
-        for ver in ['base', 'comp', 'diff', 'reld']:
-            if self.data[f'cvr_{ver}'] is not None:
-                val_cvr = self.data[f'cvr_{ver}'][x, y, z]
-                cvr_title = (
-                    f'CVR: {val_cvr:.2f}' if not np.isnan(val_cvr) else 'CVR: Masked'
+        for map_name in self.charts:
+            kind, ver = map_name.split('_')
+            data_key = map_name
+            if ver == 'diff' and self.diffswitch[f'{kind}_rel'].value:
+                data_key = f'{kind}_reld'
+            data = self.data[data_key]
+            if (
+                data is not None
+                and ver == 'diff'
+                and self.diffswitch[f'{kind}_abs'].value
+            ):
+                data = np.abs(data)
+            if data is None:
+                slices = (
+                    np.full((self.ny, self.nz), np.nan),
+                    np.full((self.nx, self.nz), np.nan),
+                    np.full((self.nx, self.ny), np.nan),
                 )
-                views.update(
-                    {
-                        f'cvr_{ver}_sag': (
-                            self.data[f'cvr_{ver}'][x, :, :],
-                            y,
-                            z,
-                            'Sagittal',
-                        ),
-                        f'cvr_{ver}_cor': (
-                            self.data[f'cvr_{ver}'][:, y, :],
-                            x,
-                            z,
-                            'Coronal',
-                        ),
-                        f'cvr_{ver}_axi': (
-                            self.data[f'cvr_{ver}'][:, :, z],
-                            x,
-                            y,
-                            cvr_title,
-                        ),
-                    }
-                )
+                value_title = 'Axial'
             else:
-                views.update(
-                    {
-                        f'cvr_{ver}_sag': (
-                            np.full((self.ny, self.nz), np.nan),
-                            y,
-                            z,
-                            'Sagittal',
-                        ),
-                        f'cvr_{ver}_cor': (
-                            np.full((self.nx, self.nz), np.nan),
-                            x,
-                            z,
-                            'Coronal',
-                        ),
-                        f'cvr_{ver}_axi': (
-                            np.full((self.nx, self.ny), np.nan),
-                            x,
-                            y,
-                            'Axial',
-                        ),
-                    }
+                slices = (data[x, :, :], data[:, y, :], data[:, :, z])
+                value = data[x, y, z]
+                label = {'cvr': 'CVR', 'lag': 'Lag', 'r2': 'R²'}[kind]
+                suffix = (
+                    '%'
+                    if data_key.endswith('_reld')
+                    else ('s' if kind == 'lag' else '')
+                )
+                value_title = (
+                    f'{label}: {value:.2f}{suffix}'
+                    if np.isfinite(value)
+                    else f'{label}: Masked'
                 )
 
-            if self.data[f'lag_{ver}'] is not None:
-                val_lag = self.data[f'lag_{ver}'][x, y, z]
-                lag_title = (
-                    f'Lag: {val_lag:.2f}s' if not np.isnan(val_lag) else 'Lag: Masked'
-                )
-                views.update(
-                    {
-                        f'lag_{ver}_sag': (
-                            self.data[f'lag_{ver}'][x, :, :],
-                            y,
-                            z,
-                            'Sagittal',
-                        ),
-                        f'lag_{ver}_cor': (
-                            self.data[f'lag_{ver}'][:, y, :],
-                            x,
-                            z,
-                            'Coronal',
-                        ),
-                        f'lag_{ver}_axi': (
-                            self.data[f'lag_{ver}'][:, :, z],
-                            x,
-                            y,
-                            lag_title,
-                        ),
-                    }
-                )
-            else:
-                views.update(
-                    {
-                        f'lag_{ver}_sag': (
-                            np.full((self.ny, self.nz), np.nan),
-                            y,
-                            z,
-                            'Sagittal',
-                        ),
-                        f'lag_{ver}_cor': (
-                            np.full((self.nx, self.nz), np.nan),
-                            x,
-                            z,
-                            'Coronal',
-                        ),
-                        f'lag_{ver}_axi': (
-                            np.full((self.nx, self.ny), np.nan),
-                            x,
-                            y,
-                            'Axial',
-                        ),
-                    }
-                )
-
-            if self.data[f'r2_{ver}'] is not None:
-                val_lag = self.data[f'r2_{ver}'][x, y, z]
-                lag_title = (
-                    f'Lag: {val_lag:.2f}s' if not np.isnan(val_lag) else 'Lag: Masked'
-                )
-                views.update(
-                    {
-                        f'r2_{ver}_sag': (
-                            self.data[f'r2_{ver}'][x, :, :],
-                            y,
-                            z,
-                            'Sagittal',
-                        ),
-                        f'r2_{ver}_cor': (
-                            self.data[f'r2_{ver}'][:, y, :],
-                            x,
-                            z,
-                            'Coronal',
-                        ),
-                        f'r2_{ver}_axi': (
-                            self.data[f'r2_{ver}'][:, :, z],
-                            x,
-                            y,
-                            lag_title,
-                        ),
-                    }
-                )
-            else:
-                views.update(
-                    {
-                        f'r2_{ver}_sag': (
-                            np.full((self.ny, self.nz), np.nan),
-                            y,
-                            z,
-                            'Sagittal',
-                        ),
-                        f'r2_{ver}_cor': (
-                            np.full((self.nx, self.nz), np.nan),
-                            x,
-                            z,
-                            'Coronal',
-                        ),
-                        f'r2_{ver}_axi': (
-                            np.full((self.nx, self.ny), np.nan),
-                            x,
-                            y,
-                            'Axial',
-                        ),
-                    }
-                )
-
-        for name, (slice_data, cx, cy, title) in views.items():
-            if name not in self.imgs:
-                continue
-            img = self.imgs[name]
-            img.set_data(slice_data.T)
-
-            kind = name.split('_', 1)[0]
-            settings = self.map_settings[kind]
-            if img.get_cmap().name != settings['cmap']:
-                img.set_cmap(mpl.colormaps[settings['cmap']].with_extremes(bad='black'))
-            if img.get_clim() != tuple(settings['limits']):
-                img.set_clim(*settings['limits'])
-            self.cross[name][0].set_xdata([cx, cx])
-            self.cross[name][1].set_ydata([cy, cy])
-            ax[name].set_title(title)
+            settings = self.map_settings[map_name]
+            for name, slice_data, cx, cy, title in zip(
+                ('sag', 'cor', 'axi'),
+                slices,
+                (y, x, x),
+                (z, z, y),
+                ('Sagittal', 'Coronal', value_title),
+                strict=True,
+            ):
+                key = f'{map_name}_{name}'
+                img = self.imgs[key]
+                img.set_data(slice_data.T)
+                if img.get_cmap().name != settings['cmap']:
+                    img.set_cmap(
+                        mpl.colormaps[settings['cmap']].with_extremes(bad='black')
+                    )
+                if img.get_clim() != tuple(settings['limits']):
+                    img.set_clim(*settings['limits'])
+                self.cross[key][0].set_xdata([cx, cx])
+                self.cross[key][1].set_ydata([cy, cy])
+                self.axes[key].set_title(title)
 
         self._syncing = True
         try:
@@ -710,14 +581,13 @@ class DiffViewer:
             self.z_field.value = z
         finally:
             self._syncing = False
-
         for chart in self.charts.values():
             chart.draw()
 
     # ----- callbacks -----
 
     def _move_to(self, x, y, z):
-        """Move to a voxel, following its lag value or max R² index when applicable."""
+        """Move to a voxel within the common spatial grid."""
         x = int(np.clip(x, 0, self.nx - 1))
         y = int(np.clip(y, 0, self.ny - 1))
         z = int(np.clip(z, 0, self.nz - 1))
@@ -725,10 +595,16 @@ class DiffViewer:
         self.update_all(x, y, z)
 
     def on_canvas_click(self, event):
-        """Select a voxel from slices or update slider/shift from the R² plot."""
+        """Select a voxel from any orthogonal slice."""
         names = {axis: name for name, axis in self.axes.items()}
         name = names.get(event.inaxes)
-        if name is None or event.xdata is None or event.ydata is None:
+        if (
+            name is None
+            or event.xdata is None
+            or event.ydata is None
+            or not np.isfinite(event.xdata)
+            or not np.isfinite(event.ydata)
+        ):
             return
 
         x, y, z = self.curr

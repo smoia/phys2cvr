@@ -68,7 +68,7 @@ def _get_parser():
     return parser
 
 
-def load_result_folder(folder_path, viewer):
+def load_result_folder(folder_path, viewer, comparison_version=None):
     """Scan and load available files and parameters from a phys2cvr result folder."""
     if not os.path.isdir(folder_path):
         raise NotADirectoryError(f'Not a valid directory: {folder_path}')
@@ -113,6 +113,7 @@ def load_result_folder(folder_path, viewer):
             return None
         if os.path.isabs(p):
             return p
+
         # Check if it exists directly relative to folder_path
         cand = os.path.join(folder_path, p)
         if os.path.exists(cand):
@@ -123,30 +124,37 @@ def load_result_folder(folder_path, viewer):
             return cand_parent
         return p
 
+    def set_map(kind, path):
+        setter = getattr(viewer, f'set_{kind}')
+        if comparison_version is None:
+            setter(path)
+        else:
+            setter(path, comparison_version)
+
     # Apply parameters extracted from logs
     if args_p2c is not None:
         func_path = resolve_path(getattr(args_p2c, 'fname_func', None))
-        if func_path and os.path.exists(func_path):
+        if comparison_version is None and func_path and os.path.exists(func_path):
             LGR.warning('Loading timeseries from log args: %s', func_path)
             viewer.set_timeseries(func_path)
 
         mask_path = resolve_path(getattr(args_p2c, 'fname_mask', None))
         if mask_path and os.path.exists(mask_path):
             LGR.warning('Loading mask from log args: %s', mask_path)
-            viewer.set_mask(mask_path)
+            set_map('mask', mask_path)
 
-        if getattr(args_p2c, 'freq', None) is not None:
+        if comparison_version is None and getattr(args_p2c, 'freq', None) is not None:
             viewer.fs = float(args_p2c.freq)
             LGR.warning('Loaded sampling frequency (fs) from log args: %s', viewer.fs)
 
         lag_max = getattr(args_p2c, 'lag_max', None)
         lag_min = getattr(args_p2c, 'lag_min', None)
-        if lag_max is not None:
+        if comparison_version is None and lag_max is not None:
             l_max = float(lag_max)
             l_min = float(lag_min) if lag_min is not None else -l_max
             viewer.lag_range = (l_min, l_max)
             LGR.warning('Loaded lag range from log args: %s', viewer.lag_range)
-        if getattr(args_p2c, 'ls', None) is not None:
+        if comparison_version is None and getattr(args_p2c, 'ls', None) is not None:
             viewer.lag_step = float(args_p2c.ls)
             LGR.warning('Loaded lag step from log args: %s', viewer.lag_step)
 
@@ -163,7 +171,7 @@ def load_result_folder(folder_path, viewer):
 
     if cvr_target and os.path.exists(cvr_target):
         LGR.warning('Loading CVR map: %s', cvr_target)
-        viewer.set_cvr(cvr_target)
+        set_map('cvr', cvr_target)
     else:
         LGR.warning('No CVR map found in result folder.')
 
@@ -173,10 +181,10 @@ def load_result_folder(folder_path, viewer):
 
     if lag_files and os.path.exists(lag_files[0]):
         LGR.warning('Loading Lag map: %s', lag_files[0])
-        viewer.set_lag(lag_files[0])
+        set_map('lag', lag_files[0])
     elif log_lag_map and os.path.exists(log_lag_map):
         LGR.warning('Loading Lag map from log args: %s', log_lag_map)
-        viewer.set_lag(log_lag_map)
+        set_map('lag', log_lag_map)
     else:
         LGR.warning('No Lag map found in result folder.')
 
@@ -195,11 +203,13 @@ def load_result_folder(folder_path, viewer):
 
     if r2_target and os.path.exists(r2_target):
         LGR.warning('Loading R² map: %s', r2_target)
-        viewer.set_r2(r2_target)
+        set_map('r2', r2_target)
     else:
         LGR.warning('No R² map found in result folder.')
 
     # 5. Find regressor in "regr" subfolder (or via args_p2c.regr_dir)
+    if comparison_version is not None:
+        return
     regr_dir = resolve_path(getattr(args_p2c, 'regr_dir', None)) if args_p2c else None
     if not regr_dir or not os.path.isdir(regr_dir):
         regr_dir = os.path.join(folder_path, 'regr')
