@@ -299,10 +299,10 @@ class DiffViewer:
                         self.map_fields[kind] = (vmin, vmax, cmap)
 
                         if 'diff' in kind:
-                            self.diffswitch['rel'] = bs.Switch(
+                            self.diffswitch[f'{kind[:-4]}rel'] = bs.Switch(
                                 'Relative diff', value=False
                             )
-                            self.diffswitch['abs'] = bs.Switch(
+                            self.diffswitch[f'{kind[:-4]}abs'] = bs.Switch(
                                 'Absolute diff', value=False
                             )
 
