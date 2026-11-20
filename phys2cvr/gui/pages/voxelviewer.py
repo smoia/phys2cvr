@@ -316,13 +316,13 @@ class VoxelViewer:
                 horizontal_items='stretch',
             ):
                 with bs.ScrollView(grow=True, horizontal='stretch'):
-                    with bs.Column(padding=8, gap=6, horizontal_items='stretch'):
+                    with bs.Column(padding=8, gap=3, horizontal_items='stretch'):
                         for kind, title in (
                             ('cvr', 'CVR map'),
                             ('lag', 'Lag map'),
                             ('mean', 'Mean volume'),
                         ):
-                            bs.Label(title, font='caption')
+                            bs.Label(title, font='caption', margin_y=(5, 8))
                             lower, upper = self.map_settings[kind]['limits']
                             vmin = bs.NumberField(
                                 float(lower), label='Min', step=0.1, width=4
@@ -337,7 +337,9 @@ class VoxelViewer:
                                 width=10,
                             )
                             self.map_fields[kind] = (vmin, vmax, cmap)
-                            bs.Divider()
+                            bs.Divider(margin_y=(10, 5))
+
+                        bs.Label('Voxel position', font='caption', margin_y=(5, 8))
                         self.x_field = bs.NumberField(
                             0, label='X', min_value=0, width=4
                         )
@@ -347,8 +349,8 @@ class VoxelViewer:
                         self.z_field = bs.NumberField(
                             0, label='Z', min_value=0, width=4
                         )
-                        bs.Divider()
-                        bs.Label('Timeseries', font='caption')
+                        bs.Divider(margin_y=(10, 5))
+                        bs.Label('Timeseries', font='caption', margin_y=(5, 8))
                         self.zscore_switch = bs.Switch('Z-score', value=True)
                         self.lagmin_field = bs.NumberField(
                             0.0, label='Lag min', step=0.1, width=4
