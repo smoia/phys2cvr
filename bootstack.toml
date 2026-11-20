@@ -2,7 +2,7 @@
 name = "phys2cvr"
 id = "org.physiopy.phys2cvr"
 entry = "phys2cvr/gui/app.py"
-template = "basic"
+template = "appshell"
 
 [layout]
 default_container = "grid"
