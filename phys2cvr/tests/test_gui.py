@@ -51,7 +51,7 @@ class TestViewer(unittest.TestCase):
         self.shell.navigate('other')
         self.shell._internal.update()
         self.assertFalse(toolbar.winfo_ismapped())
-        self.shell.navigate('viewer')
+        self.shell.navigate('voxelviewer')
         self.shell._internal.update()
         self.assertTrue(toolbar.winfo_ismapped())
 
@@ -93,7 +93,7 @@ class TestViewer(unittest.TestCase):
             self.assertEqual(self.viewer.delay_label.text, '+1.00 s')
 
     def test_application_shell(self):
-        self.assertEqual(self.shell.current, 'viewer')
+        self.assertEqual(self.shell.current, 'voxelviewer')
 
     def test_slider_without_timeseries(self):
         viewer = self.viewer
@@ -253,10 +253,13 @@ class TestViewer(unittest.TestCase):
                 viewer.imgs[f'{kind}_{orientation}']
                 for orientation in ('sag', 'cor', 'axi')
             ]
-            self.assertEqual(len(fig.axes), 4)
+            self.assertEqual(len(fig.axes), 3 if kind == 'mean' else 4)
             self.assertTrue(all(image.axes.figure is fig for image in images))
             self.assertTrue(all(image.norm is images[0].norm for image in images))
-            self.assertIs(images[-1].colorbar.mappable, images[-1])
+            if kind == 'mean':
+                self.assertIsNone(images[-1].colorbar)
+            else:
+                self.assertIs(images[-1].colorbar.mappable, images[-1])
 
             axis = viewer.axes[f'{kind}_axi']
             fig.canvas.draw()
