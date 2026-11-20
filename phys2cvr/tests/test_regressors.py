@@ -27,20 +27,20 @@ def test_create_legendre():
 def test_fourier_basis_shape_and_dtype():
     """Test output shape and data type of generated Fourier basis."""
     trial_len = 60.0
-    func_len = 300.0
+    total_duration = 300.0
     lag_range = 10.0
     order = 3
     sample_interval = 0.01
 
     fourier_mat = regressors.fourier_basis(
         trial_len=trial_len,
-        func_len=func_len,
+        total_duration=total_duration,
         order=order,
-        sample_interval=sample_interval,
+        freq=1 / sample_interval,
     )
 
-    # Expected timepoints: func_len / sample_interval = 300 / 0.01 = 30000
-    expected_samples = int(np.round(func_len / sample_interval))
+    # Expected timepoints: total_duration * frequency = 300 / 0.01 = 30000
+    expected_samples = int(np.round(total_duration / sample_interval))
     expected_columns = 2 * order  # sin + cos for each harmonic order
 
     assert fourier_mat.shape == (expected_samples, expected_columns)
@@ -48,16 +48,25 @@ def test_fourier_basis_shape_and_dtype():
 
     fourier_mat = regressors.fourier_basis(
         trial_len=trial_len,
-        func_len=func_len,
-        sample_interval=sample_interval,
-        lag_range=lag_range,
+        total_duration=total_duration + lag_range,
+        freq=1 / sample_interval,
     )
 
-    expected_samples = int(np.round((func_len + lag_range) / sample_interval))
+    expected_samples = int(
+        np.round((total_duration + lag_range) / sample_interval)
+    )
     assert fourier_mat.shape[0] == expected_samples
 
-    total_samples = int(np.round(func_len / sample_interval))
-    t = np.linspace(0, func_len, total_samples, endpoint=False, dtype=np.float32)
+    total_samples = int(
+        np.round((total_duration + lag_range) / sample_interval)
+    )
+    t = np.linspace(
+        0,
+        total_duration + lag_range,
+        total_samples,
+        endpoint=False,
+        dtype=np.float32,
+    )
     w0 = 2 * np.pi / trial_len
 
     expected_sin = np.sin(w0 * t)
@@ -110,7 +119,9 @@ def test_compute_bulk_shift(mock_plotx, mock_xcorr, testdir):
 def test_create_fine_shift_regressors(mock_export, testdir):
     out = os.path.join(testdir, 'Esquie')
     pet = np.arange(50.0)
-    r = regressors.create_fine_shift_regressors(pet, 3, 2, 1.0, 10, 20, out)
+    r = regressors.create_fine_shift_regressors(
+        pet, 3, 2, -2, 1.0, 10, 20, out
+    )
     assert r.shape == (5, 5)
 
 
@@ -118,7 +129,9 @@ def test_create_fine_shift_regressors(mock_export, testdir):
 def test_create_fine_shift_regressors_padding(mock_export, testdir):
     out = os.path.join(testdir, 'Maelle')
     pet = np.arange(10.0)
-    r = regressors.create_fine_shift_regressors(pet, 9, 4, 1.0, 5, 8, out)
+    r = regressors.create_fine_shift_regressors(
+        pet, 9, 4, -4, 1.0, 5, 8, out
+    )
     assert r.shape == (3, 3)
 
 
@@ -137,8 +150,9 @@ def test_create_physio_regressor(mock_exp, mock_plot, mock_bs, testdir):
 
 
 @patch('phys2cvr.regressors.resample_signal_freqs', return_value=np.arange(20.0))
+@patch('phys2cvr.regressors.plot_timeseries')
 @patch('phys2cvr.regressors.export_regressor', return_value=np.arange(10.0))
-def test_create_physio_regressor_no_lag_max(mock_exp, mock_bs, testdir):
+def test_create_physio_regressor_no_lag_max(mock_exp, mock_plot, testdir):
     out = os.path.join(testdir, 'Francois')
     func = np.arange(10.0)
     pet = np.arange(30.0)
@@ -147,7 +161,7 @@ def test_create_physio_regressor_no_lag_max(mock_exp, mock_bs, testdir):
     )
     assert d.shape == (10,)
     assert lags is None
-    os.remove(f'{out}_petco2hrf_vs_avgroi.png')
+    mock_plot.assert_called_once()
 
 
 # ## Break tests
@@ -175,7 +189,7 @@ def test_break_fourier_basis(order, trial_len, sample_interval):
     with pytest.raises(ValueError):
         regressors.fourier_basis(
             trial_len=trial_len,
-            func_len=100.0,
+            total_duration=100.0,
             order=order,
-            sample_interval=sample_interval,
+            freq=1 / sample_interval if sample_interval else 0,
         )
