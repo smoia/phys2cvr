@@ -52,14 +52,10 @@ def test_fourier_basis_shape_and_dtype():
         freq=1 / sample_interval,
     )
 
-    expected_samples = int(
-        np.round((total_duration + lag_range) / sample_interval)
-    )
+    expected_samples = int(np.round((total_duration + lag_range) / sample_interval))
     assert fourier_mat.shape[0] == expected_samples
 
-    total_samples = int(
-        np.round((total_duration + lag_range) / sample_interval)
-    )
+    total_samples = int(np.round((total_duration + lag_range) / sample_interval))
     t = np.linspace(
         0,
         total_duration + lag_range,
@@ -119,9 +115,7 @@ def test_compute_bulk_shift(mock_plotx, mock_xcorr, testdir):
 def test_create_fine_shift_regressors(mock_export, testdir):
     out = os.path.join(testdir, 'Esquie')
     pet = np.arange(50.0)
-    r = regressors.create_fine_shift_regressors(
-        pet, 3, 2, -2, 1.0, 10, 20, out
-    )
+    r = regressors.create_fine_shift_regressors(pet, 3, 2, -2, 1.0, 10, 20, out)
     assert r.shape == (5, 5)
 
 
@@ -129,9 +123,7 @@ def test_create_fine_shift_regressors(mock_export, testdir):
 def test_create_fine_shift_regressors_padding(mock_export, testdir):
     out = os.path.join(testdir, 'Maelle')
     pet = np.arange(10.0)
-    r = regressors.create_fine_shift_regressors(
-        pet, 9, 4, -4, 1.0, 5, 8, out
-    )
+    r = regressors.create_fine_shift_regressors(pet, 9, 4, -4, 1.0, 5, 8, out)
     assert r.shape == (3, 3)
 
 
