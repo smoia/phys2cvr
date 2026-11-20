@@ -11,6 +11,9 @@ import bootstack as bs
 from bootstack.widgets.sidebar_toggle import SidebarToggle
 
 from phys2cvr import __version__
+from phys2cvr.gui.pages.diffviewer import DiffViewer
+from phys2cvr.gui.pages.guiargset import build_workflow_setter
+from phys2cvr.gui.pages.logviewer import build_log_viewer
 from phys2cvr.gui.pages.voxelviewer import VoxelViewer
 
 LGR = logging.getLogger(__name__)
@@ -59,7 +62,8 @@ def _get_parser():
     parser.add_argument(
         '-rfld',
         '--result_folder',
-        default=None,
+        default='/home/nemo/Scrivania/Workbench/physiopy/Tests/phys2cvr/gui/p2c_stnd',
+        # default=None,
         help='Load a phys2cvr output folder and let the GUI load everything for you!',
     )
     return parser
@@ -212,7 +216,7 @@ def load_result_folder(folder_path, viewer):
         LGR.warning('No regr directory found in result folder.')
 
 
-def build_app(viewer):
+def build_app(voxelviewer):
     """Build the application shell and its viewer page."""
     with bs.AppShell(
         title=f'fMRI Voxel & Regressor Viewer, phys2cvr v{__version__}',
@@ -240,9 +244,22 @@ def build_app(viewer):
 
         # --- Pages ----------------------------------------------------------
         with shell.page_nav() as nav:
-            with nav.add_page('viewer', text='Voxel viewer', icon='clipboard2-pulse'):
-                viewer.build()
-        shell.navigate('viewer')
+            with nav.add_page(
+                'voxelviewer', text='Voxel viewer', icon='clipboard2-pulse'
+            ):
+                voxelviewer.build()
+            with nav.add_page(
+                'workflowsetter', text='Run phys2cvr', icon='terminal-fill'
+            ):
+                build_workflow_setter()
+            with nav.add_page('diffviewer', text='Comparison', icon='subtract'):
+                diffviewer = DiffViewer()
+                diffviewer.build()
+            with nav.add_page(
+                'logviewer', text='Log viewer', icon='file-earmark-richtext-fill'
+            ):
+                build_log_viewer()
+        shell.navigate('voxelviewer')
     return shell
 
 
@@ -257,25 +274,25 @@ def _main(argv=None):
         if args.lag_range[0] > args.lag_range[1]:
             raise ValueError('Specified minimum lag range is higher than maximum.')
 
-    viewer = VoxelViewer(fs=args.fs, lag_range=args.lag_range)
-    shell = build_app(viewer)
+    voxelviewer = VoxelViewer(fs=args.fs, lag_range=args.lag_range)
+    shell = build_app(voxelviewer)
 
     try:
         if args.result_folder:
-            load_result_folder(args.result_folder, viewer)
+            load_result_folder(args.result_folder, voxelviewer)
 
         if args.timeseries:
-            viewer.set_timeseries(args.timeseries)
+            voxelviewer.set_timeseries(args.timeseries)
         for path, setter in (
-            (args.mask, viewer.set_mask),
-            (args.cvr, viewer.set_cvr),
-            (args.lag, viewer.set_lag),
-            (args.regressor, viewer.set_regressors),
-            (args.r2, viewer.set_r2),
+            (args.mask, voxelviewer.set_mask),
+            (args.cvr, voxelviewer.set_cvr),
+            (args.lag, voxelviewer.set_lag),
+            (args.regressor, voxelviewer.set_regressors),
+            (args.r2, voxelviewer.set_r2),
         ):
             if path:
                 setter(path)
-        viewer.refresh()
+        voxelviewer.refresh()
     except Exception as err:  # noqa: BLE001
         LGR.error('Could not load input: %s', err)
         sys.exit(1)
