@@ -236,7 +236,9 @@ def test_comparison_gui_interactions(tmp_path):
         )
         shared_mask = np.ones(shape)
         shared_mask[0, 0, 0] = 0
-        viewer.set_mask(save_image(tmp_path / 'shared-mask.nii.gz', shared_mask), 'base')
+        viewer.set_mask(
+            save_image(tmp_path / 'shared-mask.nii.gz', shared_mask), 'base'
+        )
         viewer.set_cvr(comp_path, 'comp')
         viewer.set_lag(comp_path, 'comp')
         viewer.refresh()
