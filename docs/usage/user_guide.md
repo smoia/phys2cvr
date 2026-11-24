@@ -39,7 +39,10 @@ where the base value is zero. Clicking any slice updates the shared voxel
 position across all maps.
 The bottom row compares masked CVR and lag distributions and, for 4D R²
 inputs, plots the selected voxel's R² values against lag index. Each dataset
-uses its own mask, when provided; 3D R² maps have no lag profile.
+uses its own mask; if only one mask exists, it is shared by both datasets.
+Loading an R² image without a corresponding mask creates one from nonzero,
+finite values of the R² map (or its mean across lags for 4D input). A later
+loaded mask replaces the generated mask. 3D R² maps have no lag profile.
 
 You can also pass paths and lag settings at startup;
 run `python -m phys2cvr.gui.app --help` for the available options. From a

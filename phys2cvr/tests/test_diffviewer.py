@@ -48,7 +48,7 @@ def test_comparison_data_masks_and_geometry(tmp_path):
     mask[1, 0, 0] = 0
     viewer.set_mask(save_image(tmp_path / 'mask.nii.gz', mask), 'comp')
     assert np.isnan(viewer.data['cvr_diff'][1, 0, 0])
-    assert viewer.data['cvr_base'][1, 0, 0] == 12
+    assert np.isnan(viewer.data['cvr_base'][1, 0, 0])
     viewer.set_mask(
         save_image(tmp_path / 'full-mask.nii.gz', np.ones_like(base)), 'comp'
     )
@@ -60,7 +60,7 @@ def test_comparison_data_masks_and_geometry(tmp_path):
     viewer.set_r2(save_image(tmp_path / 'r2.nii.gz', r2), 'base')
     np.testing.assert_array_equal(viewer.r2_volumes['base'], r2)
     assert np.isnan(viewer.data['r2_base'][0, 0, 0])
-    assert viewer.data['r2_base'][0, 0, 1] == 4
+    assert np.isnan(viewer.data['r2_base'][0, 0, 1])
     viewer.set_r2(save_image(tmp_path / 'r2-3d.nii.gz', base), 'comp')
     assert viewer.data['r2_comp'].shape == base.shape
     assert viewer.r2_volumes['comp'] is None
@@ -74,6 +74,86 @@ def test_comparison_data_masks_and_geometry(tmp_path):
     shifted = save_image(tmp_path / 'wrong-affine.nii.gz', comp, affine)
     with pytest.raises(ValueError, match='spatial grid'):
         viewer.set_cvr(shifted, 'comp')
+
+
+@pytest.mark.parametrize('masked_ver', ['base', 'comp'])
+def test_shared_mask_updates_both_datasets(tmp_path, masked_ver):
+    viewer = DiffViewer()
+    shape = (2, 2, 2)
+    paths = {}
+    for ver, value in (('base', 3), ('comp', 1)):
+        paths[ver] = save_image(tmp_path / f'{ver}.nii.gz', np.full(shape, value))
+        viewer.set_cvr(paths[ver], ver)
+        viewer.set_lag(paths[ver], ver)
+    mask = np.ones(shape)
+    mask[0, 0, 0] = 0
+    viewer.set_mask(save_image(tmp_path / 'mask.nii.gz', mask), masked_ver)
+    for kind in ('cvr', 'lag'):
+        for ver in ('base', 'comp'):
+            assert np.isnan(viewer.data[f'{kind}_{ver}'][0, 0, 0])
+        assert np.isnan(viewer.data[f'{kind}_diff'][0, 0, 0])
+        assert np.isnan(viewer.data[f'{kind}_reld'][0, 0, 0])
+
+    mask[0, 0, 0] = 1
+    mask[1, 0, 0] = 0
+    viewer.set_mask(save_image(tmp_path / 'replacement.nii.gz', mask), masked_ver)
+    for kind in ('cvr', 'lag'):
+        assert viewer.data[f'{kind}_diff'][0, 0, 0] == 2
+        assert np.isnan(viewer.data[f'{kind}_diff'][1, 0, 0])
+
+    other = 'comp' if masked_ver == 'base' else 'base'
+    other_mask = np.ones(shape)
+    other_mask[0, 1, 0] = 0
+    viewer.set_mask(save_image(tmp_path / 'other.nii.gz', other_mask), other)
+    assert np.isnan(viewer.data[f'cvr_{masked_ver}'][1, 0, 0])
+    assert np.isfinite(viewer.data[f'cvr_{other}'][1, 0, 0])
+    assert np.isnan(viewer.data[f'cvr_{other}'][0, 1, 0])
+    assert np.isfinite(viewer.data[f'cvr_{masked_ver}'][0, 1, 0])
+
+
+@pytest.mark.parametrize('ver', ['base', 'comp'])
+@pytest.mark.parametrize('ndim', [3, 4])
+def test_r2_creates_mask_and_remasks_loaded_maps(tmp_path, ver, ndim):
+    viewer = DiffViewer()
+    shape = (2, 2, 2)
+    base = np.full(shape, 4.0)
+    comp = np.full(shape, 2.0)
+    viewer.set_cvr(save_image(tmp_path / 'base.nii.gz', base), 'base')
+    viewer.set_cvr(save_image(tmp_path / 'comp.nii.gz', comp), 'comp')
+    r2 = np.ones(shape)
+    r2[0, 0, 0] = 0
+    r2[0, 0, 1] = np.nan
+    if ndim == 4:
+        r2 = np.stack((r2, r2), axis=-1)
+        r2[0, 1, 0] = [-1, 1]
+    viewer.set_r2(save_image(tmp_path / 'r2.nii.gz', r2), ver)
+    mask = viewer.data[f'mask_{ver}']
+    assert not mask[0, 0, 0]
+    assert not mask[0, 0, 1]
+    if ndim == 4:
+        assert not mask[0, 1, 0]
+    for key in ('cvr_base', 'cvr_comp', 'cvr_diff', 'cvr_reld', f'r2_{ver}'):
+        assert np.isnan(viewer.data[key][0, 0, 0])
+    assert viewer.data['cvr_diff'][1, 1, 1] == 2
+
+    full_mask = np.ones(shape)
+    viewer.set_mask(save_image(tmp_path / 'full.nii.gz', full_mask), ver)
+    assert viewer.data['cvr_diff'][0, 0, 0] == 2
+    assert viewer.data[f'r2_{ver}'][0, 0, 0] == 0
+    viewer.set_r2(save_image(tmp_path / 'r2-again.nii.gz', r2), ver)
+    assert viewer.data[f'mask_{ver}'][0, 0, 0]
+
+
+def test_generated_mask_prevents_incompatible_r2_replacement(tmp_path):
+    viewer = DiffViewer()
+    initial = np.ones((2, 2, 2, 2))
+    viewer.set_r2(save_image(tmp_path / 'r2.nii.gz', initial), 'base')
+    with pytest.raises(ValueError, match='spatial grid'):
+        viewer.set_r2(
+            save_image(tmp_path / 'wrong.nii.gz', np.ones((3, 3, 3, 2))), 'base'
+        )
+    np.testing.assert_array_equal(viewer.r2_volumes['base'], initial)
+    np.testing.assert_array_equal(viewer.data['mask_base'], np.ones((2, 2, 2)))
 
 
 def test_comparison_folder_loading(tmp_path):
@@ -154,6 +234,18 @@ def test_comparison_gui_interactions(tmp_path):
         np.testing.assert_array_equal(
             r2_axis.lines[0].get_ydata(), [base[1, 2, 2], base[1, 2, 2] + 1]
         )
+        shared_mask = np.ones(shape)
+        shared_mask[0, 0, 0] = 0
+        viewer.set_mask(save_image(tmp_path / 'shared-mask.nii.gz', shared_mask), 'base')
+        viewer.set_cvr(comp_path, 'comp')
+        viewer.set_lag(comp_path, 'comp')
+        viewer.refresh()
+        assert viewer.data['mask_comp'] is None
+        assert np.isnan(viewer.data['cvr_comp'][0, 0, 0])
+        viewer._move_to(0, 0, 0)
+        assert np.ma.is_masked(viewer.imgs['cvr_comp_axi'].get_array()[0, 0])
+        assert not viewer.summary_charts['r2'].figure.axes[0].lines
+
         viewer.set_r2(
             save_image(tmp_path / 'r2-comp-4d.nii.gz', np.stack((comp, comp + 1), -1)),
             'comp',

@@ -96,17 +96,27 @@ class DiffViewer(MapViewerControls):
         self._geometry[key] = (data.shape[:3], img.affine.copy(), zooms)
         return np.isfinite(data) & (data != 0) if is_mask else data
 
-    def _apply_mask(self, ver):
-        """Reapply one dataset's mask to its original maps."""
+    def _effective_mask(self, ver):
+        """Return this dataset's mask or the other dataset's mask."""
         mask = self.data[f'mask_{ver}']
+        if mask is None:
+            other = 'comp' if ver == 'base' else 'base'
+            mask = self.data[f'mask_{other}']
+        return mask
+
+    def _apply_masks(self):
+        """Reapply effective masks to both datasets and recompute differences."""
+        for ver in ('base', 'comp'):
+            mask = self._effective_mask(ver)
+            for kind in ('cvr', 'lag', 'r2'):
+                raw = self.data[f'raw_{kind}_{ver}']
+                if raw is None:
+                    self.data[f'{kind}_{ver}'] = None
+                elif mask is None:
+                    self.data[f'{kind}_{ver}'] = raw.copy()
+                else:
+                    self.data[f'{kind}_{ver}'] = np.where(mask, raw, np.nan)
         for kind in ('cvr', 'lag', 'r2'):
-            raw = self.data[f'raw_{kind}_{ver}']
-            if raw is None:
-                self.data[f'{kind}_{ver}'] = None
-            elif mask is None:
-                self.data[f'{kind}_{ver}'] = raw.copy()
-            else:
-                self.data[f'{kind}_{ver}'] = np.where(mask, raw, np.nan)
             self.compute_difference(kind)
 
     def _update_dimensions_from_loaded_data(self):
@@ -137,7 +147,7 @@ class DiffViewer(MapViewerControls):
     def set_cvr(self, path, ver):
         """Load and mask the CVR map."""
         self.data[f'raw_cvr_{ver}'] = self._read_image(path, f'raw_cvr_{ver}')
-        self._apply_mask(ver)
+        self._apply_masks()
         cvr_vals = self.data[f'cvr_{ver}'][np.isfinite(self.data[f'cvr_{ver}'])]
         if cvr_vals.size:
             self._set_map_limits(f'cvr_{ver}', *np.percentile(cvr_vals, [1, 99]))
@@ -146,7 +156,7 @@ class DiffViewer(MapViewerControls):
     def set_lag(self, path, ver):
         """Load the lag map."""
         self.data[f'raw_lag_{ver}'] = self._read_image(path, f'raw_lag_{ver}')
-        self._apply_mask(ver)
+        self._apply_masks()
         finite_lags = self.data[f'lag_{ver}'][np.isfinite(self.data[f'lag_{ver}'])]
         if finite_lags.size:
             lag_bound = np.max(np.abs(finite_lags))
@@ -157,19 +167,23 @@ class DiffViewer(MapViewerControls):
         """Load a 3D R² map or the per-voxel maximum of a 4D R² volume."""
         data = self._read_image(path, f'raw_r2_{ver}', r2=True)
         self.r2_volumes[ver] = data if data.ndim == 4 else None
+        if self.data[f'mask_{ver}'] is None:
+            mean = np.mean(data, axis=-1) if data.ndim == 4 else data
+            self.data[f'mask_{ver}'] = np.isfinite(mean) & (mean != 0)
+            self._geometry[f'mask_{ver}'] = self._geometry[f'raw_r2_{ver}']
         if data.ndim == 4:
             finite = np.isfinite(data)
             maximum = np.max(np.where(finite, data, -np.inf), axis=-1)
             maximum[~np.any(finite, axis=-1)] = np.nan
             data = maximum
         self.data[f'raw_r2_{ver}'] = data
-        self._apply_mask(ver)
+        self._apply_masks()
         self._update_dimensions_from_loaded_data()
 
     def set_mask(self, path, ver):
         """Load a mask and apply it to the maps."""
         self.data[f'mask_{ver}'] = self._read_image(path, f'mask_{ver}', is_mask=True)
-        self._apply_mask(ver)
+        self._apply_masks()
         self._update_dimensions_from_loaded_data()
 
     # ----- UI -----
@@ -462,7 +476,7 @@ class DiffViewer(MapViewerControls):
             else:
                 for ver, color in (('base', 'tab:blue'), ('comp', 'tab:orange')):
                     volume = self.r2_volumes[ver]
-                    mask = self.data[f'mask_{ver}']
+                    mask = self._effective_mask(ver)
                     if volume is not None and (mask is None or mask[tuple(self.curr)]):
                         profile = volume[tuple(self.curr)]
                         axis.plot(
