@@ -5,8 +5,10 @@ import importlib.util
 import os
 import sys
 import time
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import nibabel as nib
 import numpy as np
 import pytest
 
@@ -84,6 +86,62 @@ def test_argument_groups_use_groupboxes(page):
     ]
     assert len(form.groups) == len(expected)
     assert all(isinstance(group, bs.GroupBox) for group in form.groups)
+
+
+def test_input_previews_and_navigation(page, tmp_path):
+    form, shell = page
+    preview = form.preview
+    shell._internal.update()
+    left = form.form_scroll._internal.winfo_width()
+    right = preview.container._internal.winfo_width()
+    assert abs(left - right) <= 10
+    for key in ('fname_func', 'fname_mask', 'fname_roi'):
+        assert len(preview.axes[key]) == 3
+        assert len(preview.charts[key].figure.axes) == 3
+
+    shape = (3, 4, 5)
+    volume = np.arange(np.prod(shape) * 2, dtype=float).reshape(*shape, 2)
+    mask = np.ones(shape)
+    mask[0, 0, 0] = 0
+    paths = {}
+    for key, values in (
+        ('fname_func', volume), ('fname_mask', mask), ('fname_roi', mask * 2),
+    ):
+        paths[key] = tmp_path / f'{key}.nii.gz'
+        nib.save(nib.Nifti1Image(values, np.eye(4)), paths[key])
+        form.fields[key].value = str(paths[key])
+        form.fields[key]._entry_widget().event_generate('<<Change>>')
+    np.testing.assert_array_equal(preview.data['fname_func'], volume.mean(axis=-1))
+    np.testing.assert_array_equal(preview.data['fname_mask'], mask.astype(bool))
+    np.testing.assert_array_equal(preview.data['fname_roi'], mask.astype(bool))
+    event = SimpleNamespace(
+        name='button_press_event', inaxes=preview.axes['fname_func'][0],
+        button=1, xdata=1, ydata=3,
+    )
+    preview._navigate('fname_func', event)
+    assert preview.positions['fname_func'] == [1, 1, 3]
+    np.testing.assert_array_equal(
+        preview.axes['fname_func'][0].images[0].get_array(), volume.mean(axis=-1)[1].T
+    )
+    event.name, event.step = 'scroll_event', -1
+    preview._navigate('fname_func', event)
+    assert preview.positions['fname_func'] == [0, 1, 3]
+
+    regressor = tmp_path / 'co2.txt'
+    np.savetxt(regressor, [1, 3, 2])
+    form.fields['fname_co2'].value = str(regressor)
+    form.fields['fname_co2']._entry_widget().event_generate('<<Change>>')
+    np.testing.assert_array_equal(preview.axes['fname_co2'][0].lines[0].get_ydata(), [1, 3, 2])
+    preview.set_frequency(2)
+    np.testing.assert_array_equal(preview.axes['fname_co2'][0].lines[0].get_xdata(), [0, .5, 1])
+    form.fields['fname_co2'].clear()
+    form.fields['fname_co2']._entry_widget().event_generate('<<Change>>')
+    assert not preview.axes['fname_co2'][0].lines
+
+    form.fields['fname_roi'].value = str(tmp_path / 'missing.nii.gz')
+    form.fields['fname_roi']._entry_widget().event_generate('<<Change>>')
+    assert preview.data['fname_roi'] is None
+    assert preview.errors['fname_roi']
 
 
 def test_all_argument_types_and_validation(page):

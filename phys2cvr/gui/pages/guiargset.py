@@ -8,8 +8,12 @@ import sys
 import tempfile
 
 import bootstack as bs
+import nibabel as nib
+import numpy as np
+from matplotlib.figure import Figure
 
 from phys2cvr.cli.run import _check_opt_conf, _get_parser
+from phys2cvr.io import EXT_ARRAY, load_array, load_physio
 
 LGR = logging.getLogger(__name__)
 
@@ -51,41 +55,62 @@ class WorkflowSetter:
             self.run_button = bs.Button('Run phys2cvr', on_click=self.run)
             self.status = bs.Label('Ready')
 
-        with bs.ScrollView(grow=True, horizontal='stretch'):
-            with bs.Column(padding=12, gap=8, horizontal_items='stretch'):
-                bs.Label(
-                    'Configure the workflow. Hover over a field for CLI help.',
-                    font='body',
+        with bs.Row(
+            grow=True, horizontal='stretch', grow_items=True,
+            vertical_items='stretch', gap=8,
+        ):
+            with bs.ScrollView(
+                horizontal='stretch', scroll_direction='both'
+            ) as self.form_scroll:
+                self._build_form()
+            self.preview = WorkflowPreview()
+            self.preview.build()
+        for dest in ('fname_func', 'fname_mask', 'fname_roi', 'fname_co2'):
+            self.fields[dest].on_change(
+                lambda event, dest=dest: self.preview.load(
+                    dest, self.fields[dest].text.strip()
                 )
-                for group in self.parser._action_groups:
-                    actions = [
-                        action
-                        for action in group._group_actions
-                        if not isinstance(
-                            action, (argparse._HelpAction, argparse._VersionAction)
-                        )
-                    ]
-                    if not actions:
-                        continue
-                    with bs.GroupBox(
-                        group.title, padding=8, horizontal='stretch'
-                    ) as group_box:
-                        self.groups.append(group_box)
-                        with bs.Grid(
-                            columns=2, gap=8, horizontal='stretch',
-                            horizontal_items='stretch', vertical_items='top',
-                        ):
-                            for action in actions:
-                                if action.dest in self.actions:
-                                    continue
-                                self.actions[action.dest] = action
-                                with bs.Column(
-                                    gap=4, horizontal_items='stretch',
-                                    horizontal='stretch',
-                                ):
-                                    self._build_field(action, actions)
+            )
+        self.fields['freq'].on_change(
+            lambda event: self.preview.set_frequency(self.fields['freq'].value)
+        )
         self.run_button.on_destroy(lambda event: self._stop())
         return self
+
+    def _build_form(self):
+        """Build the scrollable argument controls."""
+        with bs.Column(padding=12, gap=8, horizontal_items='stretch'):
+            bs.Label(
+                'Configure the workflow. Hover over a field for CLI help.',
+                font='body',
+            )
+            for group in self.parser._action_groups:
+                actions = [
+                    action
+                    for action in group._group_actions
+                    if not isinstance(
+                        action, (argparse._HelpAction, argparse._VersionAction)
+                    )
+                ]
+                if not actions:
+                    continue
+                with bs.GroupBox(
+                    group.title, padding=8, horizontal='stretch'
+                ) as group_box:
+                    self.groups.append(group_box)
+                    with bs.Grid(
+                        columns=2, gap=8, horizontal='stretch',
+                        horizontal_items='stretch', vertical_items='top',
+                    ):
+                        for action in actions:
+                            if action.dest in self.actions:
+                                continue
+                            self.actions[action.dest] = action
+                            with bs.Column(
+                                gap=4, horizontal_items='stretch',
+                                horizontal='stretch',
+                            ):
+                                self._build_field(action, actions)
 
     def _build_field(self, action, group_actions):
         dest = action.dest
@@ -261,6 +286,170 @@ class WorkflowSetter:
             self.process = None
             self.output.close()
             self.output = None
+
+
+class WorkflowPreview:
+    """Preview workflow inputs without changing the configured arguments."""
+
+    _titles = {
+        'fname_func': 'Mean functional volume',
+        'fname_mask': 'Mask',
+        'fname_roi': 'ROI mask',
+        'fname_co2': 'Regressor',
+    }
+
+    def __init__(self):
+        self.data = dict.fromkeys(self._titles)
+        self.positions = {}
+        self.pixdims = {}
+        self.frequency = None
+        self.file_frequency = None
+        self.charts = {}
+        self.axes = {}
+        self.errors = {}
+
+    def build(self):
+        """Create empty plots in the order used by the workflow."""
+        with bs.Column(
+            horizontal='stretch', horizontal_items='stretch',
+            weights=[3, 2, 3, 3],
+        ) as self.container:
+            for key in ('fname_func', 'fname_co2', 'fname_mask', 'fname_roi'):
+                fig = Figure(figsize=(1, 1), layout='tight')
+                self.charts[key] = bs.Chart(figure=fig)
+                self.axes[key] = (
+                    [fig.add_subplot(111)] if key == 'fname_co2'
+                    else [fig.add_subplot(1, 3, i + 1) for i in range(3)]
+                )
+                if key != 'fname_co2':
+                    fig.canvas.mpl_connect(
+                        'button_press_event',
+                        lambda event, key=key: self._navigate(key, event),
+                    )
+                    fig.canvas.mpl_connect(
+                        'scroll_event',
+                        lambda event, key=key: self._navigate(key, event),
+                    )
+                self._draw(key)
+
+    def load(self, key, path):
+        """Load an input preview; report errors without blocking form editing."""
+        self.data[key] = None
+        self.errors.pop(key, None)
+        if key == 'fname_co2':
+            self.file_frequency = None
+        if path:
+            try:
+                if key == 'fname_co2':
+                    if path.lower().endswith('.phys'):
+                        values, _, self.file_frequency = load_physio(path)
+                        if (
+                            self.file_frequency is not None
+                            and (not np.isfinite(self.file_frequency)
+                                 or self.file_frequency <= 0)
+                        ):
+                            self.file_frequency = None
+                    else:
+                        values = load_array(path)
+                    values = np.asarray(values).squeeze()
+                    if values.ndim != 1 or not values.size:
+                        raise ValueError('Regressor must be a non-empty vector.')
+                    self.data[key] = values
+                elif key == 'fname_func' and any(
+                    path.lower().endswith(ext.lower()) for ext in EXT_ARRAY
+                ):
+                    self.errors[key] = 'No volume preview for a 1D input.'
+                else:
+                    image = nib.load(path)
+                    values = np.asarray(image.get_fdata())
+                    expected = 4 if key == 'fname_func' else 3
+                    if values.ndim != expected or any(n == 0 for n in values.shape):
+                        raise ValueError(f'Expected a non-empty {expected}D image.')
+                    self.data[key] = (
+                        np.mean(values, axis=-1) if key == 'fname_func'
+                        else np.isfinite(values) & (values != 0)
+                    )
+                    self.positions[key] = [n // 2 for n in values.shape[:3]]
+                    self.pixdims[key] = tuple(
+                        float(v) if np.isfinite(v) and v > 0 else 1.0
+                        for v in image.header.get_zooms()[:3]
+                    )
+            except (OSError, ValueError, EOFError, ImportError, NotImplementedError,
+                    nib.filebasedimages.ImageFileError) as err:
+                LGR.warning('Could not preview %s: %s', path, err)
+                self.errors[key] = str(err)
+        self._draw(key)
+
+    def set_frequency(self, frequency):
+        """Set the sampling frequency for the regressor time axis."""
+        self.frequency = (
+            frequency if frequency and np.isfinite(frequency) and frequency > 0
+            else None
+        )
+        self._draw('fname_co2')
+
+    def _draw(self, key):
+        axes = self.axes[key]
+        data = self.data[key]
+        for axis in axes:
+            axis.clear()
+        if key == 'fname_co2':
+            axis = axes[0]
+            frequency = self.frequency or self.file_frequency
+            if data is not None:
+                time = np.arange(data.size)
+                if frequency:
+                    time = time / frequency
+                axis.plot(time, data)
+            axis.set_xlabel('Time (s)' if frequency else 'Sample')
+            axis.set_title(self._titles[key])
+        else:
+            if data is not None:
+                x, y, z = self.positions[key]
+                dx, dy, dz = self.pixdims[key]
+                for axis, image, aspect, point in zip(
+                    axes, (data[x, :, :], data[:, y, :], data[:, :, z]),
+                    (dz / dy, dz / dx, dy / dx), ((y, z), (x, z), (x, y)),
+                    strict=True,
+                ):
+                    axis.imshow(image.T, origin='lower', cmap='gray', aspect=aspect)
+                    axis.axvline(point[0], color='red', lw=0.7)
+                    axis.axhline(point[1], color='red', lw=0.7)
+            for axis, orientation in zip(
+                axes, ('Sagittal', 'Coronal', 'Axial'), strict=True
+            ):
+                axis.set_title(f'{self._titles[key]}: {orientation}')
+                axis.set_xticks([])
+                axis.set_yticks([])
+        if key in self.errors:
+            axes[0].text(
+                0.5, 0.5, self.errors[key], transform=axes[0].transAxes,
+                ha='center', va='center', wrap=True,
+            )
+        self.charts[key].draw()
+
+    def _navigate(self, key, event):
+        data = self.data[key]
+        if data is None or event.inaxes not in self.axes[key]:
+            return
+        orientation = self.axes[key].index(event.inaxes)
+        position = self.positions[key].copy()
+        if event.name == 'scroll_event':
+            position[orientation] += int(np.sign(event.step))
+        elif (
+            event.button == 1 and event.xdata is not None and event.ydata is not None
+            and np.isfinite(event.xdata) and np.isfinite(event.ydata)
+        ):
+            horizontal, vertical = ((1, 2), (0, 2), (0, 1))[orientation]
+            position[horizontal] = round(event.xdata)
+            position[vertical] = round(event.ydata)
+        else:
+            return
+        self.positions[key] = [
+            int(np.clip(value, 0, size - 1))
+            for value, size in zip(position, data.shape, strict=True)
+        ]
+        self._draw(key)
 
 
 def build_workflow_setter():
