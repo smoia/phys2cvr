@@ -55,6 +55,8 @@ class DiffViewer:
         self._syncing = False
         self.axes = {}
         self.charts = {}
+        self.summary_charts = {}
+        self.r2_volumes = {'base': None, 'comp': None}
         self.map_settings = {
             'cvr_base': {'limits': (-1.0, 1.0), 'cmap': 'inferno'},
             'lag_base': {'limits': (-1.0, 1.0), 'cmap': 'viridis_r'},
@@ -76,17 +78,15 @@ class DiffViewer:
         if not hasattr(img, 'affine') or img.affine is None:
             raise ValueError(f'{path} does not have a 3D spatial affine.')
         data = np.asarray(img.get_fdata())
-        if r2 and data.ndim == 4 and data.shape[-1]:
-            finite = np.isfinite(data)
-            data = np.max(np.where(finite, data, -np.inf), axis=-1)
-            data[~np.any(finite, axis=-1)] = np.nan
-        if data.ndim != 3 or any(size == 0 for size in data.shape):
+        if data.ndim not in ((3, 4) if r2 else (3,)) or any(
+            size == 0 for size in data.shape
+        ):
             raise ValueError(
                 f'{path} must be a 3D map' + (' or 4D R² map.' if r2 else '.')
             )
         for other, (shape, affine, _) in self._geometry.items():
             if other != key and (
-                data.shape != shape
+                data.shape[:3] != shape
                 or not np.allclose(img.affine, affine, rtol=0, atol=1e-5)
             ):
                 raise ValueError(
@@ -94,7 +94,7 @@ class DiffViewer:
                     'resample the images to the same grid before comparing.'
                 )
         zooms = tuple(float(v) for v in img.header.get_zooms()[:3])
-        self._geometry[key] = (data.shape, img.affine.copy(), zooms)
+        self._geometry[key] = (data.shape[:3], img.affine.copy(), zooms)
         return np.isfinite(data) & (data != 0) if is_mask else data
 
     def _apply_mask(self, ver):
@@ -156,7 +156,14 @@ class DiffViewer:
 
     def set_r2(self, path, ver):
         """Load a 3D R² map or the per-voxel maximum of a 4D R² volume."""
-        self.data[f'raw_r2_{ver}'] = self._read_image(path, f'raw_r2_{ver}', r2=True)
+        data = self._read_image(path, f'raw_r2_{ver}', r2=True)
+        self.r2_volumes[ver] = data if data.ndim == 4 else None
+        if data.ndim == 4:
+            finite = np.isfinite(data)
+            maximum = np.max(np.where(finite, data, -np.inf), axis=-1)
+            maximum[~np.any(finite, axis=-1)] = np.nan
+            data = maximum
+        self.data[f'raw_r2_{ver}'] = data
         self._apply_mask(ver)
         self._update_dimensions_from_loaded_data()
 
@@ -262,7 +269,7 @@ class DiffViewer:
         self.map_fields = {}
         with bs.Grid(
             columns=['auto', 1, 1, 1],
-            rows=3,
+            rows=4,
             grow=True,
             horizontal_items='stretch',
             vertical_items='stretch',
@@ -272,7 +279,7 @@ class DiffViewer:
             with bs.Column(
                 row=0,
                 column=0,
-                rowspan=3,
+                rowspan=4,
                 width=190,
                 surface='card_raised',
                 horizontal='stretch',
@@ -287,6 +294,9 @@ class DiffViewer:
                     self.charts[f'{kind}_{ver}'] = bs.Chart(
                         figure=Figure(figsize=(1, 1)), row=row, column=col
                     )
+                self.summary_charts[kind] = bs.Chart(
+                    figure=Figure(figsize=(1, 1)), row=3, column=col
+                )
 
         for field in (self.x_field, self.y_field, self.z_field):
             field.on_change(lambda e: self._on_coord_change())
@@ -425,6 +435,7 @@ class DiffViewer:
             self.axes = {}
             for chart in self.charts.values():
                 chart.figure = Figure(figsize=(1, 1))
+            self._draw_summaries()
             return
 
         self.init_plots()
@@ -583,6 +594,47 @@ class DiffViewer:
             self._syncing = False
         for chart in self.charts.values():
             chart.draw()
+        self._draw_summaries()
+
+    def _draw_summaries(self):
+        """Draw masked distributions and the selected voxel's 4D R² profiles."""
+        for kind, chart in self.summary_charts.items():
+            fig = Figure(figsize=(1, 1), layout='tight')
+            axis = fig.add_subplot()
+            if kind in ('cvr', 'lag'):
+                values = {}
+                for ver in ('base', 'comp'):
+                    data = self.data[f'{kind}_{ver}']
+                    if data is not None:
+                        values[ver] = data[np.isfinite(data)]
+                populated = [value for value in values.values() if value.size]
+                if populated:
+                    edges = np.histogram_bin_edges(np.concatenate(populated), bins=30)
+                    for ver, color in (('base', 'tab:blue'), ('comp', 'tab:orange')):
+                        if ver in values and values[ver].size:
+                            axis.hist(
+                                values[ver], bins=edges, histtype='step', color=color,
+                                label='Base' if ver == 'base' else 'Comparison',
+                            )
+                axis.set_xlabel('CVR' if kind == 'cvr' else 'Lag (s)')
+                axis.set_ylabel('Voxels')
+                axis.set_title('Masked distribution')
+            else:
+                for ver, color in (('base', 'tab:blue'), ('comp', 'tab:orange')):
+                    volume = self.r2_volumes[ver]
+                    mask = self.data[f'mask_{ver}']
+                    if volume is not None and (mask is None or mask[tuple(self.curr)]):
+                        profile = volume[tuple(self.curr)]
+                        axis.plot(
+                            np.arange(profile.size), profile, color=color,
+                            label='Base' if ver == 'base' else 'Comparison',
+                        )
+                axis.set_xlabel('Lag index')
+                axis.set_ylabel('R²')
+                axis.set_title(f'R² at voxel {tuple(self.curr)}')
+            if axis.get_legend_handles_labels()[0]:
+                axis.legend()
+            chart.figure = fig
 
     # ----- callbacks -----
 

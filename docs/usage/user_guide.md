@@ -37,6 +37,9 @@ signed or absolute values and either base minus comparison or the relative
 difference `100 * (base - comparison) / base`. Relative differences are masked
 where the base value is zero. Clicking any slice updates the shared voxel
 position across all maps.
+The bottom row compares masked CVR and lag distributions and, for 4D R²
+inputs, plots the selected voxel's R² values against lag index. Each dataset
+uses its own mask, when provided; 3D R² maps have no lag profile.
 
 You can also pass paths and lag settings at startup;
 run `python -m phys2cvr.gui.app --help` for the available options. From a

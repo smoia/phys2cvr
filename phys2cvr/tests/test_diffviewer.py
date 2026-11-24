@@ -9,6 +9,7 @@ from unittest.mock import patch
 import nibabel as nib
 import numpy as np
 import pytest
+from matplotlib.axes import Axes
 from matplotlib.backend_bases import MouseEvent
 
 pytestmark = pytest.mark.skipif(
@@ -57,10 +58,12 @@ def test_comparison_data_masks_and_geometry(tmp_path):
     r2[0, 0, 0, :] = np.nan
     r2[0, 0, 1, 0] = np.nan
     viewer.set_r2(save_image(tmp_path / 'r2.nii.gz', r2), 'base')
+    np.testing.assert_array_equal(viewer.r2_volumes['base'], r2)
     assert np.isnan(viewer.data['r2_base'][0, 0, 0])
     assert viewer.data['r2_base'][0, 0, 1] == 4
     viewer.set_r2(save_image(tmp_path / 'r2-3d.nii.gz', base), 'comp')
     assert viewer.data['r2_comp'].shape == base.shape
+    assert viewer.r2_volumes['comp'] is None
 
     mismatched = save_image(tmp_path / 'wrong-shape.nii.gz', np.ones((3, 3, 4)))
     with pytest.raises(ValueError, match='spatial grid'):
@@ -125,6 +128,11 @@ def test_comparison_gui_interactions(tmp_path):
     shell._internal.update()
     try:
         assert len(viewer.charts) == 9
+        assert set(viewer.summary_charts) == {'cvr', 'lag', 'r2'}
+        for col, kind in enumerate(('cvr', 'lag', 'r2'), start=1):
+            chart = viewer.summary_charts[kind]._internal
+            assert chart.grid_info()['row'] == 3
+            assert chart.grid_info()['column'] == col
         assert set(viewer.diffswitch) == {
             f'{kind}_{mode}' for kind in ('cvr', 'lag', 'r2') for mode in ('rel', 'abs')
         }
@@ -133,6 +141,50 @@ def test_comparison_gui_interactions(tmp_path):
         comp = base + 3
         base_path = save_image(tmp_path / 'base.nii.gz', base)
         comp_path = save_image(tmp_path / 'comp.nii.gz', comp)
+        viewer.set_cvr(base_path, 'base')
+        viewer.set_lag(base_path, 'base')
+        viewer.set_r2(
+            save_image(tmp_path / 'r2-base-4d.nii.gz', np.stack((base, base + 1), -1)),
+            'base',
+        )
+        viewer.refresh()
+        assert len(viewer.summary_charts['cvr'].figure.axes[0].patches) == 1
+        assert len(viewer.summary_charts['lag'].figure.axes[0].patches) == 1
+        r2_axis = viewer.summary_charts['r2'].figure.axes[0]
+        np.testing.assert_array_equal(
+            r2_axis.lines[0].get_ydata(), [base[1, 2, 2], base[1, 2, 2] + 1]
+        )
+        viewer.set_r2(
+            save_image(tmp_path / 'r2-comp-4d.nii.gz', np.stack((comp, comp + 1), -1)),
+            'comp',
+        )
+        viewer.set_cvr(comp_path, 'comp')
+        viewer.set_lag(comp_path, 'comp')
+        mask = np.ones(shape)
+        mask[0, 0, 0] = 0
+        viewer.set_mask(save_image(tmp_path / 'mask.nii.gz', mask), 'base')
+        histogram = Axes.hist
+        samples = []
+
+        def capture_hist(axis, values, *args, **kwargs):
+            samples.append(np.asarray(values).copy())
+            return histogram(axis, values, *args, **kwargs)
+
+        with patch.object(Axes, 'hist', capture_hist):
+            viewer.refresh()
+        assert [len(values) for values in samples] == [59, 60, 59, 60]
+        assert base[0, 0, 0] not in samples[0]
+        assert len(viewer.summary_charts['cvr'].figure.axes[0].patches) == 2
+        assert len(viewer.summary_charts['lag'].figure.axes[0].patches) == 2
+        viewer._move_to(0, 0, 0)
+        r2_axis = viewer.summary_charts['r2'].figure.axes[0]
+        assert len(r2_axis.lines) == 1
+        np.testing.assert_array_equal(r2_axis.lines[0].get_ydata(), [comp[0, 0, 0], comp[0, 0, 0] + 1])
+        viewer._move_to(1, 1, 1)
+        assert len(viewer.summary_charts['r2'].figure.axes[0].lines) == 2
+        viewer.set_r2(base_path, 'base')
+        viewer.refresh()
+        assert len(viewer.summary_charts['r2'].figure.axes[0].lines) == 1
         for menu, path in zip(menus, (base_path, comp_path), strict=True):
             with patch.object(bs, 'ask_open_file', return_value=str(path)):
                 for item in menu.items[1:4]:
