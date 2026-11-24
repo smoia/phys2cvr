@@ -105,7 +105,9 @@ def test_input_previews_and_navigation(page, tmp_path):
     mask[0, 0, 0] = 0
     paths = {}
     for key, values in (
-        ('fname_func', volume), ('fname_mask', mask), ('fname_roi', mask * 2),
+        ('fname_func', volume),
+        ('fname_mask', mask),
+        ('fname_roi', mask * 2),
     ):
         paths[key] = tmp_path / f'{key}.nii.gz'
         nib.save(nib.Nifti1Image(values, np.eye(4)), paths[key])
@@ -115,8 +117,11 @@ def test_input_previews_and_navigation(page, tmp_path):
     np.testing.assert_array_equal(preview.data['fname_mask'], mask.astype(bool))
     np.testing.assert_array_equal(preview.data['fname_roi'], mask.astype(bool))
     event = SimpleNamespace(
-        name='button_press_event', inaxes=preview.axes['fname_func'][0],
-        button=1, xdata=1, ydata=3,
+        name='button_press_event',
+        inaxes=preview.axes['fname_func'][0],
+        button=1,
+        xdata=1,
+        ydata=3,
     )
     preview._navigate('fname_func', event)
     assert preview.positions['fname_func'] == [1, 1, 3]
@@ -134,15 +139,21 @@ def test_input_previews_and_navigation(page, tmp_path):
         {'open': lambda **kwargs: str(regressor)},
     ):
         form.fields['fname_co2']._internal._show_file_chooser()
-    np.testing.assert_array_equal(preview.axes['fname_co2'][0].lines[0].get_ydata(), [1, 3, 2])
+    np.testing.assert_array_equal(
+        preview.axes['fname_co2'][0].lines[0].get_ydata(), [1, 3, 2]
+    )
     form.fields['freq'].value = 2
     form.fields['freq']._entry_widget().event_generate('<<Change>>')
-    np.testing.assert_array_equal(preview.axes['fname_co2'][0].lines[0].get_xdata(), [0, .5, 1])
+    np.testing.assert_array_equal(
+        preview.axes['fname_co2'][0].lines[0].get_xdata(), [0, 0.5, 1]
+    )
     regressor2 = tmp_path / 'co2-new.txt'
     np.savetxt(regressor2, [6, 8])
     form.fields['fname_co2'].value = str(regressor2)
     form.fields['fname_co2']._entry_widget().event_generate('<<Change>>')
-    np.testing.assert_array_equal(preview.axes['fname_co2'][0].lines[0].get_ydata(), [6, 8])
+    np.testing.assert_array_equal(
+        preview.axes['fname_co2'][0].lines[0].get_ydata(), [6, 8]
+    )
     form.fields['fname_co2'].clear()
     form.fields['fname_co2']._entry_widget().event_generate('<<Change>>')
     assert not preview.axes['fname_co2'][0].lines

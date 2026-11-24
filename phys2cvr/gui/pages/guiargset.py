@@ -57,8 +57,11 @@ class WorkflowSetter:
             self.status = bs.Label('Ready')
 
         with bs.Row(
-            grow=True, horizontal='stretch', grow_items=True,
-            vertical_items='stretch', gap=8,
+            grow=True,
+            horizontal='stretch',
+            grow_items=True,
+            vertical_items='stretch',
+            gap=8,
         ):
             with bs.ScrollView(
                 horizontal='stretch', scroll_direction='both'
@@ -100,15 +103,19 @@ class WorkflowSetter:
                 ) as group_box:
                     self.groups.append(group_box)
                     with bs.Grid(
-                        columns=2, gap=8, horizontal='stretch',
-                        horizontal_items='stretch', vertical_items='top',
+                        columns=2,
+                        gap=8,
+                        horizontal='stretch',
+                        horizontal_items='stretch',
+                        vertical_items='top',
                     ):
                         for action in actions:
                             if action.dest in self.actions:
                                 continue
                             self.actions[action.dest] = action
                             with bs.Column(
-                                gap=4, horizontal_items='stretch',
+                                gap=4,
+                                horizontal_items='stretch',
                                 horizontal='stretch',
                             ):
                                 self._build_field(action, actions)
@@ -312,14 +319,16 @@ class WorkflowPreview:
     def build(self):
         """Create empty plots in the order used by the workflow."""
         with bs.Column(
-            horizontal='stretch', horizontal_items='stretch',
+            horizontal='stretch',
+            horizontal_items='stretch',
             weights=[3, 2, 3, 3],
         ) as self.container:
             for key in ('fname_func', 'fname_co2', 'fname_mask', 'fname_roi'):
                 fig = Figure(figsize=(1, 1), layout='tight')
                 self.charts[key] = bs.Chart(figure=fig)
                 self.axes[key] = (
-                    [fig.add_subplot(111)] if key == 'fname_co2'
+                    [fig.add_subplot(111)]
+                    if key == 'fname_co2'
                     else [fig.add_subplot(1, 3, i + 1) for i in range(3)]
                 )
                 if key != 'fname_co2':
@@ -344,10 +353,9 @@ class WorkflowPreview:
                 if key == 'fname_co2':
                     if path.lower().endswith('.phys'):
                         values, _, self.file_frequency = load_physio(path)
-                        if (
-                            self.file_frequency is not None
-                            and (not np.isfinite(self.file_frequency)
-                                 or self.file_frequency <= 0)
+                        if self.file_frequency is not None and (
+                            not np.isfinite(self.file_frequency)
+                            or self.file_frequency <= 0
                         ):
                             self.file_frequency = None
                     else:
@@ -367,7 +375,8 @@ class WorkflowPreview:
                     if values.ndim != expected or any(n == 0 for n in values.shape):
                         raise ValueError(f'Expected a non-empty {expected}D image.')
                     self.data[key] = (
-                        np.mean(values, axis=-1) if key == 'fname_func'
+                        np.mean(values, axis=-1)
+                        if key == 'fname_func'
                         else np.isfinite(values) & (values != 0)
                     )
                     self.positions[key] = [n // 2 for n in values.shape[:3]]
@@ -375,8 +384,14 @@ class WorkflowPreview:
                         float(v) if np.isfinite(v) and v > 0 else 1.0
                         for v in image.header.get_zooms()[:3]
                     )
-            except (OSError, ValueError, EOFError, ImportError, NotImplementedError,
-                    nib.filebasedimages.ImageFileError) as err:
+            except (
+                OSError,
+                ValueError,
+                EOFError,
+                ImportError,
+                NotImplementedError,
+                nib.filebasedimages.ImageFileError,
+            ) as err:
                 LGR.warning('Could not preview %s: %s', path, err)
                 self.errors[key] = str(err)
         self._draw(key)
@@ -384,7 +399,8 @@ class WorkflowPreview:
     def set_frequency(self, frequency):
         """Set the sampling frequency for the regressor time axis."""
         self.frequency = (
-            frequency if frequency and np.isfinite(frequency) and frequency > 0
+            frequency
+            if frequency and np.isfinite(frequency) and frequency > 0
             else None
         )
         self._draw('fname_co2')
@@ -409,8 +425,10 @@ class WorkflowPreview:
                 x, y, z = self.positions[key]
                 dx, dy, dz = self.pixdims[key]
                 for axis, image, aspect, point in zip(
-                    axes, orthogonal_slices(data, (x, y, z)),
-                    (dz / dy, dz / dx, dy / dx), ((y, z), (x, z), (x, y)),
+                    axes,
+                    orthogonal_slices(data, (x, y, z)),
+                    (dz / dy, dz / dx, dy / dx),
+                    ((y, z), (x, z), (x, y)),
                     strict=True,
                 ):
                     axis.imshow(image.T, origin='lower', cmap='gray', aspect=aspect)
@@ -424,8 +442,13 @@ class WorkflowPreview:
                 axis.set_yticks([])
         if key in self.errors:
             axes[0].text(
-                0.5, 0.5, self.errors[key], transform=axes[0].transAxes,
-                ha='center', va='center', wrap=True,
+                0.5,
+                0.5,
+                self.errors[key],
+                transform=axes[0].transAxes,
+                ha='center',
+                va='center',
+                wrap=True,
             )
         self.charts[key].draw()
 
@@ -438,8 +461,11 @@ class WorkflowPreview:
         if event.name == 'scroll_event':
             position[orientation] += int(np.sign(event.step))
         elif (
-            event.button == 1 and event.xdata is not None and event.ydata is not None
-            and np.isfinite(event.xdata) and np.isfinite(event.ydata)
+            event.button == 1
+            and event.xdata is not None
+            and event.ydata is not None
+            and np.isfinite(event.xdata)
+            and np.isfinite(event.ydata)
         ):
             position = slice_position(
                 position, orientation, round(event.xdata), round(event.ydata)

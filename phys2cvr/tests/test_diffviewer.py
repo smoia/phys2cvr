@@ -187,7 +187,9 @@ def test_comparison_gui_interactions(tmp_path):
         )
         r2_axis = viewer.summary_charts['r2'].figure.axes[0]
         assert len(r2_axis.lines) == 1
-        np.testing.assert_array_equal(r2_axis.lines[0].get_ydata(), [comp[0, 0, 0], comp[0, 0, 0] + 1])
+        np.testing.assert_array_equal(
+            r2_axis.lines[0].get_ydata(), [comp[0, 0, 0], comp[0, 0, 0] + 1]
+        )
         viewer._move_to(1, 1, 1)
         assert len(viewer.summary_charts['r2'].figure.axes[0].lines) == 2
         viewer.set_r2(base_path, 'base')

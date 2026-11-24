@@ -49,7 +49,9 @@ def build_map_fields(settings, title):
         bs.NumberField(float(lower), label='Min', step=0.1, width=4),
         bs.NumberField(float(upper), label='Max', step=0.1, width=4),
         bs.Select(
-            sorted(mpl.colormaps), value=settings['cmap'], label='Colorscale',
+            sorted(mpl.colormaps),
+            value=settings['cmap'],
+            label='Colorscale',
             width=10,
         ),
     )
@@ -76,17 +78,22 @@ def make_orthogonal_figure(viewer, name, color, *, vertical=False, colorbar=True
     cmap = mpl.colormaps[settings['cmap']].with_extremes(bad='black')
     norm = mpl.colors.Normalize(*settings['limits'])
     axes = []
-    for index, (orientation, xlabel, ylabel, size) in enumerate((
-        ('sag', 'Y', 'Z', (ny, nz)),
-        ('cor', 'X', 'Z', (nx, nz)),
-        ('axi', 'X', 'Y', (nx, ny)),
-    )):
+    for index, (orientation, xlabel, ylabel, size) in enumerate(
+        (
+            ('sag', 'Y', 'Z', (ny, nz)),
+            ('cor', 'X', 'Z', (nx, nz)),
+            ('axi', 'X', 'Y', (nx, ny)),
+        )
+    ):
         key = f'{name}_{orientation}'
         axis = viewer.axes[key] = fig.add_subplot(
             grid[index, 0] if vertical else grid[0, index]
         )
         viewer.imgs[key] = axis.imshow(
-            np.zeros(size[::-1]), cmap=cmap, norm=norm, origin='lower',
+            np.zeros(size[::-1]),
+            cmap=cmap,
+            norm=norm,
+            origin='lower',
             aspect=aspects[index],
         )
         viewer.cross[key] = (
@@ -99,9 +106,7 @@ def make_orthogonal_figure(viewer, name, color, *, vertical=False, colorbar=True
         axis.set_yticks([])
         axis.set_xticklabels([])
         axis.set_yticklabels([])
-        axis.set_anchor(
-            ('S', 'C', 'N')[index] if vertical else ('E', 'C', 'W')[index]
-        )
+        axis.set_anchor(('S', 'C', 'N')[index] if vertical else ('E', 'C', 'W')[index])
         axis.set_facecolor('black')
         axes.append(axis)
     if colorbar:
@@ -131,7 +136,8 @@ class MapViewerControls:
         try:
             for field, size in zip(
                 (self.x_field, self.y_field, self.z_field),
-                (self.nx, self.ny, self.nz), strict=True,
+                (self.nx, self.ny, self.nz),
+                strict=True,
             ):
                 field.max_value = size - 1
         finally:
@@ -178,11 +184,13 @@ class MapViewerControls:
             )
             bs.alert(
                 'Minimum must be less than maximum.',
-                title='Invalid color range', severity='warning',
+                title='Invalid color range',
+                severity='warning',
             )
             return
         self.map_settings[kind] = {
-            'limits': (float(lower), float(upper)), 'cmap': cmap.value,
+            'limits': (float(lower), float(upper)),
+            'cmap': cmap.value,
         }
         self._update_current_plot()
 
@@ -203,12 +211,15 @@ class MapViewerControls:
             self.refresh()
         except Exception as err:  # noqa: BLE001
             logging.getLogger(type(self).__module__).error(
-                'Fatal error encountered while loading %s: %s', path, err,
+                'Fatal error encountered while loading %s: %s',
+                path,
+                err,
                 exc_info=True,
             )
             bs.alert(
                 f'Fatal error encountered while loading {path}: {err}',
-                title='Could not load file', severity='danger',
+                title='Could not load file',
+                severity='danger',
             )
 
     def _load_folder(self, ver=None):

@@ -727,8 +727,11 @@ class VoxelViewer(MapViewerControls):
         names = {axis: name for name, axis in self.axes.items()}
         name = names.get(event.inaxes)
         if (
-            name is None or event.xdata is None or event.ydata is None
-            or not np.isfinite(event.xdata) or not np.isfinite(event.ydata)
+            name is None
+            or event.xdata is None
+            or event.ydata is None
+            or not np.isfinite(event.xdata)
+            or not np.isfinite(event.ydata)
         ):
             return
 

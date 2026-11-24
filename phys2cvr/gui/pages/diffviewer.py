@@ -450,7 +450,10 @@ class DiffViewer(MapViewerControls):
                     for ver, color in (('base', 'tab:blue'), ('comp', 'tab:orange')):
                         if ver in values and values[ver].size:
                             axis.hist(
-                                values[ver], bins=edges, histtype='step', color=color,
+                                values[ver],
+                                bins=edges,
+                                histtype='step',
+                                color=color,
                                 label='Base' if ver == 'base' else 'Comparison',
                             )
                 axis.set_xlabel('CVR' if kind == 'cvr' else 'Lag (s)')
@@ -463,7 +466,9 @@ class DiffViewer(MapViewerControls):
                     if volume is not None and (mask is None or mask[tuple(self.curr)]):
                         profile = volume[tuple(self.curr)]
                         axis.plot(
-                            np.arange(profile.size), profile, color=color,
+                            np.arange(profile.size),
+                            profile,
+                            color=color,
                             label='Base' if ver == 'base' else 'Comparison',
                         )
                 axis.set_xlabel('Lag index')
