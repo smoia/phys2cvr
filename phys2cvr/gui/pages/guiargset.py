@@ -13,6 +13,7 @@ import numpy as np
 from matplotlib.figure import Figure
 
 from phys2cvr.cli.run import _check_opt_conf, _get_parser
+from phys2cvr.gui.utils import clip_position, orthogonal_slices, slice_position
 from phys2cvr.io import EXT_ARRAY, load_array, load_physio
 
 LGR = logging.getLogger(__name__)
@@ -408,7 +409,7 @@ class WorkflowPreview:
                 x, y, z = self.positions[key]
                 dx, dy, dz = self.pixdims[key]
                 for axis, image, aspect, point in zip(
-                    axes, (data[x, :, :], data[:, y, :], data[:, :, z]),
+                    axes, orthogonal_slices(data, (x, y, z)),
                     (dz / dy, dz / dx, dy / dx), ((y, z), (x, z), (x, y)),
                     strict=True,
                 ):
@@ -440,15 +441,12 @@ class WorkflowPreview:
             event.button == 1 and event.xdata is not None and event.ydata is not None
             and np.isfinite(event.xdata) and np.isfinite(event.ydata)
         ):
-            horizontal, vertical = ((1, 2), (0, 2), (0, 1))[orientation]
-            position[horizontal] = round(event.xdata)
-            position[vertical] = round(event.ydata)
+            position = slice_position(
+                position, orientation, round(event.xdata), round(event.ydata)
+            )
         else:
             return
-        self.positions[key] = [
-            int(np.clip(value, 0, size - 1))
-            for value, size in zip(position, data.shape, strict=True)
-        ]
+        self.positions[key] = clip_position(position, data.shape)
         self._draw(key)
 
 

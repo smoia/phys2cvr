@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
 """Comparison viewer for phys2cvr, built with bootstack."""
 
-import logging
-
 import bootstack as bs
-import matplotlib as mpl
 import nibabel as nib
 import numpy as np
 from matplotlib.figure import Figure
 
-from phys2cvr.io import EXT_NIMG
+from phys2cvr.gui.utils import (
+    NIFTI_TYPES,
+    MapViewerControls,
+    build_coordinate_fields,
+    build_map_fields,
+    clip_position,
+    make_orthogonal_figure,
+    orthogonal_slices,
+    slice_position,
+    update_map_view,
+)
 
-LGR = logging.getLogger(__name__)
 
-
-NIFTI_TYPES = [
-    ('NIfTI files', ' '.join(f'*{ext}' for ext in EXT_NIMG)),
-    ('All files', '*.*'),
-]
-
-
-class DiffViewer:
+class DiffViewer(MapViewerControls):
     """Compare CVR, lag, and R² maps at a shared voxel position."""
 
     def __init__(self):
@@ -320,17 +319,7 @@ class DiffViewer:
                 ('lag_diff', 'Lag map: difference'),
                 ('r2_diff', 'R2 map: difference'),
             ):
-                bs.Label(title, font='caption', margin_y=(5, 8))
-                lower, upper = self.map_settings[kind]['limits']
-                vmin = bs.NumberField(float(lower), label='Min', step=0.1, width=4)
-                vmax = bs.NumberField(float(upper), label='Max', step=0.1, width=4)
-                cmap = bs.Select(
-                    sorted(mpl.colormaps),
-                    value=self.map_settings[kind]['cmap'],
-                    label='Colorscale',
-                    width=10,
-                )
-                self.map_fields[kind] = (vmin, vmax, cmap)
+                self.map_fields[kind] = build_map_fields(self.map_settings[kind], title)
 
                 if 'diff' in kind:
                     self.diffswitch[f'{kind[:-4]}rel'] = bs.Switch(
@@ -342,88 +331,13 @@ class DiffViewer:
 
                 bs.Divider(margin_y=(10, 5))
 
-            bs.Label('Voxel position', font='caption', margin_y=(5, 8))
-            self.x_field = bs.NumberField(0, label='X', min_value=0, width=4)
-            self.y_field = bs.NumberField(0, label='Y', min_value=0, width=4)
-            self.z_field = bs.NumberField(0, label='Z', min_value=0, width=4)
+            self.x_field, self.y_field, self.z_field = build_coordinate_fields()
 
             bs.Spacer()
-
-    def _set_map_limits(self, kind, lower, upper):
-        lower, upper = float(lower), float(upper)
-        if lower == upper:
-            delta = max(abs(lower) * 0.01, 0.01)
-            lower, upper = lower - delta, upper + delta
-        self.map_settings[kind]['limits'] = (lower, upper)
-        if hasattr(self, 'map_fields') and kind in self.map_fields:
-            syncing = self._syncing
-            self._syncing = True
-            try:
-                self.map_fields[kind][0].value = lower
-                self.map_fields[kind][1].value = upper
-            finally:
-                self._syncing = syncing
-
-    def _on_map_settings_change(self, kind):
-        if self._syncing:
-            return
-        vmin, vmax, cmap = self.map_fields[kind]
-        lower, upper = vmin.value, vmax.value
-        if lower is None or upper is None:
-            return
-        if not np.isfinite(lower) or not np.isfinite(upper) or lower >= upper:
-            previous = self.map_settings[kind]['limits']
-            self._set_map_limits(kind, *previous)
-            LGR.warning('Invalid %s color range: %s to %s', kind, lower, upper)
-            bs.alert(
-                'Minimum must be less than maximum.',
-                title='Invalid color range',
-                severity='warning',
-            )
-            return
-        self.map_settings[kind] = {
-            'limits': (float(lower), float(upper)),
-            'cmap': cmap.value,
-        }
-        self._update_current_plot()
 
     def _update_current_plot(self):
         if not self._syncing and self.axes:
             self.update_all(*self.curr)
-
-    def _load(self, title, file_types, setter, ver):
-        path = bs.ask_open_file(title=title, file_types=file_types)
-        if not path:
-            return
-        try:
-            setter(path, ver)
-            self.refresh()
-        except Exception as e:  # noqa: BLE001
-            LGR.error(
-                f'Fatal error encountered while loading {path}: {e}',
-                exc_info=True,
-            )
-            bs.alert(
-                f'Fatal error encountered while loading {path}: {e}',
-                title='Could not load file',
-                severity='danger',
-            )
-
-    def _load_folder(self, ver):
-        folder_path = bs.ask_directory(title='Select phys2cvr Result Folder')
-        if not folder_path:
-            return
-        try:
-            from phys2cvr.gui.app import load_result_folder
-
-            load_result_folder(folder_path, self, comparison_version=ver)
-            self.refresh()
-        except Exception as err:  # noqa: BLE001
-            LGR.error(
-                'Could not load result folder %s: %s', folder_path, err, exc_info=True
-            )
-            self.refresh()
-            bs.alert(str(err), title='Could not load result folder')
 
     def refresh(self):
         """Rebuild the figure and sync controls after the data changed."""
@@ -440,85 +354,21 @@ class DiffViewer:
 
         self.init_plots()
 
-        self._syncing = True
-        try:
-            self.x_field.max_value = self.nx - 1
-            self.y_field.max_value = self.ny - 1
-            self.z_field.max_value = self.nz - 1
-        finally:
-            self._syncing = False
-
+        self._set_coordinate_limits()
+        self._draw_summaries(histograms=True)
         self._move_to(*self.curr)
 
     def init_plots(self):
         """Create one figure per map, each with three orthogonal views."""
-        dx, dy, dz = self.pixdim
-        aspects = {'sag': dz / dy, 'cor': dz / dx, 'axi': dy / dx}
         self.axes = {}
         self.imgs = {}
         self.cross = {}
-
-        def add_view(
-            fig, name, subplot, aspect, cmap, norm, color, xlabel, ylabel, size
-        ):
-            axis = self.axes[name] = fig.add_subplot(subplot)
-            self.imgs[name] = axis.imshow(
-                np.zeros(size[::-1]),
-                cmap=cmap,
-                norm=norm,
-                origin='lower',
-                aspect=aspect,
-            )
-            self.cross[name] = (
-                axis.axvline(0, color=color, lw=1),
-                axis.axhline(0, color=color, lw=1),
-            )
-            axis.set_xlabel(xlabel)
-            axis.set_ylabel(ylabel)
-            axis.set_xticks([])
-            axis.set_yticks([])
-            axis.set_xticklabels([])
-            axis.set_yticklabels([])
-            return axis
-
-        nx, ny, nz = self.nx, self.ny, self.nz
 
         figures = {}
         for map_name in self.charts:
             kind = map_name.split('_')[0]
             color = 'red' if kind == 'lag' else 'cyan'
-            fig = figures[map_name] = Figure(figsize=(1, 1), layout='compressed')
-            fig.get_layout_engine().set(w_pad=0.02, h_pad=0.02, wspace=0, hspace=0)
-            grid = fig.add_gridspec(1, 3)
-            settings = self.map_settings[map_name]
-            cmap = mpl.colormaps[settings['cmap']].with_extremes(bad='black')
-            norm = mpl.colors.Normalize(*settings['limits'])
-            axes = []
-            for index, (name, xlabel, ylabel, size) in enumerate(
-                (
-                    ('sag', 'Y', 'Z', (ny, nz)),
-                    ('cor', 'X', 'Z', (nx, nz)),
-                    ('axi', 'X', 'Y', (nx, ny)),
-                )
-            ):
-                axis = add_view(
-                    fig,
-                    f'{map_name}_{name}',
-                    grid[0, index],
-                    aspects[name],
-                    cmap,
-                    norm,
-                    color,
-                    xlabel,
-                    ylabel,
-                    size,
-                )
-                axis.set_anchor(('E', 'C', 'W')[index])
-                axis.set_facecolor('black')
-                axes.append(axis)
-            fig.colorbar(
-                self.imgs[f'{map_name}_axi'], ax=axes, fraction=0.035, pad=0.02
-            )
+            figures[map_name] = make_orthogonal_figure(self, map_name, color)
 
         for name, fig in figures.items():
             self.charts[name].figure = fig
@@ -549,7 +399,7 @@ class DiffViewer:
                 )
                 value_title = 'Axial'
             else:
-                slices = (data[x, :, :], data[:, y, :], data[:, :, z])
+                slices = orthogonal_slices(data, (x, y, z))
                 value = data[x, y, z]
                 label = {'cvr': 'CVR', 'lag': 'Lag', 'r2': 'R²'}[kind]
                 suffix = (
@@ -573,34 +423,21 @@ class DiffViewer:
                 strict=True,
             ):
                 key = f'{map_name}_{name}'
-                img = self.imgs[key]
-                img.set_data(slice_data.T)
-                if img.get_cmap().name != settings['cmap']:
-                    img.set_cmap(
-                        mpl.colormaps[settings['cmap']].with_extremes(bad='black')
-                    )
-                if img.get_clim() != tuple(settings['limits']):
-                    img.set_clim(*settings['limits'])
-                self.cross[key][0].set_xdata([cx, cx])
-                self.cross[key][1].set_ydata([cy, cy])
-                self.axes[key].set_title(title)
+                update_map_view(self, key, slice_data, cx, cy, title, settings)
 
-        self._syncing = True
-        try:
-            self.x_field.value = x
-            self.y_field.value = y
-            self.z_field.value = z
-        finally:
-            self._syncing = False
+        self._sync_coordinates((x, y, z))
         for chart in self.charts.values():
             chart.draw()
-        self._draw_summaries()
+        self._draw_summaries(histograms=False)
 
-    def _draw_summaries(self):
+    def _draw_summaries(self, *, histograms=True):
         """Draw masked distributions and the selected voxel's 4D R² profiles."""
         for kind, chart in self.summary_charts.items():
-            fig = Figure(figsize=(1, 1), layout='tight')
-            axis = fig.add_subplot()
+            if kind != 'r2' and not histograms:
+                continue
+            fig = chart.figure
+            axis = fig.axes[0] if fig.axes else fig.add_subplot()
+            axis.clear()
             if kind in ('cvr', 'lag'):
                 values = {}
                 for ver in ('base', 'comp'):
@@ -634,15 +471,13 @@ class DiffViewer:
                 axis.set_title(f'R² at voxel {tuple(self.curr)}')
             if axis.get_legend_handles_labels()[0]:
                 axis.legend()
-            chart.figure = fig
+            chart.draw()
 
     # ----- callbacks -----
 
     def _move_to(self, x, y, z):
         """Move to a voxel within the common spatial grid."""
-        x = int(np.clip(x, 0, self.nx - 1))
-        y = int(np.clip(y, 0, self.ny - 1))
-        z = int(np.clip(z, 0, self.nz - 1))
+        x, y, z = clip_position((x, y, z), (self.nx, self.ny, self.nz))
 
         self.update_all(x, y, z)
 
@@ -662,19 +497,7 @@ class DiffViewer:
         x, y, z = self.curr
         u, v = int(round(event.xdata)), int(round(event.ydata))
 
-        if '_sag' in name:
-            y, z = u, v
-        elif '_cor' in name:
-            x, z = u, v
-        elif '_axi' in name:
-            x, y = u, v
+        orientation = ('sag', 'cor', 'axi').index(name.rsplit('_', 1)[-1])
+        x, y, z = slice_position((x, y, z), orientation, u, v)
 
         self._move_to(x, y, z)
-
-    def _on_coord_change(self):
-        if self._syncing or not self.axes:
-            return
-        values = [f.value for f in (self.x_field, self.y_field, self.z_field)]
-        if any(v is None for v in values):
-            return
-        self._move_to(*values)

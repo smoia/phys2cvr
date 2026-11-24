@@ -9,21 +9,21 @@ import numpy as np
 from matplotlib.figure import Figure
 from scipy.stats import zscore
 
-from phys2cvr.io import EXT_ARRAY, EXT_NIMG, load_array, load_nifti_get_mask
+from phys2cvr.gui.utils import (
+    ARRAY_TYPES,
+    NIFTI_TYPES,
+    MapViewerControls,
+    build_coordinate_fields,
+    build_map_fields,
+    clip_position,
+    make_orthogonal_figure,
+    slice_position,
+    update_map_view,
+)
+from phys2cvr.io import load_array, load_nifti_get_mask
 from phys2cvr.utils import estimate_lag_range
 
 LGR = logging.getLogger(__name__)
-
-
-NIFTI_TYPES = [
-    ('NIfTI files', ' '.join(f'*{ext}' for ext in EXT_NIMG)),
-    ('All files', '*.*'),
-]
-
-ARRAY_TYPES = [
-    ('Array files', '*.1D ' + ' '.join(f'*{ext}' for ext in EXT_ARRAY)),
-    ('All files', '*.*'),
-]
 
 
 def load_timeseries(path):
@@ -37,7 +37,7 @@ def load_timeseries(path):
     return data, pixdim, tr
 
 
-class VoxelViewer:
+class VoxelViewer(MapViewerControls):
     """Interactive viewer for fMRI voxels, CVR/lag maps and shifted regressors."""
 
     def __init__(self, fs=None, lag_range=None, cvr_range=None):
@@ -322,32 +322,13 @@ class VoxelViewer:
                             ('lag', 'Lag map'),
                             ('mean', 'Mean volume'),
                         ):
-                            bs.Label(title, font='caption', margin_y=(5, 8))
-                            lower, upper = self.map_settings[kind]['limits']
-                            vmin = bs.NumberField(
-                                float(lower), label='Min', step=0.1, width=4
+                            self.map_fields[kind] = build_map_fields(
+                                self.map_settings[kind], title
                             )
-                            vmax = bs.NumberField(
-                                float(upper), label='Max', step=0.1, width=4
-                            )
-                            cmap = bs.Select(
-                                sorted(mpl.colormaps),
-                                value=self.map_settings[kind]['cmap'],
-                                label='Colorscale',
-                                width=10,
-                            )
-                            self.map_fields[kind] = (vmin, vmax, cmap)
                             bs.Divider(margin_y=(10, 5))
 
-                        bs.Label('Voxel position', font='caption', margin_y=(5, 8))
-                        self.x_field = bs.NumberField(
-                            0, label='X', min_value=0, width=4
-                        )
-                        self.y_field = bs.NumberField(
-                            0, label='Y', min_value=0, width=4
-                        )
-                        self.z_field = bs.NumberField(
-                            0, label='Z', min_value=0, width=4
+                        self.x_field, self.y_field, self.z_field = (
+                            build_coordinate_fields()
                         )
                         bs.Divider(margin_y=(10, 5))
                         bs.Label('Timeseries', font='caption', margin_y=(5, 8))
@@ -403,77 +384,9 @@ class VoxelViewer:
                     figure=Figure(figsize=(1, 1)), margin_x=(20, 50)
                 )
 
-    def _set_map_limits(self, kind, lower, upper):
-        lower, upper = float(lower), float(upper)
-        if lower == upper:
-            delta = max(abs(lower) * 0.01, 0.01)
-            lower, upper = lower - delta, upper + delta
-        self.map_settings[kind]['limits'] = (lower, upper)
-        if hasattr(self, 'map_fields') and kind in self.map_fields:
-            syncing = self._syncing
-            self._syncing = True
-            try:
-                self.map_fields[kind][0].value = lower
-                self.map_fields[kind][1].value = upper
-            finally:
-                self._syncing = syncing
-
-    def _on_map_settings_change(self, kind):
-        if self._syncing:
-            return
-        vmin, vmax, cmap = self.map_fields[kind]
-        lower, upper = vmin.value, vmax.value
-        if lower is None or upper is None:
-            return
-        if not np.isfinite(lower) or not np.isfinite(upper) or lower >= upper:
-            previous = self.map_settings[kind]['limits']
-            self._set_map_limits(kind, *previous)
-            LGR.warning('Invalid %s color range: %s to %s', kind, lower, upper)
-            bs.alert(
-                'Minimum must be less than maximum.',
-                title='Invalid color range',
-                severity='warning',
-            )
-            return
-        self.map_settings[kind] = {
-            'limits': (float(lower), float(upper)),
-            'cmap': cmap.value,
-        }
-        self._update_current_plot()
-
     def _update_current_plot(self):
         if not self._syncing and self.axes:
             self.update_all(*self.curr, self.curr_shift_sec)
-
-    def _load(self, title, file_types, setter):
-        path = bs.ask_open_file(title=title, file_types=file_types)
-        if not path:
-            return
-        try:
-            setter(path)
-            self.refresh()
-        except Exception as e:  # noqa: BLE001
-            LGR.error(
-                f'Fatal error encountered while loading {path}: {e}',
-                exc_info=True,
-            )
-            bs.alert(
-                f'Fatal error encountered while loading {path}: {e}',
-                title='Could not load file',
-                severity='danger',
-            )
-
-    def _load_folder(self):
-        folder_path = bs.ask_directory(title='Select phys2cvr Result Folder')
-        if not folder_path:
-            return
-        try:
-            from phys2cvr.gui.app import load_result_folder
-
-            load_result_folder(folder_path, self)
-            self.refresh()
-        except Exception as err:  # noqa: BLE001
-            bs.alert(str(err), title='Could not load result folder')
 
     def refresh(self):
         """Rebuild the figure and sync controls after the data changed."""
@@ -496,48 +409,14 @@ class VoxelViewer:
 
         self.init_plots()
 
-        self._syncing = True
-        try:
-            self.x_field.max_value = self.nx - 1
-            self.y_field.max_value = self.ny - 1
-            self.z_field.max_value = self.nz - 1
-        finally:
-            self._syncing = False
-
+        self._set_coordinate_limits()
         self._move_to(*self.curr)
 
     def init_plots(self):
         """Create separate figures for maps, timecourses and R²."""
-        dx, dy, dz = self.pixdim
-        aspects = {'sag': dz / dy, 'cor': dz / dx, 'axi': dy / dx}
         self.axes = {}
         self.imgs = {}
         self.cross = {}
-
-        def add_view(
-            fig, name, subplot, aspect, cmap, norm, color, xlabel, ylabel, size
-        ):
-            axis = self.axes[name] = fig.add_subplot(subplot)
-            self.imgs[name] = axis.imshow(
-                np.zeros(size[::-1]),
-                cmap=cmap,
-                norm=norm,
-                origin='lower',
-                aspect=aspect,
-            )
-            self.cross[name] = (
-                axis.axvline(0, color=color, lw=1),
-                axis.axhline(0, color=color, lw=1),
-            )
-            axis.set_xlabel(xlabel)
-            axis.set_ylabel(ylabel)
-            axis.set_xticks([])
-            axis.set_yticks([])
-            axis.set_xticklabels([])
-            axis.set_yticklabels([])
-            return axis
-
-        nx, ny, nz = self.nx, self.ny, self.nz
 
         figures = {}
         for kind, color, show_colorbar in (
@@ -545,42 +424,9 @@ class VoxelViewer:
             ('lag', 'red', True),
             ('mean', 'red', False),
         ):
-            vertical = kind == 'mean'
-            fig = figures[kind] = Figure(figsize=(1, 1), layout='compressed')
-            fig.get_layout_engine().set(w_pad=0.02, h_pad=0.02, wspace=0, hspace=0)
-            grid = fig.add_gridspec(3 if vertical else 1, 1 if vertical else 3)
-            settings = self.map_settings[kind]
-            cmap = mpl.colormaps[settings['cmap']].with_extremes(bad='black')
-            norm = mpl.colors.Normalize(*settings['limits'])
-            axes = []
-            for index, (name, xlabel, ylabel, size) in enumerate(
-                (
-                    ('sag', 'Y', 'Z', (ny, nz)),
-                    ('cor', 'X', 'Z', (nx, nz)),
-                    ('axi', 'X', 'Y', (nx, ny)),
-                )
-            ):
-                axis = add_view(
-                    fig,
-                    f'{kind}_{name}',
-                    grid[index, 0] if vertical else grid[0, index],
-                    aspects[name],
-                    cmap,
-                    norm,
-                    color,
-                    xlabel,
-                    ylabel,
-                    size,
-                )
-                axis.set_anchor(
-                    ('S', 'C', 'N')[index] if vertical else ('E', 'C', 'W')[index]
-                )
-                axis.set_facecolor('black')
-                axes.append(axis)
-            if show_colorbar:
-                fig.colorbar(
-                    self.imgs[f'{kind}_axi'], ax=axes, fraction=0.035, pad=0.02
-                )
+            figures[kind] = make_orthogonal_figure(
+                self, kind, color, vertical=kind == 'mean', colorbar=show_colorbar
+            )
 
         ts_fig = figures['ts'] = Figure(figsize=(1, 1), layout='constrained')
         ts_ax = self.axes['ts'] = ts_fig.add_subplot()
@@ -734,18 +580,10 @@ class VoxelViewer:
         for name, (slice_data, cx, cy, title) in views.items():
             if name not in self.imgs:
                 continue
-            img = self.imgs[name]
-            img.set_data(slice_data.T)
-
             kind = name.split('_', 1)[0]
-            settings = self.map_settings[kind]
-            if img.get_cmap().name != settings['cmap']:
-                img.set_cmap(mpl.colormaps[settings['cmap']].with_extremes(bad='black'))
-            if img.get_clim() != tuple(settings['limits']):
-                img.set_clim(*settings['limits'])
-            self.cross[name][0].set_xdata([cx, cx])
-            self.cross[name][1].set_ydata([cy, cy])
-            ax[name].set_title(title)
+            update_map_view(
+                self, name, slice_data, cx, cy, title, self.map_settings[kind]
+            )
 
         # --- Timecourse Comparison Plot ---
         ts_ax = ax['ts']
@@ -839,9 +677,7 @@ class VoxelViewer:
         actual_sec = shift_sec
         self._syncing = True
         try:
-            self.x_field.value = x
-            self.y_field.value = y
-            self.z_field.value = z
+            self._sync_coordinates((x, y, z))
             self.slider.value = float(
                 np.clip(actual_sec, self.min_delay_sec, self.max_delay_sec)
             )
@@ -861,9 +697,7 @@ class VoxelViewer:
 
     def _move_to(self, x, y, z):
         """Move to a voxel, following its lag value or max R² index when applicable."""
-        x = int(np.clip(x, 0, self.nx - 1))
-        y = int(np.clip(y, 0, self.ny - 1))
-        z = int(np.clip(z, 0, self.nz - 1))
+        x, y, z = clip_position((x, y, z), (self.nx, self.ny, self.nz))
         shift = self.curr_shift_sec
 
         # If a lag map is loaded and has a valid value at this voxel, use it
@@ -892,7 +726,10 @@ class VoxelViewer:
         """Select a voxel from slices or update slider/shift from the R² plot."""
         names = {axis: name for name, axis in self.axes.items()}
         name = names.get(event.inaxes)
-        if name is None or event.xdata is None or event.ydata is None:
+        if (
+            name is None or event.xdata is None or event.ydata is None
+            or not np.isfinite(event.xdata) or not np.isfinite(event.ydata)
+        ):
             return
 
         if name == 'r2':
@@ -907,22 +744,10 @@ class VoxelViewer:
         x, y, z = self.curr
         u, v = int(round(event.xdata)), int(round(event.ydata))
 
-        if name in ('cvr_sag', 'lag_sag', 'mean_sag'):
-            y, z = u, v
-        elif name in ('cvr_cor', 'lag_cor', 'mean_cor'):
-            x, z = u, v
-        elif name in ('cvr_axi', 'lag_axi', 'mean_axi'):
-            x, y = u, v
+        orientation = ('sag', 'cor', 'axi').index(name.rsplit('_', 1)[-1])
+        x, y, z = slice_position((x, y, z), orientation, u, v)
 
         self._move_to(x, y, z)
-
-    def _on_coord_change(self):
-        if self._syncing or not self.axes:
-            return
-        values = [f.value for f in (self.x_field, self.y_field, self.z_field)]
-        if any(v is None for v in values):
-            return
-        self._move_to(*values)
 
     def _validate_lag_range(self, lower, upper):
         if not np.isfinite(lower) or not np.isfinite(upper) or lower >= upper:

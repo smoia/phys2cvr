@@ -176,7 +176,15 @@ def test_comparison_gui_interactions(tmp_path):
         assert base[0, 0, 0] not in samples[0]
         assert len(viewer.summary_charts['cvr'].figure.axes[0].patches) == 2
         assert len(viewer.summary_charts['lag'].figure.axes[0].patches) == 2
-        viewer._move_to(0, 0, 0)
+        hist_figures = {
+            kind: viewer.summary_charts[kind].figure for kind in ('cvr', 'lag')
+        }
+        with patch.object(Axes, 'hist', side_effect=AssertionError('recomputed')):
+            viewer._move_to(0, 0, 0)
+        assert all(
+            viewer.summary_charts[kind].figure is figure
+            for kind, figure in hist_figures.items()
+        )
         r2_axis = viewer.summary_charts['r2'].figure.axes[0]
         assert len(r2_axis.lines) == 1
         np.testing.assert_array_equal(r2_axis.lines[0].get_ydata(), [comp[0, 0, 0], comp[0, 0, 0] + 1])

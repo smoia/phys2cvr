@@ -129,11 +129,20 @@ def test_input_previews_and_navigation(page, tmp_path):
 
     regressor = tmp_path / 'co2.txt'
     np.savetxt(regressor, [1, 3, 2])
-    form.fields['fname_co2'].value = str(regressor)
-    form.fields['fname_co2']._entry_widget().event_generate('<<Change>>')
+    with patch.dict(
+        'bootstack.widgets._impl.composites.pathentry._MODE_TO_DIALOG',
+        {'open': lambda **kwargs: str(regressor)},
+    ):
+        form.fields['fname_co2']._internal._show_file_chooser()
     np.testing.assert_array_equal(preview.axes['fname_co2'][0].lines[0].get_ydata(), [1, 3, 2])
-    preview.set_frequency(2)
+    form.fields['freq'].value = 2
+    form.fields['freq']._entry_widget().event_generate('<<Change>>')
     np.testing.assert_array_equal(preview.axes['fname_co2'][0].lines[0].get_xdata(), [0, .5, 1])
+    regressor2 = tmp_path / 'co2-new.txt'
+    np.savetxt(regressor2, [6, 8])
+    form.fields['fname_co2'].value = str(regressor2)
+    form.fields['fname_co2']._entry_widget().event_generate('<<Change>>')
+    np.testing.assert_array_equal(preview.axes['fname_co2'][0].lines[0].get_ydata(), [6, 8])
     form.fields['fname_co2'].clear()
     form.fields['fname_co2']._entry_widget().event_generate('<<Change>>')
     assert not preview.axes['fname_co2'][0].lines
