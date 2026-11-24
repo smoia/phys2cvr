@@ -86,6 +86,9 @@ def test_argument_groups_use_groupboxes(page):
     ]
     assert len(form.groups) == len(expected)
     assert all(isinstance(group, bs.GroupBox) for group in form.groups)
+    for group in form.groups:
+        style = group._internal.cget('style')
+        assert ('.warning.' in style) == (group.title == 'Required Argument')
 
 
 def test_input_previews_and_navigation(page, tmp_path):

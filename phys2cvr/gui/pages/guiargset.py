@@ -99,7 +99,10 @@ class WorkflowSetter:
                 if not actions:
                     continue
                 with bs.GroupBox(
-                    group.title, padding=8, horizontal='stretch'
+                    group.title,
+                    padding=8,
+                    horizontal='stretch',
+                    accent='warning' if any(action.required for action in actions) else None,
                 ) as group_box:
                     self.groups.append(group_box)
                     with bs.Grid(
