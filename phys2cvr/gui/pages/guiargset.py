@@ -40,6 +40,7 @@ class WorkflowSetter:
         self.parser = _get_parser()
         self.fields = {}
         self.actions = {}
+        self.groups = []
         self.process = None
         self.output = None
         self._tooltips = []
@@ -56,7 +57,6 @@ class WorkflowSetter:
                     'Configure the workflow. Hover over a field for CLI help.',
                     font='body',
                 )
-                accordion = bs.Accordion(allow_multiple=True, horizontal='stretch')
                 for group in self.parser._action_groups:
                     actions = [
                         action
@@ -67,15 +67,23 @@ class WorkflowSetter:
                     ]
                     if not actions:
                         continue
-                    with accordion.add(
-                        group.title, expanded=any(a.required for a in actions)
-                    ):
-                        with bs.Column(padding=8, gap=8, horizontal_items='stretch'):
+                    with bs.GroupBox(
+                        group.title, padding=8, horizontal='stretch'
+                    ) as group_box:
+                        self.groups.append(group_box)
+                        with bs.Grid(
+                            columns=2, gap=8, horizontal='stretch',
+                            horizontal_items='stretch', vertical_items='top',
+                        ):
                             for action in actions:
                                 if action.dest in self.actions:
                                     continue
                                 self.actions[action.dest] = action
-                                self._build_field(action, actions)
+                                with bs.Column(
+                                    gap=4, horizontal_items='stretch',
+                                    horizontal='stretch',
+                                ):
+                                    self._build_field(action, actions)
         self.run_button.on_destroy(lambda event: self._stop())
         return self
 

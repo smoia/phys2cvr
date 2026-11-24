@@ -72,6 +72,20 @@ def test_parser_fields_and_default_values(page):
     assert form.fields['tr'].value is None
 
 
+def test_argument_groups_use_groupboxes(page):
+    form, _ = page
+    expected = [
+        group.title
+        for group in form.parser._action_groups
+        if any(
+            not isinstance(action, (argparse._HelpAction, argparse._VersionAction))
+            for action in group._group_actions
+        )
+    ]
+    assert len(form.groups) == len(expected)
+    assert all(isinstance(group, bs.GroupBox) for group in form.groups)
+
+
 def test_all_argument_types_and_validation(page):
     form, _ = page
     form.fields['fname_func'].value = '/tmp/input file.nii.gz'
