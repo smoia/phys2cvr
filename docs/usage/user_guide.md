@@ -58,7 +58,10 @@ file field. Workflow presets override the same options they override on the
 command line. The preview column shows the mean functional volume, regressor,
 mask, and ROI mask as their paths are selected. Click a slice to move its
 crosshairs or scroll over it to change slices; a 1D functional input has no
-volume preview. The run button starts a separate process, keeping the GUI responsive;
+volume preview. The regressor preview marks peaks from a `.phys` file or an
+explicit peaks file. Loading an image or `.phys` file fills the TR or frequency
+from its metadata. Controls unavailable under the selected options are disabled.
+The run button starts a separate process, keeping the GUI responsive;
 the page reports completion or an error. Closing the application stops an
 active workflow.
 

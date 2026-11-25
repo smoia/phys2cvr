@@ -200,6 +200,58 @@ def test_peak_overlays(page, tmp_path):
     assert not preview.axes['fname_co2'][0].lines
 
 
+def test_form_dependencies_and_metadata(page, tmp_path):
+    import peakdet as pk
+
+    form, _ = page
+    form._update_form_state()
+    assert form.run_button.disabled
+    assert form.response_path.disabled
+    assert all(form.fields[k].disabled for k in ('highcut', 'lowcut', 'butter_order'))
+    assert not form.fields['apply_filter'].disabled
+    volume = tmp_path / 'volume.nii.gz'
+    image = nib.Nifti1Image(np.ones((2, 2, 2, 3)), np.eye(4))
+    image.header.set_zooms((1, 1, 1, 2.5))
+    nib.save(image, volume)
+    form.fields['fname_func'].value = str(volume)
+    form.fields['fname_func']._entry_widget().event_generate('<<Change>>')
+    assert form.fields['tr'].value == 2.5
+    assert not form.run_button.disabled
+    assert form.status.text == 'Ready (you may want to set up more parameters)'
+    assert '.success.' in form.status._internal.cget('style')
+    phys = tmp_path / 'signal.phys'
+    pk.save_physio(str(phys), pk.Physio(np.arange(5.0), fs=4))
+    form.fields['fname_co2'].value = str(phys)
+    form.fields['fname_co2']._entry_widget().event_generate('<<Change>>')
+    assert form.fields['freq'].value == 4
+    assert form.fields['fourier_order'].disabled
+    form.fields['fname_co2'].clear()
+    form.fields['fname_co2']._entry_widget().event_generate('<<Change>>')
+    assert not form.fields['fourier_order'].disabled
+
+    form.fields['apply_filter'].toggle()
+    assert all(not form.fields[k].disabled for k in ('highcut', 'lowcut', 'butter_order'))
+    form.fields['response_function'].value = '--response-function-path'
+    form._update_form_state()
+    assert not form.response_path.disabled
+    form.fields['lagged_regression'].toggle()
+    assert form.fields['lag_max'].disabled
+    assert not form.fields['r2model'].disabled
+    form.fields['run_regression'].toggle()
+    assert form.fields['r2model'].disabled
+    assert form.fields['lag_map'].disabled
+    assert all(button.disabled for button in form.file_buttons.values())
+    form.fields['run_regression'].toggle()
+    assert form.fields['lag_max'].disabled
+    assert not form.fields['r2model'].disabled
+    form.fields['lagged_regression'].toggle()
+    assert not form.fields['lag_max'].disabled
+    form.fields['fname_func'].clear()
+    form.fields['fname_func']._entry_widget().event_generate('<<Change>>')
+    assert form.run_button.disabled
+    assert form.status.text == 'Waiting for functional data (at least)'
+
+
 def test_all_argument_types_and_validation(page):
     form, _ = page
     form.fields['fname_func'].value = '/tmp/input file.nii.gz'

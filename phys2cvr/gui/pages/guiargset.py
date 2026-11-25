@@ -46,6 +46,7 @@ class WorkflowSetter:
         self.fields = {}
         self.actions = {}
         self.groups = []
+        self.file_buttons = {}
         self.process = None
         self.output = None
         self._tooltips = []
@@ -80,9 +81,7 @@ class WorkflowSetter:
             self.preview.build()
         for dest in ('fname_func', 'fname_mask', 'fname_roi', 'fname_co2'):
             self.fields[dest].on_change(
-                lambda event, dest=dest: self.preview.load(
-                    dest, self.fields[dest].text.strip()
-                )
+                lambda event, dest=dest: self._on_input_path(dest)
             )
         self.fields['fname_pidx'].on_change(
             lambda event: self.preview.load_peaks(self.fields['fname_pidx'].text.strip())
@@ -90,8 +89,50 @@ class WorkflowSetter:
         self.fields['freq'].on_change(
             lambda event: self.preview.set_frequency(self.fields['freq'].value)
         )
+        for dest in ('fname_func', 'fname_co2'):
+            self.fields[dest].on_input(lambda event: self._update_form_state())
+        for dest in ('apply_filter', 'run_regression', 'lagged_regression',
+                     'response_function'):
+            self.fields[dest].on_change(lambda event: self._update_form_state())
+        self._update_form_state()
         self.run_button.on_destroy(lambda event: self._stop())
         return self
+
+    def _on_input_path(self, dest):
+        self.preview.load(dest, self.fields[dest].text.strip())
+        if dest == 'fname_func' and self.preview.tr is not None:
+            self.fields['tr'].value = self.preview.tr
+        if dest == 'fname_co2' and self.preview.file_frequency is not None:
+            self.fields['freq'].value = self.preview.file_frequency
+            self.preview.set_frequency(self.preview.file_frequency)
+        self._update_form_state()
+
+    def _update_form_state(self):
+        ready = bool(self.fields['fname_func'].text.strip())
+        self.run_button.disabled = not ready or self.process is not None
+        if self.process is None:
+            self.status.text = (
+                'Ready (you may want to set up more parameters)'
+                if ready else 'Waiting for functional data (at least)'
+            )
+            self.status._internal.configure(accent='success' if ready else 'secondary')
+        self.fields['fourier_order'].disabled = bool(
+            self.fields['fname_co2'].text.strip()
+        )
+        for dest in ('highcut', 'lowcut', 'butter_order'):
+            self.fields[dest].disabled = not self.fields['apply_filter'].value
+        self.response_path.disabled = (
+            self.fields['response_function'].value != '--response-function-path'
+        )
+        skip_regression = self.fields['run_regression'].value
+        skip_lagged = skip_regression or self.fields['lagged_regression'].value
+        for dest in ('r2model', 'l_degree', 'denoise_matrix_file',
+                     'orthogonalised_matrix_file', 'extra_matrix_file', 'scale_factor'):
+            self.fields[dest].disabled = skip_regression
+            if dest in self.file_buttons:
+                self.file_buttons[dest].disabled = skip_regression
+        for dest in ('lag_max', 'lag_min', 'lag_step', 'legacy', 'lag_map', 'regr_dir'):
+            self.fields[dest].disabled = skip_lagged
 
     def _build_form(self):
         """Build the scrollable argument controls."""
@@ -168,7 +209,9 @@ class WorkflowSetter:
             if dest not in _MULTI_FILES:
                 raise ValueError(f'Unsupported multiple-value option: {dest}')
             field = bs.TextArea(label=f'{_label(action)} (one path per line)', height=3)
-            bs.Button('Add files', on_click=lambda field=field: self._add_files(field))
+            self.file_buttons[dest] = bs.Button(
+                'Add files', on_click=lambda field=field: self._add_files(field)
+            )
             help_text = action.help
         elif action.type in (int, float):
             field = bs.NumberField(
@@ -288,7 +331,7 @@ class WorkflowSetter:
         self.output.close()
         self.output = None
         self.process = None
-        self.run_button.disabled = False
+        self.run_button.disabled = not bool(self.fields['fname_func'].text.strip())
         if code == 0:
             self.status.text = 'Workflow completed.'
         else:
@@ -329,6 +372,7 @@ class WorkflowPreview:
         self.pixdims = {}
         self.frequency = None
         self.file_frequency = None
+        self.tr = None
         self.file_peaks = None
         self.peak_path = ''
         self.peaks = None
@@ -369,6 +413,8 @@ class WorkflowPreview:
         if key == 'fname_co2':
             self.file_frequency = None
             self.file_peaks = None
+        if key == 'fname_func':
+            self.tr = None
         if path:
             try:
                 if key == 'fname_co2':
@@ -400,6 +446,10 @@ class WorkflowPreview:
                         if key == 'fname_func'
                         else np.isfinite(values) & (values != 0)
                     )
+                    if key == 'fname_func':
+                        tr = float(image.header.get_zooms()[3])
+                        if np.isfinite(tr) and tr > 0:
+                            self.tr = tr
                     self.positions[key] = [n // 2 for n in values.shape[:3]]
                     self.pixdims[key] = tuple(
                         float(v) if np.isfinite(v) and v > 0 else 1.0
