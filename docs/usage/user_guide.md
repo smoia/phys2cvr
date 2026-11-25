@@ -67,7 +67,9 @@ active workflow.
 
 The **Log viewer** loads a log and displays PNG images found in its result
 folder in a navigable carousel. Use the slider beside the log to change its
-font size.
+font size. Loading a result folder in the voxel viewer also populates the base
+comparison and opens the most recently modified TSV log from `logs/`. Loading
+a comparison result folder updates the log viewer for that folder.
 
 To run the GUI tests with pytest, install the test and GUI extras and use a
 graphical display. On headless Linux, use Xvfb:

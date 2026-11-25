@@ -95,6 +95,26 @@ class TestViewer(unittest.TestCase):
     def test_application_shell(self):
         self.assertEqual(self.shell.current, 'voxelviewer')
 
+    def test_result_folder_updates_comparison_and_log(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            nib.save(
+                nib.Nifti1Image(np.ones((2, 2, 2)), np.eye(4)),
+                folder / 'output_cvr.nii.gz',
+            )
+            (folder / 'logs').mkdir()
+            (folder / 'logs' / 'log.tsv').write_text('workflow output', encoding='utf-8')
+            Image.new('RGB', (10, 10), 'red').save(folder / 'plot.png')
+            with patch.object(bs, 'ask_directory', return_value=str(folder)):
+                self.viewer._load_folder()
+            self.assertEqual(self.viewer.linked_logviewer.log_area.value, 'workflow output')
+            self.assertEqual(self.viewer.linked_logviewer.carousel.count, 1)
+            np.testing.assert_array_equal(
+                self.viewer.linked_diffviewer.data['cvr_base'], np.ones((2, 2, 2))
+            )
+
     def test_slider_without_timeseries(self):
         viewer = self.viewer
         viewer.timeseries = None

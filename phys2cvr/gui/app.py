@@ -68,7 +68,9 @@ def _get_parser():
     return parser
 
 
-def load_result_folder(folder_path, viewer, comparison_version=None):
+def load_result_folder(
+    folder_path, viewer, comparison_version=None, *, diffviewer=None, logviewer=None
+):
     """Scan and load available files and parameters from a phys2cvr result folder."""
     if not os.path.isdir(folder_path):
         raise NotADirectoryError(f'Not a valid directory: {folder_path}')
@@ -208,21 +210,31 @@ def load_result_folder(folder_path, viewer, comparison_version=None):
         LGR.warning('No R² map found in result folder.')
 
     # 5. Find regressor in "regr" subfolder (or via args_p2c.regr_dir)
-    if comparison_version is not None:
-        return
-    regr_dir = resolve_path(getattr(args_p2c, 'regr_dir', None)) if args_p2c else None
-    if not regr_dir or not os.path.isdir(regr_dir):
-        regr_dir = os.path.join(folder_path, 'regr')
+    if comparison_version is None:
+        regr_dir = resolve_path(getattr(args_p2c, 'regr_dir', None)) if args_p2c else None
+        if not regr_dir or not os.path.isdir(regr_dir):
+            regr_dir = os.path.join(folder_path, 'regr')
 
-    if os.path.isdir(regr_dir):
-        all_regr = sorted(glob.glob(os.path.join(regr_dir, '*')))
-        if all_regr:
-            LGR.warning('Loading regressor file: %s', all_regr[0])
-            viewer.set_regressors(all_regr[0])
+        if os.path.isdir(regr_dir):
+            all_regr = sorted(glob.glob(os.path.join(regr_dir, '*')))
+            if all_regr:
+                LGR.warning('Loading regressor file: %s', all_regr[0])
+                viewer.set_regressors(all_regr[0])
+            else:
+                LGR.warning('Regressor directory "regr" (%s) is empty.', regr_dir)
         else:
-            LGR.warning('Regressor directory "regr" (%s) is empty.', regr_dir)
-    else:
-        LGR.warning('No regr directory found in result folder.')
+            LGR.warning('No regr directory found in result folder.')
+
+    if diffviewer is not None and comparison_version is None:
+        load_result_folder(folder_path, diffviewer, comparison_version='base')
+        diffviewer.refresh()
+    if logviewer is not None:
+        logs = glob.glob(os.path.join(logs_dir, '*.tsv'))
+        if logs:
+            latest = max(logs, key=lambda path: (os.path.getmtime(path), path))
+            logviewer.load(latest)
+        else:
+            logviewer.clear()
 
 
 def build_app(voxelviewer):
@@ -267,7 +279,10 @@ def build_app(voxelviewer):
             with nav.add_page(
                 'logviewer', text='Log viewer', icon='file-earmark-richtext-fill'
             ):
-                build_log_viewer()
+                logviewer = build_log_viewer()
+        voxelviewer.linked_diffviewer = diffviewer
+        voxelviewer.linked_logviewer = logviewer
+        diffviewer.linked_logviewer = logviewer
         shell.navigate('voxelviewer')
     return shell
 
@@ -288,7 +303,11 @@ def _main(argv=None):
 
     try:
         if args.result_folder:
-            load_result_folder(args.result_folder, voxelviewer)
+            load_result_folder(
+                args.result_folder, voxelviewer,
+                diffviewer=voxelviewer.linked_diffviewer,
+                logviewer=voxelviewer.linked_logviewer,
+            )
 
         if args.timeseries:
             voxelviewer.set_timeseries(args.timeseries)

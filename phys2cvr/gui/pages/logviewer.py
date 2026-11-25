@@ -72,6 +72,13 @@ class LogViewer:
         self.images.load([{'image': str(p), 'name': p.name} for p in images])
         self.carousel.reload()
 
+    def clear(self):
+        """Clear the log and images when no log exists in the result folder."""
+        self.log_area.value = ''
+        self.log_area._text_widget().configure(height=MIN_VISIBLE_LINES)
+        self.images.load([])
+        self.carousel.reload()
+
 
 def build_log_viewer():
     """Build the log viewer page."""

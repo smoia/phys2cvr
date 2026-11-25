@@ -4,7 +4,7 @@ import importlib.util
 import os
 import sys
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import nibabel as nib
 import numpy as np
@@ -182,6 +182,34 @@ def test_comparison_folder_loading(tmp_path):
         difference = viewer.data[f'{kind}_diff']
         assert np.isnan(difference[0, 0, 0])
         np.testing.assert_array_equal(difference[1], -2)
+
+
+def test_result_folder_populates_comparison_and_latest_log(tmp_path):
+    viewer = MagicMock()
+    comparison = DiffViewer()
+    comparison.refresh = MagicMock()
+    logviewer = MagicMock()
+    data = np.ones((2, 2, 2))
+    for kind in ('cvr', 'lag', 'r_square_simple'):
+        save_image(tmp_path / f'result_{kind}.nii.gz', data)
+    logs = tmp_path / 'logs'
+    logs.mkdir()
+    older = logs / 'z-old.tsv'
+    newer = logs / 'a-new.tsv'
+    older.write_text('old')
+    newer.write_text('new')
+    os.utime(older, (100, 100))
+    os.utime(newer, (200, 200))
+    load_result_folder(str(tmp_path), viewer, diffviewer=comparison, logviewer=logviewer)
+    np.testing.assert_array_equal(comparison.data['cvr_base'], data)
+    comparison.refresh.assert_called_once()
+    logviewer.load.assert_called_once_with(str(newer))
+    older.unlink()
+    newer.unlink()
+    load_result_folder(str(tmp_path), comparison, comparison_version='comp',
+                       logviewer=logviewer)
+    logviewer.clear.assert_called_once()
+    np.testing.assert_array_equal(comparison.data['cvr_comp'], data)
 
 
 @pytest.mark.skipif(

@@ -230,9 +230,17 @@ class MapViewerControls:
             from phys2cvr.gui.app import load_result_folder
 
             if ver is None:
-                load_result_folder(folder, self)
+                kwargs = {}
+                if hasattr(self, 'linked_diffviewer'):
+                    kwargs['diffviewer'] = self.linked_diffviewer
+                if hasattr(self, 'linked_logviewer'):
+                    kwargs['logviewer'] = self.linked_logviewer
+                load_result_folder(folder, self, **kwargs)
             else:
-                load_result_folder(folder, self, comparison_version=ver)
+                kwargs = {}
+                if hasattr(self, 'linked_logviewer'):
+                    kwargs['logviewer'] = self.linked_logviewer
+                load_result_folder(folder, self, comparison_version=ver, **kwargs)
             self.refresh()
         except Exception as err:  # noqa: BLE001
             logging.getLogger(type(self).__module__).error(
