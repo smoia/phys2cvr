@@ -14,6 +14,7 @@ from phys2cvr.gui.pages.diffviewer import DiffViewer
 from phys2cvr.gui.pages.guiargset import build_workflow_setter
 from phys2cvr.gui.pages.logviewer import build_log_viewer
 from phys2cvr.gui.pages.voxelviewer import VoxelViewer
+from phys2cvr.gui.splash import SplashScreen
 
 LGR = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ def _get_parser():
     return parser
 
 
-def build_app(voxelviewer):
+def build_app(voxelviewer, *, show_splash=False):
     """Build the application shell and its viewer page."""
     with bs.AppShell(
         title=f'fMRI Voxel & Regressor Viewer, phys2cvr v{__version__}',
@@ -79,6 +80,7 @@ def build_app(voxelviewer):
         min_size=(1200, 850),
         sidebar_mode='compact',
     ) as shell:
+        shell.startup_splash = SplashScreen(shell._internal) if show_splash else None
         # --- Status bar -----------------------------------------------------
         ssb = shell.statusbar
         SidebarToggle(
@@ -128,10 +130,10 @@ def _main(argv=None):
         if args.lag_range[0] > args.lag_range[1]:
             raise ValueError('Specified minimum lag range is higher than maximum.')
 
-    voxelviewer = VoxelViewer(fs=args.fs, lag_range=args.lag_range)
-    shell = build_app(voxelviewer)
-
+    shell = None
     try:
+        voxelviewer = VoxelViewer(fs=args.fs, lag_range=args.lag_range)
+        shell = build_app(voxelviewer, show_splash=True)
         if args.result_folder:
             load_result_folder(
                 args.result_folder,
@@ -155,6 +157,9 @@ def _main(argv=None):
     except Exception as err:  # noqa: BLE001
         LGR.error('Could not load input: %s', err)
         sys.exit(1)
+    finally:
+        if shell is not None and shell.startup_splash is not None:
+            shell.startup_splash.close()
 
     shell.run()
 

@@ -26,6 +26,26 @@ if GUI_AVAILABLE:
 @unittest.skipUnless(
     GUI_AVAILABLE and HAS_DISPLAY, 'GUI requires bootstack and a display'
 )
+def test_splash_and_app_startup():
+    from phys2cvr.gui.splash import CITATION
+
+    shell = app.build_app(VoxelViewer(), show_splash=True)
+    try:
+        assert shell.startup_splash.window.winfo_ismapped()
+        assert '10.5281/zenodo.5559756' in CITATION
+    finally:
+        shell.startup_splash.close()
+    try:
+        shell.show()
+        shell._internal.update()
+        assert shell._internal.winfo_ismapped()
+    finally:
+        shell.destroy()
+
+
+@unittest.skipUnless(
+    GUI_AVAILABLE and HAS_DISPLAY, 'GUI requires bootstack and a display'
+)
 class TestViewer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
