@@ -2,10 +2,11 @@
 
 import logging
 import tkinter.font as tkfont
-from pathlib import Path
 
 import bootstack as bs
 from bootstack.data import MemoryDataSource
+
+from phys2cvr.gui.io import read_log_and_images
 
 LGR = logging.getLogger(__name__)
 MIN_VISIBLE_LINES = 4
@@ -62,10 +63,7 @@ class LogViewer:
 
     def load(self, path):
         """Load a log and the PNGs from its result folder."""
-        path = Path(path)
-        text = path.read_text(encoding='utf-8')
-        folder = path.parent.parent if path.parent.name == 'logs' else path.parent
-        images = sorted(p for p in folder.rglob('*.png') if p.is_file())
+        text, images = read_log_and_images(path)
         self.log_area.value = text
         lines = max(1, min(MAX_VISIBLE_LINES, len(text.splitlines())))
         self.log_area._text_widget().configure(height=lines)

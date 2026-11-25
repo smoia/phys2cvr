@@ -14,6 +14,7 @@ import numpy as np
 from matplotlib.figure import Figure
 
 from phys2cvr.cli.run import _check_opt_conf, _get_parser
+from phys2cvr.gui.io import read_spatial_image
 from phys2cvr.gui.utils import clip_position, orthogonal_slices, slice_position
 from phys2cvr.io import EXT_ARRAY, load_array, load_physio
 
@@ -447,12 +448,12 @@ class WorkflowPreview:
         ) as self.container:
             for key in ('fname_func', 'fname_co2', 'fname_mask', 'fname_roi'):
                 fig = Figure(figsize=(1, 1), layout='tight')
-                self.charts[key] = bs.Chart(figure=fig)
                 self.axes[key] = (
                     [fig.add_subplot(111)]
                     if key == 'fname_co2'
                     else [fig.add_subplot(1, 3, i + 1) for i in range(3)]
                 )
+                self.charts[key] = bs.Chart(figure=fig)
                 if key != 'fname_co2':
                     fig.canvas.mpl_connect(
                         'button_press_event',
@@ -494,11 +495,8 @@ class WorkflowPreview:
                 ):
                     self.errors[key] = 'No volume preview for a 1D input.'
                 else:
-                    image = nib.load(path)
-                    values = np.asarray(image.get_fdata())
                     expected = 4 if key == 'fname_func' else 3
-                    if values.ndim != expected or any(n == 0 for n in values.shape):
-                        raise ValueError(f'Expected a non-empty {expected}D image.')
+                    image, values = read_spatial_image(path, dimensions=(expected,))
                     self.data[key] = (
                         np.mean(values, axis=-1)
                         if key == 'fname_func'
@@ -608,6 +606,7 @@ class WorkflowPreview:
                 ha='center',
                 va='center',
                 wrap=True,
+                color=axes[0].title.get_color(),
             )
         self.charts[key].draw()
 

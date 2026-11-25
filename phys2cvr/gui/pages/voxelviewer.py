@@ -9,6 +9,7 @@ import numpy as np
 from matplotlib.figure import Figure
 from scipy.stats import zscore
 
+from phys2cvr.gui.io import load_timeseries
 from phys2cvr.gui.utils import (
     ARRAY_TYPES,
     NIFTI_TYPES,
@@ -25,16 +26,6 @@ from phys2cvr.utils import estimate_lag_range
 
 LGR = logging.getLogger(__name__)
 
-
-def load_timeseries(path):
-    """Load a NIfTI file and return data, spatial voxel sizes and TR (seconds)."""
-    data, _, img = load_nifti_get_mask(path, dim=4)
-    zooms = img.header.get_zooms()
-    pixdim = tuple(zooms[:3]) if len(zooms) >= 3 else (1.0, 1.0, 1.0)
-    tr = float(zooms[3]) if len(zooms) > 3 else 1.0
-    if tr <= 0 or np.isnan(tr):
-        tr = 1.0
-    return data, pixdim, tr
 
 
 class VoxelViewer(MapViewerControls):

@@ -2,10 +2,10 @@
 """Comparison viewer for phys2cvr, built with bootstack."""
 
 import bootstack as bs
-import nibabel as nib
 import numpy as np
 from matplotlib.figure import Figure
 
+from phys2cvr.gui.io import read_spatial_image
 from phys2cvr.gui.utils import (
     NIFTI_TYPES,
     MapViewerControls,
@@ -73,16 +73,9 @@ class DiffViewer(MapViewerControls):
 
     def _read_image(self, path, key, *, r2=False, is_mask=False):
         """Read a map and validate its spatial grid before storing its geometry."""
-        img = nib.load(path)
+        img, data = read_spatial_image(path, dimensions=(3, 4) if r2 else (3,))
         if not hasattr(img, 'affine') or img.affine is None:
             raise ValueError(f'{path} does not have a 3D spatial affine.')
-        data = np.asarray(img.get_fdata())
-        if data.ndim not in ((3, 4) if r2 else (3,)) or any(
-            size == 0 for size in data.shape
-        ):
-            raise ValueError(
-                f'{path} must be a 3D map' + (' or 4D R² map.' if r2 else '.')
-            )
         for other, (shape, affine, _) in self._geometry.items():
             if other != key and (
                 data.shape[:3] != shape
@@ -307,9 +300,9 @@ class DiffViewer(MapViewerControls):
                     self.charts[f'{kind}_{ver}'] = bs.Chart(
                         figure=Figure(figsize=(1, 1)), row=row, column=col
                     )
-                self.summary_charts[kind] = bs.Chart(
-                    figure=Figure(figsize=(1, 1)), row=3, column=col
-                )
+                fig = Figure(figsize=(1, 1))
+                fig.add_subplot()
+                self.summary_charts[kind] = bs.Chart(figure=fig, row=3, column=col)
 
         for field in (self.x_field, self.y_field, self.z_field):
             field.on_change(lambda e: self._on_coord_change())
@@ -494,7 +487,10 @@ class DiffViewer(MapViewerControls):
             axis.relim()
             axis.autoscale_view()
             if axis.get_legend_handles_labels()[0]:
-                axis.legend()
+                legend = axis.legend()
+                legend.get_frame().set_facecolor(fig.get_facecolor())
+                for text in legend.get_texts():
+                    text.set_color(axis.title.get_color())
             chart.draw()
 
     # ----- callbacks -----
