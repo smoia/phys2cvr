@@ -44,7 +44,8 @@ jobs:
           name: Run tests
           # This assumes pytest is installed via the install-package step above
           command: |
-            pytest --junitxml=test-results/junit.xml -o junit_family=legacy --cov=./phys2cvr
+            pytest --cov --cov-branch  --cov-report=xml --junitxml=test-results/junit.xml -o junit_family=legacy --cov=./phys2cvr
+            codecovcli do-upload --report-type test_results --file test-results/junit.xml
             mkdir /tmp/src/coverage
             mv ./.coverage /tmp/src/coverage/.coverage.py311
       - store_test_results:
@@ -76,8 +77,9 @@ jobs:
       - run:
           name: Run tests
           command: |
-            pytest --junitxml=test-results/junit.xml -o junit_family=legacy --cov=./phys2cvr
+            pytest --cov --cov-branch --cov-report=xml --junitxml=test-results/junit.xml -o junit_family=legacy --cov=./phys2cvr
             mkdir /tmp/src/coverage
+            codecovcli do-upload --report-type test_results --file test-results/junit.xml
             mv ./.coverage /tmp/src/coverage/.coverage.py315
       - store_test_results:
           path: test-results
