@@ -1,3 +1,56 @@
+# 0.38.1 (Wed Nov 25 2026)
+
+#### 🐛 Bug Fix
+
+- fix: Fix R² export CLI flags ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.38.0 (Wed Nov 25 2026)
+
+#### 🚀 Enhancement
+
+- Allow the export of R² over lags volumes even if not in debug mode. [#181](https://github.com/smoia/phys2cvr/pull/181) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.37.0 (Wed Nov 25 2026)
+
+#### 🚀 Enhancement
+
+- Save python call on workflow invocation [#180](https://github.com/smoia/phys2cvr/pull/180) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
+# 0.36.0 (Wed Nov 25 2026)
+
+#### 🚀 Enhancement
+
+- Check that mask, data, and ROI intersections are not empty, and stop otherwise. [#179](https://github.com/smoia/phys2cvr/pull/179) ([@smoia](https://github.com/smoia))
+
+#### ⚠️ Tests
+
+- Update tests to the latest version [#177](https://github.com/smoia/phys2cvr/pull/177) ([@smoia](https://github.com/smoia) [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot]))
+
+#### Authors: 2
+
+- [@pre-commit-ci[bot]](https://github.com/pre-commit-ci[bot])
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.35.0 (Sun Nov 15 2026)
 
 #### 💻 Refactored

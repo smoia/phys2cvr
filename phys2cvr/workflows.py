@@ -65,6 +65,7 @@ def phys2cvr(
     regr_dir=None,
     comp_endtidal=True,
     response_function='hrf',
+    export_r2=False,
     n_jobs=1,
     quiet=False,
     debug=False,
@@ -222,6 +223,8 @@ def phys2cvr(
         If file, loads it.
         For `rrf` and `crf`, `phys2denoise` must be installed (see extra installs).
         See `signal.compute_petco2hrf` for details.
+    export_r2 : bool, optional
+        Export R² over lags volumes. Default skips it (unless called via GUI).
     n_jobs : int, optional
         Number of jobs to use to run the L-GLM in parallel. Requires joblib and tqdm
         to be installed. If 0 or less, consider a third of the available processors to
@@ -261,6 +264,7 @@ def phys2cvr(
         - If physiological file is a txt file and no peaks were provided.
         - If physiological file is lacking frequency and the latter was not specified.
     """
+    utils.save_python_call(locals())
     # If lagged regression is selected, make sure run_regression is true.
     if extra_matrix_file is None:
         extra_matrix_file = []
@@ -385,6 +389,9 @@ def phys2cvr(
                 'the extension was not specified.'
             )
 
+        if not np.any(dmask):
+            raise ValueError(f'{fname_func} seems to be empty.')
+
         if len(func.shape) < 4:
             raise ValueError(f'Provided functional file {fname_func} is not a 4D file!')
         # Read TR or declare its overwriting
@@ -400,6 +407,10 @@ def phys2cvr(
             if func.shape[:3] != mask.shape:
                 raise ValueError(f'{fname_mask} and {fname_func} have different sizes!')
             mask &= dmask
+            if not np.any(mask):
+                raise ValueError(
+                    f'The intersection of {fname_mask} and the data mask is empty.'
+                )
             LGR.info(
                 f'Masking {os.path.basename(fname_func)} using {os.path.basename(fname_mask)}'
             )
@@ -420,6 +431,10 @@ def phys2cvr(
             if func.shape[:3] != roi.shape:
                 raise ValueError(f'{fname_roi} and {fname_func} have different sizes!')
             roi &= mask
+            if not np.any(roi):
+                raise ValueError(
+                    f'The intersection of {fname_roi} and {fname_mask} is empty.'
+                )
             roiref = os.path.basename(fname_roi)
         else:
             roi = mask
@@ -852,8 +867,8 @@ def phys2cvr(
                             debug,
                         )
 
-                if debug:
-                    LGR.debug('Export all betas, tstats, and R^2 volumes.')
+                if export_r2 or debug:
+                    LGR.info('Export R^2 over lags volume.')
                     newdim_all = deepcopy(img.header['dim'])
                     newdim_all[0], newdim_all[4] = 4, int(len(lag_range))
                     newpixdim_all = deepcopy(img.header['dim'])
@@ -866,6 +881,8 @@ def phys2cvr(
                         oimg_all,
                         f'{fname_out_func}_r_square_all{fname_ext}',
                     )
+                if debug:
+                    LGR.debug('Export all betas, tstats, and R^2 volumes.')
                     io.export_nifti(
                         tstat_all,
                         oimg_all,

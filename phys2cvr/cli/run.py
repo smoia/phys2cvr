@@ -656,6 +656,18 @@ def _get_parser():
 
     optional = parser.add_argument_group('Other Optional Arguments')
     optional.add_argument(
+        '-r2',
+        '--export_rsquare',
+        dest='export_r2',
+        action='store_true',
+        help=(
+            'Export R² over lags volumes for lag QA. Default is not to. '
+            'If phys2cvr is run from the GUI, or if the GUI is invoked at the end of '
+            'the call, this turns automatically to True.'
+        ),
+        default=False,
+    )
+    optional.add_argument(
         '-j',
         '--n_jobs',
         dest='n_jobs',
