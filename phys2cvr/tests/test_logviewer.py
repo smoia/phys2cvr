@@ -106,10 +106,16 @@ class TestLogViewer(unittest.TestCase):
             logs.mkdir()
             log = logs / 'run.tsv'
             log.write_text('log content', encoding='utf-8')
+            (logs / 'p2c_call_1.sh').write_text('shell', encoding='utf-8')
+            (logs / 'p2c_call_1.py').write_text('python', encoding='utf-8')
             for name in ('one.png', 'two.png'):
                 Image.new('RGB', (12, 12), 'red').save(root / name)
             self.viewer.load(log)
             self.shell._internal.update()
+            self.assertEqual(self.viewer.bash_call.value, 'shell')
+            self.assertEqual(self.viewer.python_call.value, 'python')
+            self.assertEqual(int(self.viewer.bash_call._text_widget().cget('height')), 5)
+            self.assertEqual(int(self.viewer.python_call._text_widget().cget('height')), 5)
             self.assertEqual(self.viewer.carousel.count, 2)
             self.assertEqual(self.viewer.carousel.current['name'], 'one.png')
             self.viewer.carousel.next()
@@ -139,3 +145,5 @@ class TestLogViewer(unittest.TestCase):
             other_log.write_text('new content', encoding='utf-8')
             self.viewer.load(other_log)
             self.assertEqual(self.viewer.carousel.count, 0)
+            self.assertEqual(self.viewer.bash_call.value, '')
+            self.assertEqual(self.viewer.python_call.value, '')

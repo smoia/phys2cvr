@@ -32,6 +32,21 @@ def read_log_and_images(path):
     return text, images
 
 
+def latest_file(folder, pattern):
+    """Find the most recently modified matching file, or None."""
+    files = (path for path in Path(folder).glob(pattern) if path.is_file())
+    return max(files, key=lambda path: (path.stat().st_mtime_ns, str(path)), default=None)
+
+
+def read_latest_calls(folder):
+    """Read the latest shell and Python calls from a log directory."""
+    calls = []
+    for pattern in ('p2c_call_*.sh', 'p2c_call_*.py'):
+        path = latest_file(folder, pattern)
+        calls.append(path.read_text(encoding='utf-8') if path else '')
+    return tuple(calls)
+
+
 def load_timeseries(path):
     """Load a NIfTI file and return data, spatial voxel sizes and TR (seconds)."""
     data, _, img = load_nifti_get_mask(path, dim=4)
@@ -56,9 +71,8 @@ def load_result_folder(
     logs_dir = os.path.join(folder_path, 'logs')
     args_p2c = None
     if os.path.isdir(logs_dir):
-        sh_files = sorted(glob.glob(os.path.join(logs_dir, 'p2c_call_*.sh')))
-        if sh_files:
-            latest_sh = sh_files[-1]
+        latest_sh = latest_file(logs_dir, 'p2c_call_*.sh')
+        if latest_sh:
             LGR.warning('Found latest call log script: %s', latest_sh)
             try:
                 with open(latest_sh) as f:
@@ -212,3 +226,4 @@ def load_result_folder(
             logviewer.load(latest)
         else:
             logviewer.clear()
+            logviewer.load_calls(logs_dir)

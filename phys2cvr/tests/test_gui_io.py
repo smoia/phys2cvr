@@ -3,7 +3,7 @@
 import os
 from unittest.mock import Mock
 
-from phys2cvr.gui.io import load_result_folder, read_log_and_images
+from phys2cvr.gui.io import load_result_folder, read_latest_calls, read_log_and_images
 
 
 def test_read_log_and_images_searches_result_tree(tmp_path):
@@ -38,3 +38,18 @@ def test_result_folder_loads_newest_log_and_clears_missing(tmp_path):
     older.unlink()
     load_result_folder(tmp_path, viewer, logviewer=logviewer)
     logviewer.clear.assert_called_once_with()
+    logviewer.load_calls.assert_called_once_with(str(logs))
+
+
+def test_latest_calls_use_modification_time_and_clear_absent_files(tmp_path):
+    old = tmp_path / 'p2c_call_z.sh'
+    new = tmp_path / 'p2c_call_a.sh'
+    python = tmp_path / 'p2c_call_a.py'
+    old.write_text('old shell', encoding='utf-8')
+    new.write_text('new shell', encoding='utf-8')
+    python.write_text('python call', encoding='utf-8')
+    os.utime(old, (100, 100))
+    os.utime(new, (200, 200))
+    assert read_latest_calls(tmp_path) == ('new shell', 'python call')
+    python.unlink()
+    assert read_latest_calls(tmp_path) == ('new shell', '')

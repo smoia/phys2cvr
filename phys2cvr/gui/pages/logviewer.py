@@ -2,11 +2,12 @@
 
 import logging
 import tkinter.font as tkfont
+from pathlib import Path
 
 import bootstack as bs
 from bootstack.data import MemoryDataSource
 
-from phys2cvr.gui.io import read_log_and_images
+from phys2cvr.gui.io import read_latest_calls, read_log_and_images
 
 LGR = logging.getLogger(__name__)
 MIN_VISIBLE_LINES = 4
@@ -50,14 +51,22 @@ class LogViewer:
                 wrap=False,
                 scrollbars='auto',
             )
-            self.images = MemoryDataSource()
-            self.carousel = bs.Carousel(
-                data_source=self.images,
-                caption_field='name',
-                transition='none',
-                row=0,
-                column=2,
-            )
+            with bs.Column(
+                row=0, column=2, grow=True, horizontal_items='stretch', gap=6
+            ):
+                self.bash_call = bs.TextArea(
+                    label='Bash call', height=5, read_only=True, scrollbars='auto'
+                )
+                self.python_call = bs.TextArea(
+                    label='Python call', height=5, read_only=True, scrollbars='auto'
+                )
+                self.images = MemoryDataSource()
+                self.carousel = bs.Carousel(
+                    data_source=self.images,
+                    caption_field='name',
+                    transition='none',
+                    grow=True,
+                )
         text = self.log_area._text_widget()
         self.font = tkfont.Font(root=text, font=text.cget('font'))
         text.configure(font=self.font)
@@ -85,16 +94,25 @@ class LogViewer:
     def load(self, path):
         """Load a log and the PNGs from its result folder."""
         text, images = read_log_and_images(path)
+        self.load_calls(Path(path).parent)
         self.log_area.value = text
         lines = max(1, min(MAX_VISIBLE_LINES, len(text.splitlines())))
         self.log_area._text_widget().configure(height=lines)
         self.images.load([{'image': str(p), 'name': p.name} for p in images])
         self.carousel.reload()
 
+    def load_calls(self, folder):
+        """Load the latest exported calls from the given log directory."""
+        bash, python = read_latest_calls(folder)
+        self.bash_call.value = bash
+        self.python_call.value = python
+
     def clear(self):
         """Clear the log and images when no log exists in the result folder."""
         self.log_area.value = ''
         self.log_area._text_widget().configure(height=MIN_VISIBLE_LINES)
+        self.bash_call.value = ''
+        self.python_call.value = ''
         self.images.load([])
         self.carousel.reload()
 
