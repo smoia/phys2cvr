@@ -15,7 +15,7 @@ from phys2cvr.gui.pages.guiargset import build_workflow_setter
 from phys2cvr.gui.pages.logviewer import build_log_viewer
 from phys2cvr.gui.pages.voxelviewer import VoxelViewer
 from phys2cvr.gui.splash import SplashScreen
-from phys2cvr.gui.zoom import Zoom
+from phys2cvr.gui.zoom import Zoom, ensure_fonts
 
 LGR = logging.getLogger(__name__)
 
@@ -94,6 +94,7 @@ def build_app(voxelviewer, *, show_splash=False):
         )
         ssb.add_text(f'phys2cvr v{__version__}')
         ssb.add_spacer()
+        ensure_fonts(shell._internal)
         shell.zoom_out = bs.Button(
             'A−', parent=ssb, on_click=lambda: shell.zoom.change(-1)
         )
