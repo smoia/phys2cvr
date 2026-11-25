@@ -200,6 +200,35 @@ def test_peak_overlays(page, tmp_path):
     assert not preview.axes['fname_co2'][0].lines
 
 
+def test_workflow_uses_explicit_peaks_with_phys(page, tmp_path):
+    import peakdet as pk
+
+    from phys2cvr.workflows import phys2cvr
+
+    signal = tmp_path / 'signal.phys'
+    pk.save_physio(
+        str(signal),
+        pk.Physio(np.arange(20.0), fs=2, metadata={
+            'peaks': np.array([3, 10]), 'troughs': np.array([]), 'reject': np.array([])
+        }),
+    )
+    peaks = tmp_path / 'peaks.txt'
+    np.savetxt(peaks, [4, 12], fmt='%d')
+    func = tmp_path / 'func.txt'
+    np.savetxt(func, np.arange(20.0) + 1)
+
+    class Captured(Exception):
+        pass
+
+    with patch('phys2cvr.workflows.compute_petco2hrf', side_effect=Captured) as compute:
+        with pytest.raises(Captured):
+            phys2cvr(
+                str(func), fname_co2=str(signal), fname_pidx=str(peaks),
+                outdir=str(tmp_path / 'out'), tr=1,
+            )
+    np.testing.assert_array_equal(compute.call_args.args[1], [4, 12])
+
+
 def test_form_dependencies_and_metadata(page, tmp_path):
     import peakdet as pk
 

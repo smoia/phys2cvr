@@ -551,6 +551,8 @@ def phys2cvr(
                 co2, pidx, _ = io.load_physio(fname_co2)
             else:
                 co2, pidx, freq = io.load_physio(fname_co2)
+            if fname_pidx:
+                pidx = io.load_array(fname_pidx).astype(int)
         else:
             raise NotImplementedError(
                 f'{fname_co2} file type is not supported yet, or '
