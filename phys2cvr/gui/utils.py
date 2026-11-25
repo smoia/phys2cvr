@@ -10,7 +10,7 @@ from matplotlib.figure import Figure
 from phys2cvr.io import EXT_ARRAY, EXT_NIMG
 
 NIFTI_TYPES = [
-    ('NIfTI files', ' '.join(f'*{ext}' for ext in EXT_NIMG)),
+    ('Neuroimaging files', ' '.join(f'*{ext}' for ext in EXT_NIMG)),
     ('All files', '*.*'),
 ]
 ARRAY_TYPES = [

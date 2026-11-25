@@ -65,7 +65,7 @@ class WorkflowSetter:
             )
             self.status = bs.Label(
                 'Waiting for functional data (at least)',
-                accent='secondary',
+                accent='muted',
             )
 
         with bs.Row(
@@ -125,7 +125,7 @@ class WorkflowSetter:
                 if ready
                 else 'Waiting for functional data (at least)'
             )
-            self.status._internal.configure(accent='success' if ready else 'secondary')
+            self.status._internal.configure(accent='success' if ready else 'muted')
         self.fields['fourier_order'].disabled = bool(
             self.fields['fname_co2'].text.strip()
         )
@@ -394,12 +394,15 @@ class WorkflowSetter:
                 raise
         except (ValueError, OSError) as err:
             LGR.warning('Could not start workflow: %s', err)
-            bs.alert(str(err), title='Could not start workflow', severity='warning')
+            bs.alert(str(err), title='Could not start workflow', severity='danger')
             return
+
+        bs.toast('Running phys2cvr...', accent='warning')
         self.output = output
         self.process = process
         self.run_button.disabled = True
         self.status.text = 'Running phys2cvr…'
+        self.status._internal.configure(accent='warning')
         self.run_button.schedule.delay(250, self._poll)
 
     def _poll(self):
@@ -414,9 +417,13 @@ class WorkflowSetter:
         self.process = None
         self.run_button.disabled = not bool(self.fields['fname_func'].text.strip())
         if code == 0:
+            bs.toast('phys2cvr workflow completed!', title='Success', accent='success')
             self.status.text = 'Workflow completed.'
+            self.status._internal.configure(accent='success')
         else:
+            bs.toast('phys2cvr workflow failed.', title='Failure', accent='danger')
             self.status.text = f'Workflow failed (exit code {code}).'
+            self.status._internal.configure(accent='danger')
             LGR.error('Workflow failed (exit code %s):\n%s', code, output)
             bs.alert(
                 f'Workflow failed (exit code {code}).\n\n{output[-4000:]}',
