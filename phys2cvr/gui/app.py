@@ -67,7 +67,6 @@ def _get_parser():
     return parser
 
 
-
 def build_app(voxelviewer):
     """Build the application shell and its viewer page."""
     with bs.AppShell(
@@ -135,7 +134,8 @@ def _main(argv=None):
     try:
         if args.result_folder:
             load_result_folder(
-                args.result_folder, voxelviewer,
+                args.result_folder,
+                voxelviewer,
                 diffviewer=voxelviewer.linked_diffviewer,
                 logviewer=voxelviewer.linked_logviewer,
             )

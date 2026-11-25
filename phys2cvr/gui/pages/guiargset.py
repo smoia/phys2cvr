@@ -86,15 +86,21 @@ class WorkflowSetter:
                 lambda event, dest=dest: self._on_input_path(dest)
             )
         self.fields['fname_pidx'].on_change(
-            lambda event: self.preview.load_peaks(self.fields['fname_pidx'].text.strip())
+            lambda event: self.preview.load_peaks(
+                self.fields['fname_pidx'].text.strip()
+            )
         )
         self.fields['freq'].on_change(
             lambda event: self.preview.set_frequency(self.fields['freq'].value)
         )
         for dest in ('fname_func', 'fname_co2'):
             self.fields[dest].on_input(lambda event: self._update_form_state())
-        for dest in ('apply_filter', 'run_regression', 'lagged_regression',
-                     'response_function'):
+        for dest in (
+            'apply_filter',
+            'run_regression',
+            'lagged_regression',
+            'response_function',
+        ):
             self.fields[dest].on_change(lambda event: self._update_form_state())
         self.fields['workflow_config'].on_change(lambda event: self._apply_preset())
         self._update_form_state()
@@ -116,7 +122,8 @@ class WorkflowSetter:
         if self.process is None:
             self.status.text = (
                 'Ready (you may want to set up more parameters)'
-                if ready else 'Waiting for functional data (at least)'
+                if ready
+                else 'Waiting for functional data (at least)'
             )
             self.status._internal.configure(accent='success' if ready else 'secondary')
         self.fields['fourier_order'].disabled = bool(
@@ -129,8 +136,14 @@ class WorkflowSetter:
         )
         skip_regression = self.fields['run_regression'].value
         skip_lagged = skip_regression or self.fields['lagged_regression'].value
-        for dest in ('r2model', 'l_degree', 'denoise_matrix_file',
-                     'orthogonalised_matrix_file', 'extra_matrix_file', 'scale_factor'):
+        for dest in (
+            'r2model',
+            'l_degree',
+            'denoise_matrix_file',
+            'orthogonalised_matrix_file',
+            'extra_matrix_file',
+            'scale_factor',
+        ):
             self.fields[dest].disabled = skip_regression
             if dest in self.file_buttons:
                 self.file_buttons[dest].disabled = skip_regression
@@ -146,11 +159,13 @@ class WorkflowSetter:
             )
             groups = list(self.parser._action_groups)
             preset = next(
-                group for group in groups
+                group
+                for group in groups
                 if any(a.dest == 'workflow_config' for a in group._group_actions)
             )
             phys = next(
-                group for group in groups
+                group
+                for group in groups
                 if any(a.dest == 'fname_co2' for a in group._group_actions)
             )
             groups.remove(preset)
@@ -320,6 +335,7 @@ class WorkflowSetter:
         if not option:
             return
         try:
+
             def parser_error(message):
                 raise ValueError(message)
 
@@ -336,12 +352,16 @@ class WorkflowSetter:
                 field = self.fields[dest]
                 if dest in _GROUPED:
                     choices = [
-                        a for a in parser._actions
-                        if a.dest == dest and isinstance(a, argparse._StoreConstAction)
+                        a
+                        for a in parser._actions
+                        if a.dest == dest
+                        and isinstance(a, argparse._StoreConstAction)
                         and a.const == value
                     ]
                     field.value = _option(choices[0]) if choices else ''
-                elif isinstance(action, (argparse._StoreTrueAction, argparse._StoreFalseAction)):
+                elif isinstance(
+                    action, (argparse._StoreTrueAction, argparse._StoreFalseAction)
+                ):
                     field.value = value != action.default
                 elif value is None:
                     field.clear()
@@ -352,7 +372,9 @@ class WorkflowSetter:
             self._update_form_state()
         except (ValueError, NotImplementedError) as err:
             LGR.warning('Could not apply workflow preset: %s', err)
-            bs.alert(str(err), title='Could not apply workflow preset', severity='warning')
+            bs.alert(
+                str(err), title='Could not apply workflow preset', severity='warning'
+            )
 
     def run(self):
         """Validate inputs and start the workflow without blocking the GUI."""
@@ -535,7 +557,9 @@ class WorkflowPreview:
             values = load_array(path) if path else self.file_peaks
             if values is not None:
                 values = np.asarray(values).reshape(-1)
-                if not np.all(np.isfinite(values)) or not np.all(values == np.floor(values)):
+                if not np.all(np.isfinite(values)) or not np.all(
+                    values == np.floor(values)
+                ):
                     raise ValueError('Peak indices must be finite integers.')
                 peaks = values.astype(int)
                 trace = self.data['fname_co2']
@@ -596,7 +620,9 @@ class WorkflowPreview:
                 axis.set_title(f'{self._titles[key]}: {orientation}')
                 axis.set_xticks([])
                 axis.set_yticks([])
-        error = self.errors.get(key) or (self.errors.get('peaks') if key == 'fname_co2' else None)
+        error = self.errors.get(key) or (
+            self.errors.get('peaks') if key == 'fname_co2' else None
+        )
         if error:
             axes[0].text(
                 0.5,

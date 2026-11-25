@@ -186,7 +186,9 @@ def load_result_folder(
 
     # 5. Find regressor in "regr" subfolder (or via args_p2c.regr_dir)
     if comparison_version is None:
-        regr_dir = resolve_path(getattr(args_p2c, 'regr_dir', None)) if args_p2c else None
+        regr_dir = (
+            resolve_path(getattr(args_p2c, 'regr_dir', None)) if args_p2c else None
+        )
         if not regr_dir or not os.path.isdir(regr_dir):
             regr_dir = os.path.join(folder_path, 'regr')
 
@@ -210,4 +212,3 @@ def load_result_folder(
             logviewer.load(latest)
         else:
             logviewer.clear()
-

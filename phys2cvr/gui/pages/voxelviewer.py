@@ -27,7 +27,6 @@ from phys2cvr.utils import estimate_lag_range
 LGR = logging.getLogger(__name__)
 
 
-
 class VoxelViewer(MapViewerControls):
     """Interactive viewer for fMRI voxels, CVR/lag maps and shifted regressors."""
 

@@ -22,23 +22,39 @@ class LogViewer:
             with bar.add_menu('Load') as menu:
                 menu.add_action('Load logger', on_click=self._choose_log)
         with bs.Grid(
-            columns=['auto', 1, 1], rows=1, grow=True,
-            horizontal_items='stretch', vertical_items='stretch', gap=8,
+            columns=['auto', 1, 1],
+            rows=1,
+            grow=True,
+            horizontal_items='stretch',
+            vertical_items='stretch',
+            gap=8,
         ):
             with bs.Column(column=0, row=0, vertical='center', padding=8, height=180):
                 bs.Label('Font size')
                 self.font_slider = bs.Slider(
-                    12, min_value=6, max_value=30, step=1, orient='vertical',
+                    12,
+                    min_value=6,
+                    max_value=30,
+                    step=1,
+                    orient='vertical',
                     grow=True,
                 )
             self.log_area = bs.TextArea(
-                row=0, column=1, height=MIN_VISIBLE_LINES, label='Log',
-                read_only=True, wrap=False, scrollbars='auto',
+                row=0,
+                column=1,
+                height=MIN_VISIBLE_LINES,
+                label='Log',
+                read_only=True,
+                wrap=False,
+                scrollbars='auto',
             )
             self.images = MemoryDataSource()
             self.carousel = bs.Carousel(
-                data_source=self.images, caption_field='name', transition='none',
-                row=0, column=2,
+                data_source=self.images,
+                caption_field='name',
+                transition='none',
+                row=0,
+                column=2,
             )
         text = self.log_area._text_widget()
         self.font = tkfont.Font(root=text, font=text.cget('font'))
@@ -49,7 +65,9 @@ class LogViewer:
         return self
 
     def _choose_log(self):
-        path = bs.ask_open_file(title='Select log file', file_types=[('All files', '*.*')])
+        path = bs.ask_open_file(
+            title='Select log file', file_types=[('All files', '*.*')]
+        )
         if not path:
             return
         try:
@@ -58,7 +76,8 @@ class LogViewer:
             LGR.error('Could not load log file %s: %s', path, err, exc_info=True)
             bs.alert(
                 f'Could not load log file {path}: {err}',
-                title='Could not load file', severity='danger',
+                title='Could not load file',
+                severity='danger',
             )
 
     def load(self, path):

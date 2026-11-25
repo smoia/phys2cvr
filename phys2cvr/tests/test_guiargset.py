@@ -181,9 +181,15 @@ def test_peak_overlays(page, tmp_path):
     phys = tmp_path / 'signal.phys'
     pk.save_physio(
         str(phys),
-        pk.Physio(trace, fs=2, metadata={
-            'peaks': np.array([1, 3]), 'troughs': np.array([]), 'reject': np.array([])
-        }),
+        pk.Physio(
+            trace,
+            fs=2,
+            metadata={
+                'peaks': np.array([1, 3]),
+                'troughs': np.array([]),
+                'reject': np.array([]),
+            },
+        ),
     )
     preview.load('fname_co2', str(phys))
     preview.set_frequency(2)
@@ -193,9 +199,13 @@ def test_peak_overlays(page, tmp_path):
     peaks = tmp_path / 'peaks.txt'
     np.savetxt(peaks, [0, 2], fmt='%d')
     preview.load_peaks(str(peaks))
-    np.testing.assert_array_equal(preview.axes['fname_co2'][0].lines[1].get_ydata(), [1, 2])
+    np.testing.assert_array_equal(
+        preview.axes['fname_co2'][0].lines[1].get_ydata(), [1, 2]
+    )
     preview.load_peaks('')
-    np.testing.assert_array_equal(preview.axes['fname_co2'][0].lines[1].get_ydata(), [3, 5])
+    np.testing.assert_array_equal(
+        preview.axes['fname_co2'][0].lines[1].get_ydata(), [3, 5]
+    )
     preview.load('fname_co2', '')
     assert not preview.axes['fname_co2'][0].lines
 
@@ -208,9 +218,15 @@ def test_workflow_uses_explicit_peaks_with_phys(page, tmp_path):
     signal = tmp_path / 'signal.phys'
     pk.save_physio(
         str(signal),
-        pk.Physio(np.arange(20.0), fs=2, metadata={
-            'peaks': np.array([3, 10]), 'troughs': np.array([]), 'reject': np.array([])
-        }),
+        pk.Physio(
+            np.arange(20.0),
+            fs=2,
+            metadata={
+                'peaks': np.array([3, 10]),
+                'troughs': np.array([]),
+                'reject': np.array([]),
+            },
+        ),
     )
     peaks = tmp_path / 'peaks.txt'
     np.savetxt(peaks, [4, 12], fmt='%d')
@@ -223,8 +239,11 @@ def test_workflow_uses_explicit_peaks_with_phys(page, tmp_path):
     with patch('phys2cvr.workflows.compute_petco2hrf', side_effect=Captured) as compute:
         with pytest.raises(Captured):
             phys2cvr(
-                str(func), fname_co2=str(signal), fname_pidx=str(peaks),
-                outdir=str(tmp_path / 'out'), tr=1,
+                str(func),
+                fname_co2=str(signal),
+                fname_pidx=str(peaks),
+                outdir=str(tmp_path / 'out'),
+                tr=1,
             )
     np.testing.assert_array_equal(compute.call_args.args[1], [4, 12])
 
@@ -259,7 +278,9 @@ def test_form_dependencies_and_metadata(page, tmp_path):
     assert not form.fields['fourier_order'].disabled
 
     form.fields['apply_filter'].toggle()
-    assert all(not form.fields[k].disabled for k in ('highcut', 'lowcut', 'butter_order'))
+    assert all(
+        not form.fields[k].disabled for k in ('highcut', 'lowcut', 'butter_order')
+    )
     form.fields['response_function'].value = '--response-function-path'
     form._update_form_state()
     assert not form.response_path.disabled
@@ -284,12 +305,35 @@ def test_form_dependencies_and_metadata(page, tmp_path):
 @pytest.mark.parametrize(
     ('option', 'expected'),
     [
-        ('--brightspin', {'lag_max': 9, 'lag_min': -9, 'lag_step': 0.3,
-                          'legacy': True, 'r2model': 'full'}),
-        ('--baltimore', {'apply_filter': True, 'highcut': .04, 'lowcut': .02,
-                         'fname_co2': None, 'lagged_regression': False}),
-        ('--fourier-set-lag', {'fourier_order': 3, 'skip_xcorr': True,
-                               'response_function': None, 'lagged_regression': True}),
+        (
+            '--brightspin',
+            {
+                'lag_max': 9,
+                'lag_min': -9,
+                'lag_step': 0.3,
+                'legacy': True,
+                'r2model': 'full',
+            },
+        ),
+        (
+            '--baltimore',
+            {
+                'apply_filter': True,
+                'highcut': 0.04,
+                'lowcut': 0.02,
+                'fname_co2': None,
+                'lagged_regression': False,
+            },
+        ),
+        (
+            '--fourier-set-lag',
+            {
+                'fourier_order': 3,
+                'skip_xcorr': True,
+                'response_function': None,
+                'lagged_regression': True,
+            },
+        ),
     ],
 )
 def test_workflow_preset_updates_fields(page, option, expected):

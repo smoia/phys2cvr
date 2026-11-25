@@ -200,14 +200,17 @@ def test_result_folder_populates_comparison_and_latest_log(tmp_path):
     newer.write_text('new')
     os.utime(older, (100, 100))
     os.utime(newer, (200, 200))
-    load_result_folder(str(tmp_path), viewer, diffviewer=comparison, logviewer=logviewer)
+    load_result_folder(
+        str(tmp_path), viewer, diffviewer=comparison, logviewer=logviewer
+    )
     np.testing.assert_array_equal(comparison.data['cvr_base'], data)
     comparison.refresh.assert_called_once()
     logviewer.load.assert_called_once_with(str(newer))
     older.unlink()
     newer.unlink()
-    load_result_folder(str(tmp_path), comparison, comparison_version='comp',
-                       logviewer=logviewer)
+    load_result_folder(
+        str(tmp_path), comparison, comparison_version='comp', logviewer=logviewer
+    )
     logviewer.clear.assert_called_once()
     np.testing.assert_array_equal(comparison.data['cvr_comp'], data)
 
@@ -265,7 +268,10 @@ def test_comparison_gui_interactions(tmp_path):
         viewer.refresh()
         for kind, chart in viewer.summary_charts.items():
             axis = chart.figure.axes[0]
-            assert (axis.get_facecolor(), axis.spines['bottom'].get_edgecolor()) == colors[kind]
+            assert (
+                axis.get_facecolor(),
+                axis.spines['bottom'].get_edgecolor(),
+            ) == colors[kind]
         assert len(viewer.summary_charts['cvr'].figure.axes[0].patches) == 1
         assert len(viewer.summary_charts['lag'].figure.axes[0].patches) == 1
         r2_axis = viewer.summary_charts['r2'].figure.axes[0]
