@@ -1,3 +1,15 @@
+# 0.38.1 (Wed Nov 25 2026)
+
+#### 🐛 Bug Fix
+
+- fix: Fix R² export CLI flags ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.38.0 (Wed Nov 25 2026)
 
 #### 🚀 Enhancement
