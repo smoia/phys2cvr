@@ -52,9 +52,18 @@ class WorkflowSetter:
 
     def build(self):
         """Create controls for all workflow arguments."""
-        with bs.Row(horizontal='stretch', gap=12, padding=8):
-            self.run_button = bs.Button('Run phys2cvr', on_click=self.run)
-            self.status = bs.Label('Ready')
+        with bs.Row(horizontal='stretch', horizontal_items='center', gap=12, padding=8):
+            self.run_button = bs.Button(
+                'Run phys2cvr',
+                accent='success',
+                variant='solid',
+                disabled=True,
+                on_click=self.run,
+            )
+            self.status = bs.Label(
+                'Waiting for functional data (at least)',
+                accent='secondary',
+            )
 
         with bs.Row(
             grow=True,
@@ -102,7 +111,7 @@ class WorkflowSetter:
                     group.title,
                     padding=8,
                     horizontal='stretch',
-                    accent='warning'
+                    accent='primary'
                     if any(action.required for action in actions)
                     else None,
                 ) as group_box:
