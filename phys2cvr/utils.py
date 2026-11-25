@@ -271,7 +271,7 @@ def load_and_stack_matrices(matrix_files, base_matrix=None, label=None):
 
 def save_bash_call(fname, outdir):
     """
-    Save the bash call into file `p2d_call.sh`.
+    Save the bash call into file `p2c_call.sh`.
 
     Parameters
     ----------
@@ -295,6 +295,51 @@ def save_bash_call(fname, outdir):
 
     with open(script_file, 'a', encoding='utf-8') as f:
         f.write(f'#!bin/bash \n{call_str}')
+
+
+def save_python_call(params, export_call=True):
+    """
+    Save the python call into file `p2c_call.py`.
+
+    Parameters
+    ----------
+    params : dictionary
+        Parameters that were used to invoke phys2cvr
+    export_call : bool
+        If True, create a file in the logs folder with the python call to be (re)called
+        later.
+        If False, return the python call as string instead.
+
+    Returns
+    -------
+    call : str
+        If
+    """
+    params = ', '.join(f'{k}={v!r}' for k, v in params.items())
+
+    pycall = (
+        '#!/usr/bin/env python3\n\nimport phys2cvr as p2c'
+        '\n\np2c.workflows.phy2cvr({params})'
+    )
+
+    if export_call:
+        outdir = params['outdir']
+        fname = params['fname_func']
+
+        outdir = Path(outdir).resolve() if outdir else Path(fname).parent / 'phys2cvr'
+
+        log_path = outdir / 'logs'
+        log_path.mkdir(parents=True, exist_ok=True)
+
+        isotime = datetime.datetime.now().strftime('%Y-%m-%dT%H%M%S')
+        _, fname, _ = check_ext('.nii.gz', os.path.basename(fname), remove=True)
+
+        script_file = log_path / f'p2c_call_{fname}_{isotime}.py'
+
+        with open(script_file, 'a', encoding='utf-8') as f:
+            f.write(pycall)
+    else:
+        return pycall
 
 
 """

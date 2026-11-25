@@ -261,6 +261,7 @@ def phys2cvr(
         - If physiological file is a txt file and no peaks were provided.
         - If physiological file is lacking frequency and the latter was not specified.
     """
+    utils.save_python_call(locals())
     # If lagged regression is selected, make sure run_regression is true.
     if extra_matrix_file is None:
         extra_matrix_file = []
