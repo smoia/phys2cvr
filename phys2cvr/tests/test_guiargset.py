@@ -88,12 +88,15 @@ def test_argument_groups_use_groupboxes(page):
     assert all(isinstance(group, bs.GroupBox) for group in form.groups)
     for group in form.groups:
         style = group._internal.cget('style')
-        assert ('.warning.' in style) == (group.title == 'Required Argument')
+        assert ('.primary.' in style) == (group.title == 'Required Argument')
 
 
 def test_input_previews_and_navigation(page, tmp_path):
     form, shell = page
     preview = form.preview
+    axis = preview.axes['fname_func'][0]
+    original_color = axis.get_facecolor()
+    original_spine = axis.spines['bottom'].get_edgecolor()
     shell._internal.update()
     left = form.form_scroll._internal.winfo_width()
     right = preview.container._internal.winfo_width()
@@ -117,6 +120,8 @@ def test_input_previews_and_navigation(page, tmp_path):
         form.fields[key].value = str(paths[key])
         form.fields[key]._entry_widget().event_generate('<<Change>>')
     np.testing.assert_array_equal(preview.data['fname_func'], volume.mean(axis=-1))
+    assert axis.get_facecolor() == original_color
+    assert axis.spines['bottom'].get_edgecolor() == original_spine
     np.testing.assert_array_equal(preview.data['fname_mask'], mask.astype(bool))
     np.testing.assert_array_equal(preview.data['fname_roi'], mask.astype(bool))
     event = SimpleNamespace(

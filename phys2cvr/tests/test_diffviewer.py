@@ -209,6 +209,13 @@ def test_comparison_gui_interactions(tmp_path):
     try:
         assert len(viewer.charts) == 9
         assert set(viewer.summary_charts) == {'cvr', 'lag', 'r2'}
+        colors = {
+            kind: (
+                chart.figure.axes[0].get_facecolor(),
+                chart.figure.axes[0].spines['bottom'].get_edgecolor(),
+            )
+            for kind, chart in viewer.summary_charts.items()
+        }
         for col, kind in enumerate(('cvr', 'lag', 'r2'), start=1):
             chart = viewer.summary_charts[kind]._internal
             assert chart.grid_info()['row'] == 3
@@ -228,6 +235,9 @@ def test_comparison_gui_interactions(tmp_path):
             'base',
         )
         viewer.refresh()
+        for kind, chart in viewer.summary_charts.items():
+            axis = chart.figure.axes[0]
+            assert (axis.get_facecolor(), axis.spines['bottom'].get_edgecolor()) == colors[kind]
         assert len(viewer.summary_charts['cvr'].figure.axes[0].patches) == 1
         assert len(viewer.summary_charts['lag'].figure.axes[0].patches) == 1
         r2_axis = viewer.summary_charts['r2'].figure.axes[0]

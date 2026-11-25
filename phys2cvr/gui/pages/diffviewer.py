@@ -451,7 +451,10 @@ class DiffViewer(MapViewerControls):
                 continue
             fig = chart.figure
             axis = fig.axes[0] if fig.axes else fig.add_subplot()
-            axis.clear()
+            for artist in (*axis.patches, *axis.lines):
+                artist.remove()
+            if axis.get_legend() is not None:
+                axis.get_legend().remove()
             if kind in ('cvr', 'lag'):
                 values = {}
                 for ver in ('base', 'comp'):
@@ -488,6 +491,8 @@ class DiffViewer(MapViewerControls):
                 axis.set_xlabel('Lag index')
                 axis.set_ylabel('R²')
                 axis.set_title(f'R² at voxel {tuple(self.curr)}')
+            axis.relim()
+            axis.autoscale_view()
             if axis.get_legend_handles_labels()[0]:
                 axis.legend()
             chart.draw()

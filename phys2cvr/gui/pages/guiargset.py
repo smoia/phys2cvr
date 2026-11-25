@@ -423,7 +423,8 @@ class WorkflowPreview:
         axes = self.axes[key]
         data = self.data[key]
         for axis in axes:
-            axis.clear()
+            for artist in (*axis.images, *axis.lines, *axis.texts):
+                artist.remove()
         if key == 'fname_co2':
             axis = axes[0]
             frequency = self.frequency or self.file_frequency
@@ -432,6 +433,8 @@ class WorkflowPreview:
                 if frequency:
                     time = time / frequency
                 axis.plot(time, data)
+                axis.relim()
+                axis.autoscale_view()
             axis.set_xlabel('Time (s)' if frequency else 'Sample')
             axis.set_title(self._titles[key])
         else:
