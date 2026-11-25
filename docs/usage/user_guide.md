@@ -54,8 +54,8 @@ grouped controls. Hover over a control for its CLI help. Matrix inputs accept
 one file path per line or multiple files selected with the browse button.
 Optional numeric fields may be left blank to use the CLI default. Select a
 custom response-function file using the response-function selector and its
-file field. Workflow presets override the same options they override on the
-command line. The preview column shows the mean functional volume, regressor,
+file field. Selecting a workflow preset applies its command-line overrides to
+the form so the resulting settings are visible. The preview column shows the mean functional volume, regressor,
 mask, and ROI mask as their paths are selected. Click a slice to move its
 crosshairs or scroll over it to change slices; a 1D functional input has no
 volume preview. The regressor preview marks peaks from a `.phys` file or an

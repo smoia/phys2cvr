@@ -1,6 +1,7 @@
 """Configure and run a phys2cvr workflow."""
 
 import argparse
+import copy
 import logging
 import math
 import subprocess
@@ -94,6 +95,7 @@ class WorkflowSetter:
         for dest in ('apply_filter', 'run_regression', 'lagged_regression',
                      'response_function'):
             self.fields[dest].on_change(lambda event: self._update_form_state())
+        self.fields['workflow_config'].on_change(lambda event: self._apply_preset())
         self._update_form_state()
         self.run_button.on_destroy(lambda event: self._stop())
         return self
@@ -141,7 +143,18 @@ class WorkflowSetter:
                 'Configure the workflow. Hover over a field for CLI help.',
                 font='body',
             )
-            for group in self.parser._action_groups:
+            groups = list(self.parser._action_groups)
+            preset = next(
+                group for group in groups
+                if any(a.dest == 'workflow_config' for a in group._group_actions)
+            )
+            phys = next(
+                group for group in groups
+                if any(a.dest == 'fname_co2' for a in group._group_actions)
+            )
+            groups.remove(preset)
+            groups.insert(groups.index(phys) + 1, preset)
+            for group in groups:
                 actions = [
                     action
                     for action in group._group_actions
@@ -246,8 +259,7 @@ class WorkflowSetter:
             existing = field.value.splitlines()
             field.value = '\n'.join(existing + list(paths))
 
-    def arguments(self):
-        """Return CLI arguments after validating the form and parser constraints."""
+    def _argument_vector(self, *, require_func=True):
         argv = []
         for dest, action in self.actions.items():
             field = self.fields[dest]
@@ -285,7 +297,14 @@ class WorkflowSetter:
             elif field.text.strip():
                 argv.extend([_option(action), field.text.strip()])
             elif action.required:
-                raise ValueError(f'{_label(action)} is required.')
+                if require_func:
+                    raise ValueError(f'{_label(action)} is required.')
+                argv.extend([_option(action), '__gui_placeholder__'])
+        return argv
+
+    def arguments(self):
+        """Return CLI arguments after validating the form and parser constraints."""
+        argv = self._argument_vector()
 
         def parser_error(message):
             raise ValueError(message)
@@ -294,6 +313,45 @@ class WorkflowSetter:
         parser.error = parser_error
         _check_opt_conf(parser.parse_args(argv))
         return argv
+
+    def _apply_preset(self):
+        option = self.fields['workflow_config'].value
+        if not option:
+            return
+        try:
+            def parser_error(message):
+                raise ValueError(message)
+
+            parser = _get_parser()
+            parser.error = parser_error
+            before = parser.parse_args(self._argument_vector(require_func=False))
+            after = _check_opt_conf(copy.copy(before))
+            for dest, action in self.actions.items():
+                if dest == 'workflow_config' or not hasattr(after, dest):
+                    continue
+                value = getattr(after, dest)
+                if value == getattr(before, dest):
+                    continue
+                field = self.fields[dest]
+                if dest in _GROUPED:
+                    choices = [
+                        a for a in parser._actions
+                        if a.dest == dest and isinstance(a, argparse._StoreConstAction)
+                        and a.const == value
+                    ]
+                    field.value = _option(choices[0]) if choices else ''
+                elif isinstance(action, (argparse._StoreTrueAction, argparse._StoreFalseAction)):
+                    field.value = value != action.default
+                elif value is None:
+                    field.clear()
+                else:
+                    field.value = value
+                if dest in ('fname_func', 'fname_co2', 'fname_mask', 'fname_roi'):
+                    self._on_input_path(dest)
+            self._update_form_state()
+        except (ValueError, NotImplementedError) as err:
+            LGR.warning('Could not apply workflow preset: %s', err)
+            bs.alert(str(err), title='Could not apply workflow preset', severity='warning')
 
     def run(self):
         """Validate inputs and start the workflow without blocking the GUI."""

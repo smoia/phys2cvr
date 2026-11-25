@@ -252,6 +252,34 @@ def test_form_dependencies_and_metadata(page, tmp_path):
     assert form.status.text == 'Waiting for functional data (at least)'
 
 
+@pytest.mark.parametrize(
+    ('option', 'expected'),
+    [
+        ('--brightspin', {'lag_max': 9, 'lag_min': -9, 'lag_step': 0.3,
+                          'legacy': True, 'r2model': 'full'}),
+        ('--baltimore', {'apply_filter': True, 'highcut': .04, 'lowcut': .02,
+                         'fname_co2': None, 'lagged_regression': False}),
+        ('--fourier-set-lag', {'fourier_order': 3, 'skip_xcorr': True,
+                               'response_function': None, 'lagged_regression': True}),
+    ],
+)
+def test_workflow_preset_updates_fields(page, option, expected):
+    form, _ = page
+    titles = [group.title for group in form.groups]
+    assert titles[4] == 'Optional Arguments to set up specific workflows'
+    form.fields['fname_co2'].value = ''
+    form.fields['workflow_config'].value = option
+    form._apply_preset()
+    form.fields['fname_func'].value = '/tmp/func.nii.gz'
+    parsed = _get_parser().parse_args(form.arguments())
+    for dest, value in expected.items():
+        assert getattr(parsed, dest) == value
+    assert form.fields['highcut'].disabled == (not form.fields['apply_filter'].value)
+    assert form.fields['lag_max'].disabled == (
+        form.fields['run_regression'].value or form.fields['lagged_regression'].value
+    )
+
+
 def test_all_argument_types_and_validation(page):
     form, _ = page
     form.fields['fname_func'].value = '/tmp/input file.nii.gz'
