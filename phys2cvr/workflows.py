@@ -66,6 +66,7 @@ def phys2cvr(
     comp_endtidal=True,
     response_function='hrf',
     export_r2=False,
+    open_voxelviewer=False,
     n_jobs=1,
     quiet=False,
     debug=False,
@@ -225,6 +226,8 @@ def phys2cvr(
         See `signal.compute_petco2hrf` for details.
     export_r2 : bool, optional
         Export R² over lags volumes. Default skips it (unless called via GUI).
+    open_voxelviewer : bool, optional
+        Open GUI's voxelviewer on workflow end. Default is not to (unless called via GUI).
     n_jobs : int, optional
         Number of jobs to use to run the L-GLM in parallel. Requires joblib and tqdm
         to be installed. If 0 or less, consider a third of the available processors to
@@ -930,6 +933,19 @@ def phys2cvr(
         )
 
     LGR.info('phys2cvr finished! Enjoy your outputs!')
+
+    if open_voxelviewer:
+        try:
+            from phys2cvr.gui import app
+
+            app._main(['-rfld', outdir])
+        except ImportError:
+            LGR.warning(
+                "Could not open phys2cvr's GUI because the required modules "
+                'are not installed. Try to reinstall phys2cvr with:\n'
+                "pip3 install 'phys2cvr[gui]'\n"
+                'You can always open it independently.'
+            )
 
 
 def _main(argv=None):
