@@ -101,6 +101,8 @@ def build_app(voxelviewer, *, show_splash=False):
             'A+', parent=ssb, on_click=lambda: shell.zoom.change(1)
         )
         bs.ThemeToggle(parent=ssb)
+        if shell.startup_splash:
+            shell.startup_splash.update_progress(1, 'Building status bar')
 
         # --- Pages ----------------------------------------------------------
         with shell.page_nav() as nav:
@@ -108,17 +110,25 @@ def build_app(voxelviewer, *, show_splash=False):
                 'voxelviewer', text='Voxel viewer', icon='clipboard2-pulse'
             ):
                 voxelviewer.build()
+            if shell.startup_splash:
+                shell.startup_splash.update_progress(2, 'Building voxel viewer')
             with nav.add_page(
                 'workflowsetter', text='Run phys2cvr', icon='terminal-fill'
             ):
                 workflowsetter = build_workflow_setter()
+            if shell.startup_splash:
+                shell.startup_splash.update_progress(3, 'Building workflow page')
             with nav.add_page('diffviewer', text='Comparison', icon='subtract'):
                 diffviewer = DiffViewer()
                 diffviewer.build()
+            if shell.startup_splash:
+                shell.startup_splash.update_progress(4, 'Building comparison viewer')
             with nav.add_page(
                 'logviewer', text='Log viewer', icon='file-earmark-richtext-fill'
             ):
                 logviewer = build_log_viewer()
+            if shell.startup_splash:
+                shell.startup_splash.update_progress(5, 'Building log viewer')
         voxelviewer.linked_diffviewer = diffviewer
         voxelviewer.linked_logviewer = logviewer
         diffviewer.linked_logviewer = logviewer
@@ -143,6 +153,8 @@ def build_app(voxelviewer, *, show_splash=False):
         workflowsetter.on_complete = show_workflow_results
         shell.workflowsetter = workflowsetter
         shell.navigate('voxelviewer')
+        if shell.startup_splash:
+            shell.startup_splash.update_progress(6, 'Application ready')
     return shell
 
 

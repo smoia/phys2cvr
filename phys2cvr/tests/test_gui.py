@@ -28,12 +28,24 @@ if GUI_AVAILABLE:
     GUI_AVAILABLE and HAS_DISPLAY, 'GUI requires bootstack and a display'
 )
 def test_splash_and_app_startup():
-    from phys2cvr.gui.splash import CITATION
+    from phys2cvr.gui.splash import CITATION, SplashScreen
 
-    shell = app.build_app(VoxelViewer(), show_splash=True)
+    milestones = []
+    update = SplashScreen.update_progress
+
+    def track(splash, step, message):
+        update(splash, step, message)
+        milestones.append((step, splash.progress['value'], message))
+
+    with patch.object(SplashScreen, 'update_progress', track):
+        shell = app.build_app(VoxelViewer(), show_splash=True)
     try:
         assert shell.startup_splash.window.winfo_ismapped()
         assert '10.5281/zenodo.5559756' in CITATION
+        assert [step for step, value, _ in milestones if step == value] == list(
+            range(1, 7)
+        )
+        assert milestones[-1][2] == 'Application ready'
     finally:
         shell.startup_splash.close()
     try:
