@@ -29,7 +29,9 @@ class LogViewer:
             vertical_items='stretch',
             gap=8,
         ):
-            with bs.Column(column=0, row=0, vertical='center', padding=8, height=180):
+            with bs.Column(
+                column=0, row=0, vertical='center', padding=8, width=80, height=180
+            ):
                 bs.Label('Font size')
                 self.font_slider = bs.Slider(
                     12,

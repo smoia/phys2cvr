@@ -117,6 +117,22 @@ class TestLogViewer(unittest.TestCase):
             self.viewer.font_slider.value = 20
             self.shell._internal.update()
             self.assertEqual(self.viewer.font.cget('size'), 20)
+            self.viewer.font_slider.value = 8
+            self.shell._internal.update()
+            self.assertEqual(self.viewer.font.cget('size'), 8)
+            self.assertEqual(self.log_area.value, 'log content')
+            slider = self.viewer.font_slider._internal
+            area = self.log_area._internal
+            self.assertLess(slider.winfo_rootx(), area.winfo_rootx())
+            self.assertLess(
+                abs(
+                    slider.winfo_rooty()
+                    + slider.winfo_height() / 2
+                    - area.winfo_rooty()
+                    - area.winfo_height() / 2
+                ),
+                40,
+            )
             other = root / 'other'
             other.mkdir()
             other_log = other / 'log.tsv'
