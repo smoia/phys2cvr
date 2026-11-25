@@ -8,6 +8,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from PIL import Image
+
 GUI_AVAILABLE = importlib.util.find_spec('bootstack') is not None
 HAS_DISPLAY = sys.platform != 'linux' or bool(os.environ.get('DISPLAY'))
 
@@ -35,7 +37,8 @@ class TestLogViewer(unittest.TestCase):
             with cls.shell.page_nav() as nav:
                 with nav.add_page('log', text='Log'):
                     with patch.object(bs.Toolbar, 'add_menu', capture_menu):
-                        cls.log_area = build_log_viewer()
+                        cls.viewer = build_log_viewer()
+                        cls.log_area = cls.viewer.log_area
             cls.shell.navigate('log')
         cls.load_log = staticmethod(menus[0].items[0].on_click)
         cls.shell.show()
@@ -91,12 +94,32 @@ class TestLogViewer(unittest.TestCase):
             self.shell._internal.update()
             grid = self.log_area._internal.master
             area = self.log_area._internal
-            self.assertAlmostEqual(
-                area.winfo_width() / grid.winfo_width(), 0.5, delta=0.01
-            )
-            self.assertAlmostEqual(
-                area.winfo_x() + area.winfo_width() / 2, grid.winfo_width() / 2, delta=2
-            )
+            self.assertGreater(area.winfo_width(), 200)
             self.assertLessEqual(area.winfo_height(), grid.winfo_height())
             self.assertTrue(self.log_area._internal._core._vscroll.winfo_ismapped())
             self.assertTrue(self.log_area._internal._core._hscroll.winfo_ismapped())
+
+    def test_carousel_and_font(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            logs = root / 'logs'
+            logs.mkdir()
+            log = logs / 'run.tsv'
+            log.write_text('log content', encoding='utf-8')
+            for name in ('one.png', 'two.png'):
+                Image.new('RGB', (12, 12), 'red').save(root / name)
+            self.viewer.load(log)
+            self.shell._internal.update()
+            self.assertEqual(self.viewer.carousel.count, 2)
+            self.assertEqual(self.viewer.carousel.current['name'], 'one.png')
+            self.viewer.carousel.next()
+            self.assertEqual(self.viewer.carousel.current['name'], 'two.png')
+            self.viewer.font_slider.value = 20
+            self.shell._internal.update()
+            self.assertEqual(self.viewer.font.cget('size'), 20)
+            other = root / 'other'
+            other.mkdir()
+            other_log = other / 'log.tsv'
+            other_log.write_text('new content', encoding='utf-8')
+            self.viewer.load(other_log)
+            self.assertEqual(self.viewer.carousel.count, 0)

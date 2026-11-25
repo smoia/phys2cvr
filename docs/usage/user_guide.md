@@ -65,6 +65,10 @@ The run button starts a separate process, keeping the GUI responsive;
 the page reports completion or an error. Closing the application stops an
 active workflow.
 
+The **Log viewer** loads a log and displays PNG images found in its result
+folder in a navigable carousel. Use the slider beside the log to change its
+font size.
+
 To run the GUI tests with pytest, install the test and GUI extras and use a
 graphical display. On headless Linux, use Xvfb:
 
