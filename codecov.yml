@@ -1,17 +1,35 @@
+github_checks:  # too noisy, even though "a" interactively disables them
+  annotations: false
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: no
+
 codecov:
-  branch: master
-  strict_yaml_branch: master
-  require_ci_to_pass: yes
-  bot: "codecov-io"
-  ci:
-    - "travis.org"
-  max_report_age: 48
-  disable_default_path_fixes: no
+  notify:
+    require_ci_to_pass: true
 
 coverage:
   precision: 2
   round: down
   range: "60...90"
+  status:
+    patch:
+      default:
+        informational: true
+        target: 90%
+        if_no_uploads: error
+        if_not_found: success
+        if_ci_failed: error
+    project:
+      default: false
+      library:
+        informational: true
+        target: 90%
+        if_no_uploads: error
+        if_not_found: success
+        if_ci_failed: error
 
 parsers:
   gcov:
@@ -23,16 +41,12 @@ parsers:
 
 ignore:
   - "docs"
-  - "phys2bids/_version.py"
+  - "logos"
+  - "phys2cvr/cmaps"
+  - "phys2cvr/cli"
+  - "phys2cvr/_version.py"
   - "**/__init__.py"
   - "**/**/__init__.py"
-  - "phys2bids/tests"
-  - "phys2bids/heuristics"
-  - "phys2bids/due.py"
+  - "phys2cvr/tests"
   - ".*rc"
   - ".github"
-
-comment:
-  layout: "reach,diff,flags,tree"
-  behavior: default
-  require_changes: no
