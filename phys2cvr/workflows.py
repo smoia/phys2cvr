@@ -385,6 +385,9 @@ def phys2cvr(
                 'the extension was not specified.'
             )
 
+        if not np.any(dmask):
+            raise ValueError(f'{fname_func} seems to be empty.')
+
         if len(func.shape) < 4:
             raise ValueError(f'Provided functional file {fname_func} is not a 4D file!')
         # Read TR or declare its overwriting
@@ -400,6 +403,10 @@ def phys2cvr(
             if func.shape[:3] != mask.shape:
                 raise ValueError(f'{fname_mask} and {fname_func} have different sizes!')
             mask &= dmask
+            if not np.any(mask):
+                raise ValueError(
+                    f'The intersection of {fname_mask} and the data mask is empty.'
+                )
             LGR.info(
                 f'Masking {os.path.basename(fname_func)} using {os.path.basename(fname_mask)}'
             )
@@ -420,6 +427,10 @@ def phys2cvr(
             if func.shape[:3] != roi.shape:
                 raise ValueError(f'{fname_roi} and {fname_func} have different sizes!')
             roi &= mask
+            if not np.any(roi):
+                raise ValueError(
+                    f'The intersection of {fname_roi} and {fname_mask} is empty.'
+                )
             roiref = os.path.basename(fname_roi)
         else:
             roi = mask
