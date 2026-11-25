@@ -32,6 +32,8 @@ jobs:
     # CircleCI will report the results back to your VCS provider.
     steps:
       - checkout
+      # Install hdf5
+      - run: sudo apt-get update && sudo apt-get install libhdf5-dev
       - python/install-packages:
           path-args: .[test]
           pypi-cache: false
@@ -45,9 +47,9 @@ jobs:
           # This assumes pytest is installed via the install-package step above
           command: |
             pytest --cov --cov-branch  --cov-report=xml --junitxml=test-results/junit.xml -o junit_family=legacy --cov=./phys2cvr
-            codecovcli do-upload --report-type test_results --file test-results/junit.xml
             mkdir /tmp/src/coverage
             mv ./.coverage /tmp/src/coverage/.coverage.py311
+            mv test-results/junit.xml /tmp/src/coverage/junit11.xml
       - store_test_results:
           path: test-results
       - store_artifacts:
@@ -60,6 +62,7 @@ jobs:
           # Must be relative path from root
           paths:
             - src/coverage/.coverage.py311
+            - src/coverage/junit11.xml
 
   test315:
     docker:
@@ -68,6 +71,8 @@ jobs:
     resource_class: medium
     steps:
       - checkout
+      # Install hdf5
+      - run: sudo apt-get update && sudo apt-get install libhdf5-dev
       - python/install-packages:
           path-args: .[test]
           pypi-cache: false
@@ -79,8 +84,8 @@ jobs:
           command: |
             pytest --cov --cov-branch --cov-report=xml --junitxml=test-results/junit.xml -o junit_family=legacy --cov=./phys2cvr
             mkdir /tmp/src/coverage
-            codecovcli do-upload --report-type test_results --file test-results/junit.xml
             mv ./.coverage /tmp/src/coverage/.coverage.py315
+            mv test-results/junit.xml /tmp/src/coverage/junit15.xml
       - store_test_results:
           path: test-results
       - store_artifacts:
@@ -89,18 +94,19 @@ jobs:
           root: /tmp
           paths:
             - src/coverage/.coverage.py315
+            - src/coverage/junit15.xml
 
   merge_coverage:
     working_directory: /tmp/src/phys2cvr
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/python:3.14
     resource_class: small
     steps:
       - attach_workspace:
           at: /tmp
       - checkout
       - python/install-packages:
-          args: coverage
+          args: coverage codecov-cli
           pkg-manager: pip-dist
       - run:
           name: Merge coverage files
@@ -109,6 +115,7 @@ jobs:
             cd /tmp/src/coverage/
             coverage combine
             coverage xml
+            codecovcli do-upload --report-type test_results --file src/coverage/junit*.xml
       - store_artifacts:
           path: /tmp/src/coverage
       - codecov/upload:
