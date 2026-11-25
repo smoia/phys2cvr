@@ -656,7 +656,8 @@ def _get_parser():
 
     optional = parser.add_argument_group('Other Optional Arguments')
     optional.add_argument(
-        '-r2--export_rsquare',
+        '-r2',
+        '--export_rsquare',
         dest='export_r2',
         action='store_true',
         help=(
