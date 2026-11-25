@@ -70,10 +70,17 @@ class LogViewer:
         text = self.log_area._text_widget()
         self.font = tkfont.Font(root=text, font=text.cget('font'))
         text.configure(font=self.font)
+        self.zoom = 1.0
         self.font_slider.signal.subscribe(
-            lambda value: self.font.configure(size=int(value)), immediate=True
+            lambda value: self.font.configure(size=round(int(value) * self.zoom)),
+            immediate=True,
         )
         return self
+
+    def set_zoom(self, factor):
+        """Apply global zoom while preserving the slider's selected size."""
+        self.zoom = factor
+        self.font.configure(size=round(self.font_slider.value * factor))
 
     def _choose_log(self):
         path = bs.ask_open_file(

@@ -22,6 +22,10 @@ The optional GUI requires Python 3.12 or newer and Tk. Install it with
 python -m phys2cvr.gui.app
 ```
 
+Use the **A−** and **A+** buttons in the status bar to decrease or increase
+GUI and chart text sizes. The log viewer's font slider remains an independent
+adjustment on top of the global zoom.
+
 Use the viewer's **Load** menu to open a 4D fMRI timeseries, regressor matrix,
 CVR map, lag map, R² volume, mask, or result folder. These inputs can be viewed
 independently. The left settings panel controls voxel coordinates, map color

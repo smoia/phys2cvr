@@ -15,6 +15,7 @@ from phys2cvr.gui.pages.guiargset import build_workflow_setter
 from phys2cvr.gui.pages.logviewer import build_log_viewer
 from phys2cvr.gui.pages.voxelviewer import VoxelViewer
 from phys2cvr.gui.splash import SplashScreen
+from phys2cvr.gui.zoom import Zoom
 
 LGR = logging.getLogger(__name__)
 
@@ -93,6 +94,12 @@ def build_app(voxelviewer, *, show_splash=False):
         )
         ssb.add_text(f'phys2cvr v{__version__}')
         ssb.add_spacer()
+        shell.zoom_out = bs.Button(
+            'A−', parent=ssb, on_click=lambda: shell.zoom.change(-1)
+        )
+        shell.zoom_in = bs.Button(
+            'A+', parent=ssb, on_click=lambda: shell.zoom.change(1)
+        )
         bs.ThemeToggle(parent=ssb)
 
         # --- Pages ----------------------------------------------------------
@@ -115,6 +122,16 @@ def build_app(voxelviewer, *, show_splash=False):
         voxelviewer.linked_diffviewer = diffviewer
         voxelviewer.linked_logviewer = logviewer
         diffviewer.linked_logviewer = logviewer
+        shell.zoom = Zoom(
+            shell,
+            [
+                *voxelviewer.charts.values(),
+                *diffviewer.charts.values(),
+                *diffviewer.summary_charts.values(),
+                *workflowsetter.preview.charts.values(),
+            ],
+            logviewer,
+        )
 
         def show_workflow_results(folder):
             load_result_folder(

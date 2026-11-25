@@ -116,6 +116,40 @@ class TestViewer(unittest.TestCase):
     def test_application_shell(self):
         self.assertEqual(self.shell.current, 'voxelviewer')
 
+    def test_zoom_controls_update_existing_and_rebuilt_views(self):
+        from tkinter import font
+
+        viewer = self.viewer
+        viewer.data = dict.fromkeys(viewer.data_types)
+        viewer.timeseries = None
+        viewer.time = None
+        viewer.regressor_matrix = None
+        viewer.data['cvr'] = np.ones((3, 3, 3))
+        viewer.refresh()
+        original_font = font.nametofont('body').cget('size')
+        chart = viewer.charts['cvr']
+        original_plot_size = viewer.axes['cvr_axi'].title.get_fontsize()
+        logviewer = viewer.linked_logviewer
+        logviewer.font_slider.value = 15
+        self.shell.zoom_in._internal.invoke()
+        self.shell._internal.update()
+        self.assertGreater(font.nametofont('body').cget('size'), original_font)
+        self.assertGreater(
+            viewer.axes['cvr_axi'].title.get_fontsize(), original_plot_size
+        )
+        self.assertEqual(
+            logviewer.font.cget('size'), round(15 * self.shell.zoom.factor)
+        )
+        viewer.refresh()
+        self.assertAlmostEqual(
+            viewer.axes['cvr_axi'].title.get_fontsize(),
+            original_plot_size * self.shell.zoom.factor,
+        )
+        self.assertIs(chart, viewer.charts['cvr'])
+        self.shell.zoom_out._internal.invoke()
+        self.assertEqual(font.nametofont('body').cget('size'), original_font)
+        self.assertEqual(logviewer.font.cget('size'), 15)
+
     def test_result_folder_updates_comparison_and_log(self):
         from PIL import Image
 
