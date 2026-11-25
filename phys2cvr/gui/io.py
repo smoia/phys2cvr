@@ -3,6 +3,7 @@
 import glob
 import logging
 import os
+import shlex
 from pathlib import Path
 
 import nibabel as nib
@@ -35,7 +36,9 @@ def read_log_and_images(path):
 def latest_file(folder, pattern):
     """Find the most recently modified matching file, or None."""
     files = (path for path in Path(folder).glob(pattern) if path.is_file())
-    return max(files, key=lambda path: (path.stat().st_mtime_ns, str(path)), default=None)
+    return max(
+        files, key=lambda path: (path.stat().st_mtime_ns, str(path)), default=None
+    )
 
 
 def read_latest_calls(folder):
@@ -80,10 +83,15 @@ def load_result_folder(
                     if lines:
                         last_line = lines[-1].strip()
                         LGR.warning('Parsed command line: %s', last_line)
-                        parts = last_line.split()
+                        parts = shlex.split(last_line)
                         from phys2cvr.cli.run import _get_parser as get_p2c_parser
 
                         p2c_parser = get_p2c_parser()
+
+                        def parser_error(message):
+                            raise ValueError(message)
+
+                        p2c_parser.error = parser_error
                         args_p2c = p2c_parser.parse_args(parts[1:])
             except Exception as err:
                 LGR.warning('Could not parse call script %s: %s', latest_sh, err)
@@ -125,7 +133,12 @@ def load_result_folder(
     # Apply parameters extracted from logs
     if args_p2c is not None:
         func_path = resolve_path(getattr(args_p2c, 'fname_func', None))
-        if comparison_version is None and func_path and os.path.exists(func_path):
+        if (
+            comparison_version is None
+            and func_path
+            and str(func_path).lower().endswith(('.nii', '.nii.gz'))
+            and os.path.exists(func_path)
+        ):
             LGR.warning('Loading timeseries from log args: %s', func_path)
             viewer.set_timeseries(func_path)
 

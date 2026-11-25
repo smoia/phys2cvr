@@ -18,7 +18,9 @@ class SplashScreen:
         with Image.open(Path(__file__).parent / 'assets' / 'logo.png') as logo:
             logo.thumbnail((440, 180))
             self.image = ImageTk.PhotoImage(logo, master=self.window)
-        tk.Label(self.window, image=self.image, background='white').pack(padx=20, pady=8)
+        tk.Label(self.window, image=self.image, background='white').pack(
+            padx=20, pady=8
+        )
         tk.Label(self.window, text='Loading phys2cvr...', background='white').pack()
         tk.Label(self.window, text=CITATION, background='white').pack(padx=20, pady=12)
         self.window.update_idletasks()

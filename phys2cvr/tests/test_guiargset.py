@@ -63,14 +63,21 @@ def test_parser_fields_and_default_values(page):
         action.dest
         for action in parser._actions
         if not isinstance(action, (argparse._HelpAction, argparse._VersionAction))
+        and action.dest not in {'export_r2', 'open_voxelviewer'}
     }
     assert set(form.fields) == expected
     with pytest.raises(ValueError, match='required'):
         form.arguments()
     form.fields['fname_func'].value = '/tmp/functional input.nii.gz'
-    assert vars(parser.parse_args(form.arguments())) == vars(
-        parser.parse_args(['--input-func', '/tmp/functional input.nii.gz'])
+    expected_args = parser.parse_args(
+        [
+            '--input-func',
+            '/tmp/functional input.nii.gz',
+            '--export_rsquare',
+            '--open_voxelviewer',
+        ]
     )
+    assert vars(parser.parse_args(form.arguments())) == vars(expected_args)
     assert form.fields['tr'].value is None
 
 
@@ -486,11 +493,18 @@ def test_real_workflow_and_error_reporting(page, tmp_path):
         form.run_button._internal.invoke()
         assert form.process is not None
         assert form.run_button.disabled
+        assert form.run_dialog.title == 'Running phys2cvr'
+        assert 'open_voxelviewer=True' in form.run_call.value
+        assert 'export_r2=True' in form.run_call.value
         wait_for_workflow(form, shell)
     alert.assert_not_called()
     assert form.status.text == 'Workflow completed.'
+    assert form.progress.value == 100
+    assert form.run_detail.text == 'Workflow completed.'
     assert list((output / 'logs').glob('p2c_call_*.sh'))
+    assert list((output / 'logs').glob('p2c_call_*.py'))
     assert not form.run_button.disabled
+    form.run_dialog.destroy()
 
     form.fields['fname_func'].value = str(tmp_path / 'missing.txt')
     with patch.object(bs, 'alert') as alert:
@@ -498,6 +512,7 @@ def test_real_workflow_and_error_reporting(page, tmp_path):
         wait_for_workflow(form, shell)
     alert.assert_called_once()
     assert 'failed' in form.status.text.lower()
+    assert 'failed' in form.run_detail.text.lower()
     assert not form.run_button.disabled
 
 

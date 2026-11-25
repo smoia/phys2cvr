@@ -104,7 +104,7 @@ def build_app(voxelviewer, *, show_splash=False):
             with nav.add_page(
                 'workflowsetter', text='Run phys2cvr', icon='terminal-fill'
             ):
-                build_workflow_setter()
+                workflowsetter = build_workflow_setter()
             with nav.add_page('diffviewer', text='Comparison', icon='subtract'):
                 diffviewer = DiffViewer()
                 diffviewer.build()
@@ -115,6 +115,16 @@ def build_app(voxelviewer, *, show_splash=False):
         voxelviewer.linked_diffviewer = diffviewer
         voxelviewer.linked_logviewer = logviewer
         diffviewer.linked_logviewer = logviewer
+
+        def show_workflow_results(folder):
+            load_result_folder(
+                folder, voxelviewer, diffviewer=diffviewer, logviewer=logviewer
+            )
+            voxelviewer.refresh()
+            shell.navigate('voxelviewer')
+
+        workflowsetter.on_complete = show_workflow_results
+        shell.workflowsetter = workflowsetter
         shell.navigate('voxelviewer')
     return shell
 

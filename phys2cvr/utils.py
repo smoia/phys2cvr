@@ -11,6 +11,7 @@ LGR :
 import datetime
 import logging
 import os
+import shlex
 import sys
 from pathlib import Path
 
@@ -332,8 +333,7 @@ def save_bash_call(fname, outdir):
     outdir : str or path
         Output directory
     """
-    arg_str = ' '.join(sys.argv[1:])
-    call_str = f'phys2cvr {arg_str}'
+    call_str = shlex.join(['phys2cvr', *sys.argv[1:]])
 
     outdir = Path(outdir).resolve() if outdir else Path(fname).parent / 'phys2cvr'
 
@@ -345,8 +345,8 @@ def save_bash_call(fname, outdir):
 
     script_file = log_path / f'p2c_call_{fname}_{isotime}.sh'
 
-    with open(script_file, 'a', encoding='utf-8') as f:
-        f.write(f'#!bin/bash \n{call_str}')
+    with open(script_file, 'w', encoding='utf-8') as f:
+        f.write(f'#!/bin/bash\n{call_str}\n')
 
 
 def save_python_call(params, export_call=True):
@@ -365,13 +365,16 @@ def save_python_call(params, export_call=True):
     Returns
     -------
     call : str
-        If
+        Python call text when ``export_call`` is False.
     """
-    params = ', '.join(f'{k}={v!r}' for k, v in params.items())
+    arguments = ', '.join(
+        f'{k}={os.fspath(v) if isinstance(v, os.PathLike) else v!r}'
+        for k, v in params.items()
+    )
 
     pycall = (
-        '#!/usr/bin/env python3\n\nimport phys2cvr as p2c'
-        '\n\np2c.workflows.phy2cvr({params})'
+        '#!/usr/bin/env python3\n\nfrom phys2cvr.workflows import phys2cvr'
+        f'\n\nphys2cvr({arguments})\n'
     )
 
     if export_call:
@@ -388,7 +391,7 @@ def save_python_call(params, export_call=True):
 
         script_file = log_path / f'p2c_call_{fname}_{isotime}.py'
 
-        with open(script_file, 'a', encoding='utf-8') as f:
+        with open(script_file, 'w', encoding='utf-8') as f:
             f.write(pycall)
     else:
         return pycall

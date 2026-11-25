@@ -934,7 +934,7 @@ def phys2cvr(
 
     LGR.info('phys2cvr finished! Enjoy your outputs!')
 
-    if open_voxelviewer:
+    if open_voxelviewer and not os.environ.get('PHYS2CVR_GUI_SESSION'):
         try:
             from phys2cvr.gui import app
 

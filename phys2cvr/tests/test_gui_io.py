@@ -53,3 +53,31 @@ def test_latest_calls_use_modification_time_and_clear_absent_files(tmp_path):
     assert read_latest_calls(tmp_path) == ('new shell', 'python call')
     python.unlink()
     assert read_latest_calls(tmp_path) == ('new shell', '')
+
+
+def test_result_folder_parses_quoted_input_and_skips_non_nifti(tmp_path):
+    import shlex
+
+    logs = tmp_path / 'logs'
+    logs.mkdir()
+    viewer = Mock()
+    source = tmp_path / 'input file.nii.gz'
+    source.touch()
+    script = logs / 'p2c_call_a.sh'
+    script.write_text(
+        '#!/bin/bash\n' + shlex.join(['phys2cvr', '--input-func', str(source)]),
+        encoding='utf-8',
+    )
+    load_result_folder(tmp_path, viewer)
+    viewer.set_timeseries.assert_called_once_with(str(source))
+    viewer.reset_mock()
+    source = tmp_path / 'input file.txt'
+    source.touch()
+    script.write_text(
+        '#!/bin/bash\n' + shlex.join(['phys2cvr', '--input-func', str(source)]),
+        encoding='utf-8',
+    )
+    load_result_folder(tmp_path, viewer)
+    viewer.set_timeseries.assert_not_called()
+    script.write_text('#!/bin/bash\nphys2cvr --bad-option\n', encoding='utf-8')
+    load_result_folder(tmp_path, viewer)

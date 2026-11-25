@@ -4,9 +4,11 @@ import argparse
 import copy
 import logging
 import math
+import os
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 import bootstack as bs
 import nibabel as nib
@@ -15,12 +17,15 @@ from matplotlib.figure import Figure
 
 from phys2cvr.cli.run import _check_opt_conf, _get_parser
 from phys2cvr.gui.io import read_spatial_image
+from phys2cvr.gui.splash import CITATION
 from phys2cvr.gui.utils import clip_position, orthogonal_slices, slice_position
 from phys2cvr.io import EXT_ARRAY, load_array, load_physio
+from phys2cvr.utils import save_python_call
 
 LGR = logging.getLogger(__name__)
 
 _GROUPED = {'response_function', 'r2model', 'workflow_config'}
+_GUI_OPTIONS = {'export_r2', 'open_voxelviewer'}
 _DIRECTORIES = {'outdir', 'regr_dir'}
 _MULTI_FILES = {
     'denoise_matrix_file',
@@ -51,6 +56,8 @@ class WorkflowSetter:
         self.file_buttons = {}
         self.process = None
         self.output = None
+        self.on_complete = None
+        self.run_dialog = None
         self._tooltips = []
 
     def build(self):
@@ -177,6 +184,7 @@ class WorkflowSetter:
                     if not isinstance(
                         action, (argparse._HelpAction, argparse._VersionAction)
                     )
+                    and action.dest not in _GUI_OPTIONS
                 ]
                 if not actions:
                     continue
@@ -320,7 +328,7 @@ class WorkflowSetter:
 
     def arguments(self):
         """Return CLI arguments after validating the form and parser constraints."""
-        argv = self._argument_vector()
+        argv = [*self._argument_vector(), '--export_rsquare', '--open_voxelviewer']
 
         def parser_error(message):
             raise ValueError(message)
@@ -382,12 +390,20 @@ class WorkflowSetter:
             return
         try:
             argv = self.arguments()
+            options = _check_opt_conf(_get_parser().parse_args(argv))
+            call = save_python_call(vars(options), export_call=False)
+            self.result_folder = os.path.abspath(
+                options.outdir or Path(options.fname_func).parent / 'phys2cvr'
+            )
             output = tempfile.TemporaryFile(mode='w+t', encoding='utf-8')
             try:
+                env = os.environ.copy()
+                env['PHYS2CVR_GUI_SESSION'] = '1'
                 process = subprocess.Popen(
                     [sys.executable, '-m', 'phys2cvr.workflows', *argv],
                     stdout=output,
                     stderr=subprocess.STDOUT,
+                    env=env,
                 )
             except OSError:
                 output.close()
@@ -397,13 +413,36 @@ class WorkflowSetter:
             bs.alert(str(err), title='Could not start workflow', severity='danger')
             return
 
-        bs.toast('Running phys2cvr...', accent='warning')
         self.output = output
         self.process = process
         self.run_button.disabled = True
         self.status.text = 'Running phys2cvr…'
         self.status._internal.configure(accent='warning')
+        self._show_run_dialog(call)
         self.run_button.schedule.delay(250, self._poll)
+
+    def _show_run_dialog(self, call):
+        if self.run_dialog is not None and self.run_dialog._internal.winfo_exists():
+            self.run_dialog.destroy()
+        with bs.Window(
+            title='Running phys2cvr',
+            size=(700, 360),
+            parent=self.run_button,
+            center_on_parent=True,
+            on_close=lambda: self.process is None,
+            padding=12,
+            gap=8,
+            horizontal_items='stretch',
+        ) as self.run_dialog:
+            bs.Label('Running phys2cvr')
+            bs.Label(CITATION)
+            self.run_call = bs.TextArea(
+                value=call, label='Python call', height=8, read_only=True, grow=True
+            )
+            self.progress = bs.ProgressBar(mode='indeterminate', horizontal='stretch')
+            self.run_detail = bs.Label('Running (completion time is unknown)')
+        self.run_dialog.show()
+        self.progress.start()
 
     def _poll(self):
         code = self.process.poll()
@@ -415,12 +454,30 @@ class WorkflowSetter:
         self.output.close()
         self.output = None
         self.process = None
+        self.progress.stop()
         self.run_button.disabled = not bool(self.fields['fname_func'].text.strip())
         if code == 0:
+            self.progress._internal.configure(mode='determinate')
+            self.progress.value = 100
+            self.run_detail.text = 'Workflow completed.'
             bs.toast('phys2cvr workflow completed!', title='Success', accent='success')
             self.status.text = 'Workflow completed.'
             self.status._internal.configure(accent='success')
+            if self.on_complete is not None:
+                try:
+                    self.on_complete(self.result_folder)
+                except Exception as err:  # noqa: BLE001
+                    LGR.exception('Could not load workflow results')
+                    self.run_detail.text = (
+                        'Workflow completed; results could not be loaded.'
+                    )
+                    bs.alert(
+                        str(err),
+                        title='Could not load workflow results',
+                        severity='danger',
+                    )
         else:
+            self.run_detail.text = f'Workflow failed (exit code {code}).'
             bs.toast('phys2cvr workflow failed.', title='Failure', accent='danger')
             self.status.text = f'Workflow failed (exit code {code}).'
             self.status._internal.configure(accent='danger')

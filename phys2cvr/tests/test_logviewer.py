@@ -114,8 +114,12 @@ class TestLogViewer(unittest.TestCase):
             self.shell._internal.update()
             self.assertEqual(self.viewer.bash_call.value, 'shell')
             self.assertEqual(self.viewer.python_call.value, 'python')
-            self.assertEqual(int(self.viewer.bash_call._text_widget().cget('height')), 5)
-            self.assertEqual(int(self.viewer.python_call._text_widget().cget('height')), 5)
+            self.assertEqual(
+                int(self.viewer.bash_call._text_widget().cget('height')), 5
+            )
+            self.assertEqual(
+                int(self.viewer.python_call._text_widget().cget('height')), 5
+            )
             self.assertEqual(self.viewer.carousel.count, 2)
             self.assertEqual(self.viewer.carousel.current['name'], 'one.png')
             self.viewer.carousel.next()

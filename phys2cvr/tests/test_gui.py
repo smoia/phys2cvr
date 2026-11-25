@@ -4,6 +4,7 @@ import importlib.util
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -144,6 +145,35 @@ class TestViewer(unittest.TestCase):
             np.testing.assert_array_equal(
                 self.viewer.linked_diffviewer.data['cvr_base'], np.ones((2, 2, 2))
             )
+
+    def test_completed_workflow_loads_results_into_app(self):
+        form = self.shell.workflowsetter
+        with tempfile.TemporaryDirectory(prefix='workflow test ') as tmp:
+            root = Path(tmp)
+            source = root / 'functional input.nii.gz'
+            values = np.ones((3, 3, 3, 60)) * (10 + np.sin(np.arange(60) / 5))
+            image = nib.Nifti1Image(values, np.eye(4))
+            image.header.set_zooms((1, 1, 1, 2))
+            nib.save(image, source)
+            form.fields['fname_func'].value = str(source)
+            form.fields['outdir'].value = str(root / 'results')
+            form.fields['run_regression'].value = True
+            form.fields['lagged_regression'].value = True
+            form.fields['skip_xcorr'].value = True
+            form.fields['response_function'].value = '--no-response-function'
+            with patch.object(bs, 'alert') as alert:
+                form.run()
+                deadline = time.monotonic() + 40
+                while form.process is not None and time.monotonic() < deadline:
+                    self.shell._internal.update()
+                    time.sleep(0.05)
+                self.assertIsNone(form.process)
+                alert.assert_not_called()
+            self.assertEqual(self.shell.current, 'voxelviewer')
+            np.testing.assert_allclose(self.viewer.timeseries, values)
+            self.assertIn(str(source), self.viewer.linked_logviewer.python_call.value)
+            self.assertIn('phys2cvr', self.viewer.linked_logviewer.log_area.value)
+            self.assertEqual(form.progress.value, 100)
 
     def test_slider_without_timeseries(self):
         viewer = self.viewer

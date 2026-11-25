@@ -61,13 +61,16 @@ crosshairs or scroll over it to change slices; a 1D functional input has no
 volume preview. The regressor preview marks peaks from a `.phys` file or an
 explicit peaks file. Loading an image or `.phys` file fills the TR or frequency
 from its metadata. Controls unavailable under the selected options are disabled.
-The run button starts a separate process, keeping the GUI responsive;
-the page reports completion or an error. Closing the application stops an
-active workflow.
+The run button starts a separate process, keeping the GUI responsive. A window
+shows the Python call, citation, and an indeterminate progress bar while the
+workflow runs (its completion time is not known). On success, the results load
+into the viewers; on failure, an error is displayed. The GUI always exports
+the R² data needed by its viewer. Closing the application stops an active workflow.
 
 The **Log viewer** loads a log and displays PNG images found in its result
-folder in a navigable carousel. Use the slider beside the log to change its
-font size. Loading a result folder in the voxel viewer also populates the base
+folder in a navigable carousel, along with the latest saved Bash and Python calls
+from the log directory. Use the slider beside the log to change its font size.
+Loading a result folder in the voxel viewer also populates the base
 comparison and opens the most recently modified TSV log from `logs/`. Loading
 a comparison result folder updates the log viewer for that folder.
 
