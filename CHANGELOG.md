@@ -1,3 +1,15 @@
+# 0.38.0 (Wed Nov 25 2026)
+
+#### 🚀 Enhancement
+
+- Allow the export of R² over lags volumes even if not in debug mode. [#181](https://github.com/smoia/phys2cvr/pull/181) ([@smoia](https://github.com/smoia))
+
+#### Authors: 1
+
+- Stefano Moia ([@smoia](https://github.com/smoia))
+
+---
+
 # 0.37.0 (Wed Nov 25 2026)
 
 #### 🚀 Enhancement
