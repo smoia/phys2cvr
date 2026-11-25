@@ -65,6 +65,7 @@ def phys2cvr(
     regr_dir=None,
     comp_endtidal=True,
     response_function='hrf',
+    export_r2=False,
     n_jobs=1,
     quiet=False,
     debug=False,
@@ -222,6 +223,8 @@ def phys2cvr(
         If file, loads it.
         For `rrf` and `crf`, `phys2denoise` must be installed (see extra installs).
         See `signal.compute_petco2hrf` for details.
+    export_r2 : bool, optional
+        Export R² over lags volumes. Default skips it (unless called via GUI).
     n_jobs : int, optional
         Number of jobs to use to run the L-GLM in parallel. Requires joblib and tqdm
         to be installed. If 0 or less, consider a third of the available processors to
@@ -871,8 +874,8 @@ def phys2cvr(
                             debug,
                         )
 
-                if debug:
-                    LGR.debug('Export all betas, tstats, and R^2 volumes.')
+                if export_r2 or debug:
+                    LGR.info('Export R^2 over lags volume.')
                     newdim_all = deepcopy(img.header['dim'])
                     newdim_all[0], newdim_all[4] = 4, int(len(lag_range))
                     newpixdim_all = deepcopy(img.header['dim'])
@@ -885,6 +888,8 @@ def phys2cvr(
                         oimg_all,
                         f'{fname_out_func}_r_square_all{fname_ext}',
                     )
+                if debug:
+                    LGR.debug('Export all betas, tstats, and R^2 volumes.')
                     io.export_nifti(
                         tstat_all,
                         oimg_all,
