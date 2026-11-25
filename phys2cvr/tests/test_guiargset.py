@@ -111,6 +111,12 @@ def test_input_previews_and_navigation(page, tmp_path):
     for key in ('fname_func', 'fname_mask', 'fname_roi'):
         assert len(preview.axes[key]) == 3
         assert len(preview.charts[key].figure.axes) == 3
+        assert preview.charts[key].figure._suptitle.get_text() == preview._titles[key]
+        assert all(not axis.get_title() for axis in preview.axes[key])
+        assert (
+            preview.charts[key].figure._suptitle.get_color()
+            == preview.axes[key][0].title.get_color()
+        )
 
     shape = (3, 4, 5)
     volume = np.arange(np.prod(shape) * 2, dtype=float).reshape(*shape, 2)

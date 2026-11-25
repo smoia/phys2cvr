@@ -61,7 +61,9 @@ custom response-function file using the response-function selector and its
 file field. Selecting a workflow preset applies its command-line overrides to
 the form so the resulting settings are visible. The preview column shows the mean functional volume, regressor,
 mask, and ROI mask as their paths are selected. Click a slice to move its
-crosshairs or scroll over it to change slices; a 1D functional input has no
+crosshairs or scroll over it to change slices. Each set of orthogonal views has
+a shared title; voxel and comparison maps also show the selected voxel's value.
+A 1D functional input has no
 volume preview. The regressor preview marks peaks from a `.phys` file or an
 explicit peaks file. Loading an image or `.phys` file fills the TR or frequency
 from its metadata. Controls unavailable under the selected options are disabled.

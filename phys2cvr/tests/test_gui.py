@@ -59,6 +59,24 @@ def test_splash_and_app_startup():
 @unittest.skipUnless(
     GUI_AVAILABLE and HAS_DISPLAY, 'GUI requires bootstack and a display'
 )
+def test_zoom_does_not_leak_into_next_app():
+    from tkinter import font
+
+    shell = app.build_app(VoxelViewer())
+    base = font.nametofont('body').cget('size')
+    shell.zoom.change(2)
+    assert font.nametofont('body').cget('size') > base
+    shell.destroy()
+    next_shell = app.build_app(VoxelViewer())
+    try:
+        assert font.nametofont('body').cget('size') == base
+    finally:
+        next_shell.destroy()
+
+
+@unittest.skipUnless(
+    GUI_AVAILABLE and HAS_DISPLAY, 'GUI requires bootstack and a display'
+)
 class TestViewer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -141,6 +159,7 @@ class TestViewer(unittest.TestCase):
         original_font = font.nametofont('body').cget('size')
         chart = viewer.charts['cvr']
         original_plot_size = viewer.axes['cvr_axi'].title.get_fontsize()
+        original_title_size = chart.figure._suptitle.get_fontsize()
         logviewer = viewer.linked_logviewer
         logviewer.font_slider.value = 15
         self.shell.zoom_in._internal.invoke()
@@ -148,6 +167,10 @@ class TestViewer(unittest.TestCase):
         self.assertGreater(font.nametofont('body').cget('size'), original_font)
         self.assertGreater(
             viewer.axes['cvr_axi'].title.get_fontsize(), original_plot_size
+        )
+        self.assertAlmostEqual(
+            chart.figure._suptitle.get_fontsize(),
+            original_title_size * self.shell.zoom.factor,
         )
         self.assertEqual(
             logviewer.font.cget('size'), round(15 * self.shell.zoom.factor)
@@ -157,10 +180,38 @@ class TestViewer(unittest.TestCase):
             viewer.axes['cvr_axi'].title.get_fontsize(),
             original_plot_size * self.shell.zoom.factor,
         )
+        self.assertAlmostEqual(
+            chart.figure._suptitle.get_fontsize(),
+            original_title_size * self.shell.zoom.factor,
+        )
         self.assertIs(chart, viewer.charts['cvr'])
         self.shell.zoom_out._internal.invoke()
         self.assertEqual(font.nametofont('body').cget('size'), original_font)
         self.assertEqual(logviewer.font.cget('size'), 15)
+
+    def test_orthogonal_title_follows_theme(self):
+        from bootstack.style import set_theme
+
+        viewer = self.viewer
+        viewer.data = dict.fromkeys(viewer.data_types)
+        viewer.data['cvr'] = np.ones((2, 2, 2))
+        viewer.timeseries = None
+        viewer.regressor_matrix = None
+        viewer.lag_range = None
+        viewer.refresh()
+        figure = viewer.charts['cvr'].figure
+        try:
+            for theme in ('catppuccin-light', 'catppuccin-dark'):
+                set_theme(theme)
+                self.shell._internal.update()
+                figure.canvas.draw()
+                self.shell._internal.update()
+                self.assertEqual(
+                    figure._suptitle.get_color(),
+                    viewer.axes['cvr_sag'].title.get_color(),
+                )
+        finally:
+            set_theme('catppuccin-dark')
 
     def test_result_folder_updates_comparison_and_log(self):
         from PIL import Image
@@ -375,6 +426,15 @@ class TestViewer(unittest.TestCase):
         self.assertEqual(len({id(c.figure) for c in viewer.charts.values()}), 5)
         for kind in ('cvr', 'lag', 'mean'):
             fig = viewer.charts[kind].figure
+            self.assertTrue(
+                all(
+                    not viewer.axes[f'{kind}_{o}'].get_title()
+                    for o in ('sag', 'cor', 'axi')
+                )
+            )
+            self.assertEqual(
+                fig._suptitle.get_color(), viewer.axes[f'{kind}_axi'].title.get_color()
+            )
             images = [
                 viewer.imgs[f'{kind}_{orientation}']
                 for orientation in ('sag', 'cor', 'axi')
@@ -394,6 +454,9 @@ class TestViewer(unittest.TestCase):
             fig.canvas.callbacks.process('button_press_event', event)
             self.assertEqual(viewer.curr[:2], [1, 1])
             self.assertEqual(list(viewer.cross['lag_axi'][0].get_xdata()), [1, 1])
+            key = 'meanvol' if kind == 'mean' else kind
+            value = viewer.data[key][tuple(viewer.curr)]
+            self.assertIn(f'{value:.2f}', fig._suptitle.get_text())
 
         fig = viewer.charts['r2'].figure
         fig.canvas.draw()

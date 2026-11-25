@@ -18,7 +18,12 @@ from matplotlib.figure import Figure
 from phys2cvr.cli.run import _check_opt_conf, _get_parser
 from phys2cvr.gui.io import read_spatial_image
 from phys2cvr.gui.splash import CITATION
-from phys2cvr.gui.utils import clip_position, orthogonal_slices, slice_position
+from phys2cvr.gui.utils import (
+    bind_orthogonal_title,
+    clip_position,
+    orthogonal_slices,
+    slice_position,
+)
 from phys2cvr.io import EXT_ARRAY, load_array, load_physio
 from phys2cvr.utils import save_python_call
 
@@ -539,8 +544,11 @@ class WorkflowPreview:
                     if key == 'fname_co2'
                     else [fig.add_subplot(1, 3, i + 1) for i in range(3)]
                 )
+                if key != 'fname_co2':
+                    fig.suptitle(self._titles[key])
                 self.charts[key] = bs.Chart(figure=fig)
                 if key != 'fname_co2':
+                    bind_orthogonal_title(fig)
                     fig.canvas.mpl_connect(
                         'button_press_event',
                         lambda event, key=key: self._navigate(key, event),
@@ -678,10 +686,7 @@ class WorkflowPreview:
                     axis.imshow(image.T, origin='lower', cmap='gray', aspect=aspect)
                     axis.axvline(point[0], color='red', lw=0.7)
                     axis.axhline(point[1], color='red', lw=0.7)
-            for axis, orientation in zip(
-                axes, ('Sagittal', 'Coronal', 'Axial'), strict=True
-            ):
-                axis.set_title(f'{self._titles[key]}: {orientation}')
+            for axis in axes:
                 axis.set_xticks([])
                 axis.set_yticks([])
         error = self.errors.get(key) or (

@@ -290,6 +290,10 @@ def test_comparison_gui_interactions(tmp_path):
         assert np.isnan(viewer.data['cvr_comp'][0, 0, 0])
         viewer._move_to(0, 0, 0)
         assert np.ma.is_masked(viewer.imgs['cvr_comp_axi'].get_array()[0, 0])
+        assert (
+            viewer.charts['cvr_comp'].figure._suptitle.get_text()
+            == 'CVR (Comparison): Masked'
+        )
         assert not viewer.summary_charts['r2'].figure.axes[0].lines
 
         viewer.set_r2(
@@ -394,14 +398,23 @@ def test_comparison_gui_interactions(tmp_path):
         viewer._move_to(1, 1, 1)
         for kind in ('cvr', 'lag', 'r2'):
             name = f'{kind}_diff_axi'
+            figure = viewer.charts[f'{kind}_diff'].figure
+            assert all(
+                not viewer.axes[f'{kind}_diff_{orientation}'].get_title()
+                for orientation in ('sag', 'cor', 'axi')
+            )
+            assert figure._suptitle.get_color() == viewer.axes[name].title.get_color()
             x, y, z = viewer.curr
             expected = viewer.data[f'{kind}_diff'][:, :, z].T
             np.testing.assert_array_equal(viewer.imgs[name].get_array(), expected)
             viewer.diffswitch[f'{kind}_rel'].toggle()
+            assert 'Relative difference' in figure._suptitle.get_text()
+            assert '%' in figure._suptitle.get_text()
             np.testing.assert_allclose(
                 viewer.imgs[name].get_array(), viewer.data[f'{kind}_reld'][:, :, z].T
             )
             viewer.diffswitch[f'{kind}_abs'].toggle()
+            assert 'Absolute relative difference' in figure._suptitle.get_text()
             np.testing.assert_allclose(
                 viewer.imgs[name].get_array(),
                 np.abs(viewer.data[f'{kind}_reld'][:, :, z].T),

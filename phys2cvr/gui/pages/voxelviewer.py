@@ -14,10 +14,12 @@ from phys2cvr.gui.utils import (
     ARRAY_TYPES,
     NIFTI_TYPES,
     MapViewerControls,
+    bind_orthogonal_title,
     build_coordinate_fields,
     build_map_fields,
     clip_position,
     make_orthogonal_figure,
+    orthogonal_slices,
     slice_position,
     update_map_view,
 )
@@ -455,6 +457,8 @@ class VoxelViewer(MapViewerControls):
 
         for name, fig in figures.items():
             self.charts[name].figure = fig
+            if name in ('cvr', 'lag', 'mean'):
+                bind_orthogonal_title(fig)
             fig.canvas.mpl_connect('button_press_event', self.on_canvas_click)
 
     def update_all(self, x, y, z, shift_sec):
@@ -468,112 +472,41 @@ class VoxelViewer(MapViewerControls):
         self.curr_shift_sec = shift_sec
         ax = self.axes
 
-        views = {
-            'mean_cor': (
-                self.data['meanvol'][:, y, :]
-                if self.data['meanvol'] is not None
-                else np.zeros((self.nx, self.nz)),
-                x,
-                z,
-                'Coronal',
-            ),
-            'mean_axi': (
-                self.data['meanvol'][:, :, z]
-                if self.data['meanvol'] is not None
-                else np.zeros((self.nx, self.ny)),
-                x,
-                y,
-                'Axial',
-            ),
-            'mean_sag': (
-                self.data['meanvol'][x, :, :]
-                if self.data['meanvol'] is not None
-                else np.zeros((self.ny, self.nz)),
-                y,
-                z,
-                'Sagittal',
-            ),
-        }
-
-        if self.data['cvr'] is not None:
-            val_cvr = self.data['cvr'][x, y, z]
-            cvr_title = (
-                f'CVR: {val_cvr:.2f}' if not np.isnan(val_cvr) else 'CVR: Masked'
+        for kind, key, label, suffix in (
+            ('mean', 'meanvol', 'Mean functional volume', ''),
+            ('cvr', 'cvr', 'CVR', ''),
+            ('lag', 'lag', 'Lag', 's'),
+        ):
+            data = self.data[key]
+            if data is None:
+                data_for_slices = np.full(
+                    (self.nx, self.ny, self.nz),
+                    0.0 if kind == 'mean' else np.nan,
+                )
+            else:
+                data_for_slices = data
+            for orientation, slice_data, cx, cy in zip(
+                ('sag', 'cor', 'axi'),
+                orthogonal_slices(data_for_slices, (x, y, z)),
+                (y, x, x),
+                (z, z, y),
+                strict=True,
+            ):
+                update_map_view(
+                    self,
+                    f'{kind}_{orientation}',
+                    slice_data,
+                    cx,
+                    cy,
+                    self.map_settings[kind],
+                )
+            value = None if data is None else data[x, y, z]
+            display = (
+                'N/A'
+                if value is None
+                else (f'{value:.2f}{suffix}' if np.isfinite(value) else 'Masked')
             )
-            views.update(
-                {
-                    'cvr_sag': (self.data['cvr'][x, :, :], y, z, 'Sagittal'),
-                    'cvr_cor': (self.data['cvr'][:, y, :], x, z, 'Coronal'),
-                    'cvr_axi': (self.data['cvr'][:, :, z], x, y, cvr_title),
-                }
-            )
-        else:
-            views.update(
-                {
-                    'cvr_sag': (
-                        np.full((self.ny, self.nz), np.nan),
-                        y,
-                        z,
-                        'Sagittal',
-                    ),
-                    'cvr_cor': (
-                        np.full((self.nx, self.nz), np.nan),
-                        x,
-                        z,
-                        'Coronal',
-                    ),
-                    'cvr_axi': (
-                        np.full((self.nx, self.ny), np.nan),
-                        x,
-                        y,
-                        'Axial',
-                    ),
-                }
-            )
-
-        if self.data['lag'] is not None:
-            val_lag = self.data['lag'][x, y, z]
-            lag_title = (
-                f'Lag: {val_lag:.2f}s' if not np.isnan(val_lag) else 'Lag: Masked'
-            )
-            views.update(
-                {
-                    'lag_sag': (self.data['lag'][x, :, :], y, z, 'Sagittal'),
-                    'lag_cor': (self.data['lag'][:, y, :], x, z, 'Coronal'),
-                    'lag_axi': (self.data['lag'][:, :, z], x, y, lag_title),
-                }
-            )
-        else:
-            views.update(
-                {
-                    'lag_sag': (
-                        np.full((self.ny, self.nz), np.nan),
-                        y,
-                        z,
-                        'Sagittal',
-                    ),
-                    'lag_cor': (
-                        np.full((self.nx, self.nz), np.nan),
-                        x,
-                        z,
-                        'Coronal',
-                    ),
-                    'lag_axi': (
-                        np.full((self.nx, self.ny), np.nan),
-                        x,
-                        y,
-                        'Axial',
-                    ),
-                }
-            )
-
-        for name, (slice_data, cx, cy, title) in views.items():
-            if name not in self.imgs:
-                continue
-            kind = name.split('_', 1)[0]
-            update_map_view(
-                self, name, slice_data, cx, cy, title, self.map_settings[kind]
-            )
+            self.charts[kind].figure.suptitle(f'{label}: {display}')
 
         # --- Timecourse Comparison Plot ---
         ts_ax = ax['ts']

@@ -111,10 +111,25 @@ def make_orthogonal_figure(viewer, name, color, *, vertical=False, colorbar=True
         axes.append(axis)
     if colorbar:
         fig.colorbar(viewer.imgs[f'{name}_axi'], ax=axes, fraction=0.035, pad=0.02)
+    fig.suptitle('')
     return fig
 
 
-def update_map_view(viewer, name, data, x, y, title, settings):
+def bind_orthogonal_title(figure):
+    """Keep the figure title in sync with the chart's current theme."""
+
+    def sync_color(event):
+        title = figure._suptitle
+        color = figure.axes[0].title.get_color()
+        if title.get_color() != color:
+            title.set_color(color)
+            event.canvas.draw_idle()
+
+    figure._suptitle.set_color(figure.axes[0].title.get_color())
+    figure.canvas.mpl_connect('draw_event', sync_color)
+
+
+def update_map_view(viewer, name, data, x, y, settings):
     """Update an orthogonal image, its crosshairs, and its map settings."""
     image = viewer.imgs[name]
     image.set_data(data.T)
@@ -124,7 +139,6 @@ def update_map_view(viewer, name, data, x, y, title, settings):
         image.set_clim(*settings['limits'])
     viewer.cross[name][0].set_xdata([x, x])
     viewer.cross[name][1].set_ydata([y, y])
-    viewer.axes[name].set_title(title)
 
 
 class MapViewerControls:

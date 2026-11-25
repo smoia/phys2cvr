@@ -9,6 +9,7 @@ from phys2cvr.gui.io import read_spatial_image
 from phys2cvr.gui.utils import (
     NIFTI_TYPES,
     MapViewerControls,
+    bind_orthogonal_title,
     build_coordinate_fields,
     build_map_fields,
     clip_position,
@@ -379,6 +380,7 @@ class DiffViewer(MapViewerControls):
 
         for name, fig in figures.items():
             self.charts[name].figure = fig
+            bind_orthogonal_title(fig)
             fig.canvas.mpl_connect('button_press_event', self.on_canvas_click)
 
     def update_all(self, x, y, z):
@@ -388,9 +390,12 @@ class DiffViewer(MapViewerControls):
         self.curr = [x, y, z]
         for map_name in self.charts:
             kind, ver = map_name.split('_')
+            label = {'cvr': 'CVR', 'lag': 'Lag', 'r2': 'R²'}[kind]
+            version = {'base': 'Base', 'comp': 'Comparison', 'diff': 'Difference'}[ver]
             data_key = map_name
             if ver == 'diff' and self.diffswitch[f'{kind}_rel'].value:
                 data_key = f'{kind}_reld'
+                version = 'Relative difference'
             data = self.data[data_key]
             if (
                 data is not None
@@ -398,39 +403,36 @@ class DiffViewer(MapViewerControls):
                 and self.diffswitch[f'{kind}_abs'].value
             ):
                 data = np.abs(data)
+            if ver == 'diff' and self.diffswitch[f'{kind}_abs'].value:
+                version = f'Absolute {version.lower()}'
             if data is None:
                 slices = (
                     np.full((self.ny, self.nz), np.nan),
                     np.full((self.nx, self.nz), np.nan),
                     np.full((self.nx, self.ny), np.nan),
                 )
-                value_title = 'Axial'
+                value_title = 'N/A'
             else:
                 slices = orthogonal_slices(data, (x, y, z))
                 value = data[x, y, z]
-                label = {'cvr': 'CVR', 'lag': 'Lag', 'r2': 'R²'}[kind]
                 suffix = (
                     '%'
                     if data_key.endswith('_reld')
                     else ('s' if kind == 'lag' else '')
                 )
-                value_title = (
-                    f'{label}: {value:.2f}{suffix}'
-                    if np.isfinite(value)
-                    else f'{label}: Masked'
-                )
+                value_title = f'{value:.2f}{suffix}' if np.isfinite(value) else 'Masked'
 
+            self.charts[map_name].figure.suptitle(f'{label} ({version}): {value_title}')
             settings = self.map_settings[map_name]
-            for name, slice_data, cx, cy, title in zip(
+            for name, slice_data, cx, cy in zip(
                 ('sag', 'cor', 'axi'),
                 slices,
                 (y, x, x),
                 (z, z, y),
-                ('Sagittal', 'Coronal', value_title),
                 strict=True,
             ):
                 key = f'{map_name}_{name}'
-                update_map_view(self, key, slice_data, cx, cy, title, settings)
+                update_map_view(self, key, slice_data, cx, cy, settings)
 
         self._sync_coordinates((x, y, z))
         for chart in self.charts.values():
