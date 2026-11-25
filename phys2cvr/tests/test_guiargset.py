@@ -172,6 +172,34 @@ def test_input_previews_and_navigation(page, tmp_path):
     assert preview.errors['fname_roi']
 
 
+def test_peak_overlays(page, tmp_path):
+    import peakdet as pk
+
+    form, _ = page
+    preview = form.preview
+    trace = np.array([1.0, 3.0, 2.0, 5.0])
+    phys = tmp_path / 'signal.phys'
+    pk.save_physio(
+        str(phys),
+        pk.Physio(trace, fs=2, metadata={
+            'peaks': np.array([1, 3]), 'troughs': np.array([]), 'reject': np.array([])
+        }),
+    )
+    preview.load('fname_co2', str(phys))
+    preview.set_frequency(2)
+    line = preview.axes['fname_co2'][0].lines[1]
+    np.testing.assert_array_equal(line.get_xdata(), [0.5, 1.5])
+    np.testing.assert_array_equal(line.get_ydata(), [3, 5])
+    peaks = tmp_path / 'peaks.txt'
+    np.savetxt(peaks, [0, 2], fmt='%d')
+    preview.load_peaks(str(peaks))
+    np.testing.assert_array_equal(preview.axes['fname_co2'][0].lines[1].get_ydata(), [1, 2])
+    preview.load_peaks('')
+    np.testing.assert_array_equal(preview.axes['fname_co2'][0].lines[1].get_ydata(), [3, 5])
+    preview.load('fname_co2', '')
+    assert not preview.axes['fname_co2'][0].lines
+
+
 def test_all_argument_types_and_validation(page):
     form, _ = page
     form.fields['fname_func'].value = '/tmp/input file.nii.gz'

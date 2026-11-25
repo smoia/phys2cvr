@@ -84,6 +84,9 @@ class WorkflowSetter:
                     dest, self.fields[dest].text.strip()
                 )
             )
+        self.fields['fname_pidx'].on_change(
+            lambda event: self.preview.load_peaks(self.fields['fname_pidx'].text.strip())
+        )
         self.fields['freq'].on_change(
             lambda event: self.preview.set_frequency(self.fields['freq'].value)
         )
@@ -326,6 +329,9 @@ class WorkflowPreview:
         self.pixdims = {}
         self.frequency = None
         self.file_frequency = None
+        self.file_peaks = None
+        self.peak_path = ''
+        self.peaks = None
         self.charts = {}
         self.axes = {}
         self.errors = {}
@@ -362,11 +368,12 @@ class WorkflowPreview:
         self.errors.pop(key, None)
         if key == 'fname_co2':
             self.file_frequency = None
+            self.file_peaks = None
         if path:
             try:
                 if key == 'fname_co2':
                     if path.lower().endswith('.phys'):
-                        values, _, self.file_frequency = load_physio(path)
+                        values, self.file_peaks, self.file_frequency = load_physio(path)
                         if self.file_frequency is not None and (
                             not np.isfinite(self.file_frequency)
                             or self.file_frequency <= 0
@@ -408,7 +415,31 @@ class WorkflowPreview:
             ) as err:
                 LGR.warning('Could not preview %s: %s', path, err)
                 self.errors[key] = str(err)
-        self._draw(key)
+        if key == 'fname_co2':
+            self.load_peaks(self.peak_path)
+        else:
+            self._draw(key)
+
+    def load_peaks(self, path):
+        """Load explicit peak indices, overriding peaks stored in the phys file."""
+        self.peak_path = path
+        self.peaks = None
+        self.errors.pop('peaks', None)
+        try:
+            values = load_array(path) if path else self.file_peaks
+            if values is not None:
+                values = np.asarray(values).reshape(-1)
+                if not np.all(np.isfinite(values)) or not np.all(values == np.floor(values)):
+                    raise ValueError('Peak indices must be finite integers.')
+                peaks = values.astype(int)
+                trace = self.data['fname_co2']
+                if trace is not None and np.any((peaks < 0) | (peaks >= trace.size)):
+                    raise ValueError('Peak indices must lie within the regressor.')
+                self.peaks = peaks
+        except (OSError, ValueError, EOFError, ImportError, NotImplementedError) as err:
+            LGR.warning('Could not preview peaks %s: %s', path, err)
+            self.errors['peaks'] = str(err)
+        self._draw('fname_co2')
 
     def set_frequency(self, frequency):
         """Set the sampling frequency for the regressor time axis."""
@@ -433,6 +464,8 @@ class WorkflowPreview:
                 if frequency:
                     time = time / frequency
                 axis.plot(time, data)
+                if self.peaks is not None and self.peaks.size:
+                    axis.plot(time[self.peaks], data[self.peaks], 'o', label='Peaks')
                 axis.relim()
                 axis.autoscale_view()
             axis.set_xlabel('Time (s)' if frequency else 'Sample')
@@ -457,11 +490,12 @@ class WorkflowPreview:
                 axis.set_title(f'{self._titles[key]}: {orientation}')
                 axis.set_xticks([])
                 axis.set_yticks([])
-        if key in self.errors:
+        error = self.errors.get(key) or (self.errors.get('peaks') if key == 'fname_co2' else None)
+        if error:
             axes[0].text(
                 0.5,
                 0.5,
-                self.errors[key],
+                error,
                 transform=axes[0].transAxes,
                 ha='center',
                 va='center',
