@@ -11,6 +11,7 @@ LGR :
 import datetime
 import logging
 import os
+import shlex
 import sys
 from pathlib import Path
 
@@ -269,6 +270,58 @@ def load_and_stack_matrices(matrix_files, base_matrix=None, label=None):
     return np.hstack(loaded) if len(loaded) > 1 else loaded[0]
 
 
+def estimate_lag_range(lag, lag_map, lag_step=None, lag_max=None, lag_min=None):
+    """
+    Estimate lag range parameters from a lag map.
+
+    Parameters
+    ----------
+    lag : np.ndarray
+        Numpy array containing lag data
+    lag_map : str or path
+        Lag map file
+    lag_step : float or None
+        The desired lag step, None to estimate it (default), value to overwrite it.
+    lag_max : float or None
+        The desired max lag, None to estimate it (default), value to overwrite it.
+    lag_min : float or None
+        The desired min lag, None to estimate it (default), value to overwrite it.
+
+    Returns
+    -------
+    lag_step, lag_max, lag_min : float
+    """
+    lag_list = np.unique(lag)
+
+    if lag_step is None:
+        # np.unique sorts results already
+        lag_step = np.unique(np.round(lag_list[1:] - lag_list[:-1], 3))
+        if lag_step.size > 1:
+            # Check if extra steps found are multiple of the first within numerical tolerance
+            if not np.isclose(np.mod(lag_step, lag_step[0]), 0).all():
+                raise ValueError(
+                    f'phys2cvr found different delta lags in {lag_map}: {lag_step}'
+                )
+        lag_step = lag_step[0]
+
+        LGR.info(f'phys2cvr detected a delta lag of {lag_step} seconds')
+    else:
+        LGR.warning(f'Forcing delta lag to be {lag_step}')
+
+    if lag_max is None:
+        lag_max = lag_list.max()
+        LGR.info(f'phys2cvr detected a lag max of {lag_max}s')
+    else:
+        LGR.warning(f'Forcing lag range to be [{lag_min}, {lag_max}]')
+    if lag_min is None:
+        lag_min = lag_list.min()
+        LGR.info(f'phys2cvr detected a lag min of {lag_min}s')
+    else:
+        LGR.warning(f'Forcing lag range to be [{lag_min}, {lag_max}]')
+
+    return lag_step, lag_max, lag_min
+
+
 def save_bash_call(fname, outdir):
     """
     Save the bash call into file `p2c_call.sh`.
@@ -280,8 +333,7 @@ def save_bash_call(fname, outdir):
     outdir : str or path
         Output directory
     """
-    arg_str = ' '.join(sys.argv[1:])
-    call_str = f'phys2cvr {arg_str}'
+    call_str = shlex.join(['phys2cvr', *sys.argv[1:]])
 
     outdir = Path(outdir).resolve() if outdir else Path(fname).parent / 'phys2cvr'
 
@@ -293,8 +345,8 @@ def save_bash_call(fname, outdir):
 
     script_file = log_path / f'p2c_call_{fname}_{isotime}.sh'
 
-    with open(script_file, 'a', encoding='utf-8') as f:
-        f.write(f'#!bin/bash \n{call_str}')
+    with open(script_file, 'w', encoding='utf-8') as f:
+        f.write(f'#!/bin/bash\n{call_str}\n')
 
 
 def save_python_call(params, export_call=True):
@@ -313,13 +365,16 @@ def save_python_call(params, export_call=True):
     Returns
     -------
     call : str
-        If
+        Python call text when ``export_call`` is False.
     """
-    params = ', '.join(f'{k}={v!r}' for k, v in params.items())
+    arguments = ', '.join(
+        f'{k}={os.fspath(v) if isinstance(v, os.PathLike) else v!r}'
+        for k, v in params.items()
+    )
 
     pycall = (
-        '#!/usr/bin/env python3\n\nimport phys2cvr as p2c'
-        '\n\np2c.workflows.phy2cvr({params})'
+        '#!/usr/bin/env python3\n\nfrom phys2cvr.workflows import phys2cvr'
+        f'\n\nphys2cvr({arguments})\n'
     )
 
     if export_call:
@@ -336,7 +391,7 @@ def save_python_call(params, export_call=True):
 
         script_file = log_path / f'p2c_call_{fname}_{isotime}.py'
 
-        with open(script_file, 'a', encoding='utf-8') as f:
+        with open(script_file, 'w', encoding='utf-8') as f:
             f.write(pycall)
     else:
         return pycall

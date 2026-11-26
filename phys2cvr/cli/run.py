@@ -668,6 +668,14 @@ def _get_parser():
         default=False,
     )
     optional.add_argument(
+        '-voxelviewer',
+        '--open_voxelviewer',
+        dest='open_voxelviewer',
+        action='store_true',
+        help=("Open phys2cvr's GUI on the voxelviewer tab to visualise results."),
+        default=False,
+    )
+    optional.add_argument(
         '-j',
         '--n_jobs',
         dest='n_jobs',

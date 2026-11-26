@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Tests for utils."""
 
+import shlex
+import sys
 from unittest.mock import patch
 
 import numpy as np
@@ -9,6 +11,26 @@ import pytest
 from phys2cvr import utils
 
 # ## Unit tests
+
+
+def test_save_python_call(tmp_path):
+    params = {'fname_func': str(tmp_path / 'input.nii.gz'), 'outdir': str(tmp_path)}
+    call = utils.save_python_call(params, export_call=False)
+    with patch('phys2cvr.workflows.phys2cvr') as workflow:
+        exec(compile(call, '<call>', 'exec'), {})
+    workflow.assert_called_once_with(**params)
+    utils.save_python_call(params)
+    files = list((tmp_path / 'logs').glob('p2c_call_*.py'))
+    assert len(files) == 1
+    assert files[0].read_text(encoding='utf-8') == call
+
+
+def test_save_bash_call_preserves_argument_boundaries(tmp_path):
+    argv = ['phys2cvr', '--input-func', str(tmp_path / 'input file.nii.gz')]
+    with patch.object(sys, 'argv', argv):
+        utils.save_bash_call(argv[-1], tmp_path)
+    script = next((tmp_path / 'logs').glob('p2c_call_*.sh'))
+    assert shlex.split(script.read_text(encoding='utf-8').splitlines()[-1]) == argv
 
 
 @pytest.mark.parametrize(
