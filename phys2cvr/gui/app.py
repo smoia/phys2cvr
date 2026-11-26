@@ -4,17 +4,18 @@
 import argparse
 import logging
 import sys
+from pathlib import Path
 
 import bootstack as bs
 from bootstack.widgets.sidebar_toggle import SidebarToggle
 
 from phys2cvr import __version__
+from phys2cvr.gui.citation import CITATION
 from phys2cvr.gui.io import load_result_folder
 from phys2cvr.gui.pages.diffviewer import DiffViewer
 from phys2cvr.gui.pages.guiargset import build_workflow_setter
 from phys2cvr.gui.pages.logviewer import build_log_viewer
 from phys2cvr.gui.pages.voxelviewer import VoxelViewer
-from phys2cvr.gui.splash import SplashScreen
 from phys2cvr.gui.zoom import Zoom, ensure_fonts
 
 LGR = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ def _get_parser():
     return parser
 
 
-def build_app(voxelviewer, *, show_splash=False):
+def build_app(voxelviewer):
     """Build the application shell and its viewer page."""
     with bs.AppShell(
         title=f'fMRI Voxel & Regressor Viewer, phys2cvr v{__version__}',
@@ -81,7 +82,22 @@ def build_app(voxelviewer, *, show_splash=False):
         min_size=(1200, 850),
         sidebar_mode='compact',
     ) as shell:
-        shell.startup_splash = SplashScreen(shell._internal) if show_splash else None
+        # --- Splash
+        # progress = bs.Signal(0)
+        # status = bs.Signal('Starting…')
+
+        splash = bs.Splash(min_duration=1.0, surface='card')
+        with splash:
+            bs.Picture(
+                Path(__file__).parent / 'assets' / 'logo.png', width=140, height=140
+            )
+            bs.Label('Loading phys2cvr...', accent='muted')
+            # bs.ProgressBar(signal=progress)
+            # bs.Label(textsignal=status)
+
+            cite = bs.TextArea(height=6, label=None, read_only=True, wrap=False)
+            cite.value = CITATION
+
         # --- Status bar -----------------------------------------------------
         ssb = shell.statusbar
         SidebarToggle(
@@ -102,8 +118,7 @@ def build_app(voxelviewer, *, show_splash=False):
             'A+', parent=ssb, on_click=lambda: shell.zoom.change(1)
         )
         bs.ThemeToggle(parent=ssb)
-        if shell.startup_splash:
-            shell.startup_splash.update_progress(1, 'Building status bar')
+        # progress, status = (1 / 6 * 100), 'Building status bar'
 
         # --- Pages ----------------------------------------------------------
         with shell.page_nav() as nav:
@@ -111,25 +126,21 @@ def build_app(voxelviewer, *, show_splash=False):
                 'voxelviewer', text='Voxel viewer', icon='clipboard2-pulse'
             ):
                 voxelviewer.build()
-            if shell.startup_splash:
-                shell.startup_splash.update_progress(2, 'Building voxel viewer')
+            # progress, status = (2 / 6 * 100), 'Building voxel viewer'
             with nav.add_page(
                 'workflowsetter', text='Run phys2cvr', icon='terminal-fill'
             ):
                 workflowsetter = build_workflow_setter()
-            if shell.startup_splash:
-                shell.startup_splash.update_progress(3, 'Building workflow page')
+            # progress, status = (3 / 6 * 100), 'Building workflow page'
             with nav.add_page('diffviewer', text='Comparison', icon='subtract'):
                 diffviewer = DiffViewer()
                 diffviewer.build()
-            if shell.startup_splash:
-                shell.startup_splash.update_progress(4, 'Building comparison viewer')
+            # progress, status = (4 / 6 * 100), 'Building comparison viewer'
             with nav.add_page(
                 'logviewer', text='Log viewer', icon='file-earmark-richtext-fill'
             ):
                 logviewer = build_log_viewer()
-            if shell.startup_splash:
-                shell.startup_splash.update_progress(5, 'Building log viewer')
+            # progress, status = (5 / 6 * 100), 'Building log viewer'
         voxelviewer.linked_diffviewer = diffviewer
         voxelviewer.linked_logviewer = logviewer
         diffviewer.linked_logviewer = logviewer
@@ -154,8 +165,9 @@ def build_app(voxelviewer, *, show_splash=False):
         workflowsetter.on_complete = show_workflow_results
         shell.workflowsetter = workflowsetter
         shell.navigate('voxelviewer')
-        if shell.startup_splash:
-            shell.startup_splash.update_progress(6, 'Application ready')
+        # progress, status = (6 / 6 * 100), 'Application ready'
+        # splash.dismiss()
+
     return shell
 
 
@@ -173,7 +185,7 @@ def _main(argv=None):
     shell = None
     try:
         voxelviewer = VoxelViewer(fs=args.fs, lag_range=args.lag_range)
-        shell = build_app(voxelviewer, show_splash=True)
+        shell = build_app(voxelviewer)
         if args.result_folder:
             load_result_folder(
                 args.result_folder,
@@ -197,9 +209,6 @@ def _main(argv=None):
     except Exception as err:  # noqa: BLE001
         LGR.error('Could not load input: %s', err)
         sys.exit(1)
-    finally:
-        if shell is not None and shell.startup_splash is not None:
-            shell.startup_splash.close()
 
     shell.run()
 

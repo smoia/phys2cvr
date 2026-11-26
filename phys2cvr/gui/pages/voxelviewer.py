@@ -473,7 +473,7 @@ class VoxelViewer(MapViewerControls):
         ax = self.axes
 
         for kind, key, label, suffix in (
-            ('mean', 'meanvol', 'Mean functional volume', ''),
+            ('mean', 'meanvol', 'Mean timeseries', ''),
             ('cvr', 'cvr', 'CVR', ''),
             ('lag', 'lag', 'Lag', 's'),
         ):
@@ -506,7 +506,8 @@ class VoxelViewer(MapViewerControls):
                 if value is None
                 else (f'{value:.2f}{suffix}' if np.isfinite(value) else 'Masked')
             )
-            self.charts[kind].figure.suptitle(f'{label}: {display}')
+            if kind != 'mean':
+                self.charts[kind].figure.suptitle(f'{label}: {display}')
 
         # --- Timecourse Comparison Plot ---
         ts_ax = ax['ts']

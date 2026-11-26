@@ -16,8 +16,8 @@ import numpy as np
 from matplotlib.figure import Figure
 
 from phys2cvr.cli.run import _check_opt_conf, _get_parser
+from phys2cvr.gui.citation import CITATION
 from phys2cvr.gui.io import read_spatial_image
-from phys2cvr.gui.splash import CITATION
 from phys2cvr.gui.utils import (
     bind_orthogonal_title,
     clip_position,
